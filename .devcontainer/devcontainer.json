@@ -22,6 +22,7 @@
     "Rscript /startup_scripts/check_test_dependencies.R"
   ],
   "mounts": [
-    "source=devcontainer-renv-cache,target=/renv/cache,type=volume"
+    "source=devcontainer-renv-cache,target=/renv/cache,type=volume",
+    "source=/home/linus/Dropbox/thesis/data,target=/workspaces/data,type=bind"
   ]
 }
