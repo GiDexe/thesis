@@ -55,6 +55,7 @@ Dockerfile.base
 
 # ==== Supplemental folder (ignored entirely) ====
 suppl/
+data/
 
 # ==== Other ====
 *.sqlite

@@ -17,12 +17,10 @@
       }
     }
   },
-  "postStartCommand": [
-    "Rscript /startup_scripts/check_dev_dependencies.R",
-    "Rscript /startup_scripts/check_test_dependencies.R"
-  ],
+  "postStartCommand": "Rscript /startup_scripts/check_dev_dependencies.R",
   "mounts": [
     "source=devcontainer-renv-cache,target=/renv/cache,type=volume",
-    "source=/home/linus/Dropbox/thesis/data,target=/workspaces/data,type=bind"
+    "source=/home/linus/Dropbox/thesis/data/data_raw,target=/workspaces/thesis/data,type=bind",
+    "source=/home/linus/Code/thesis/startup_scripts,target=/startup_scripts,type=bind"
   ]
 }
