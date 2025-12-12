@@ -1,6 +1,10 @@
 # Load required libraries
 library(readxl)
 library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(janitor)
+library(purrr)
 
 # Set your data directory
 data_dir <- "/workspaces/thesis/data"
@@ -17,8 +21,6 @@ excel_files <- all_excel_files[grepl(
   "ISO Survey 20",
   basename(all_excel_files)
 )]
-## ------
-
 
 # Function to extract all sheets except the first from one file
 extract_sheets <- function(file_path) {
@@ -39,5 +41,10 @@ extract_sheets <- function(file_path) {
   return(data_list)
 }
 
+
 # Extract sheets from all files
 all_data <- map(excel_files, extract_sheets)
+
+
+g <- all_data[[1]]
+g[1]
