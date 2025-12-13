@@ -51,4 +51,13 @@ all_data <- map(excel_files, extract_sheets)
 
 
 g <- all_data[[1]]
+
+
 g[1]
+
+
+corrupt <- map(all_data, ~ keep(.x, ~ any(grepl("37001", colnames(.)))))
+
+colnames(corrupt[[3]][[1]])
+
+corrupt[[3]][[1]]$Year
