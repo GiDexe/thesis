@@ -49,7 +49,7 @@ extract_sheets <- function(file_path) {
 # Extract sheets from all files
 all_data <- map(excel_files, extract_sheets)
 
-
+# Nested structure 
 g <- all_data[[1]]
 
 
@@ -58,6 +58,28 @@ g[1]
 
 corrupt <- map(all_data, ~ keep(.x, ~ any(grepl("37001", colnames(.)))))
 
-colnames(corrupt[[3]][[1]])
+#countries <- c("Italy", "Brazil", "South Korea", "Egypt", "Kenya", 
+# "Norway", "Thailand", "Argentina", "Morocco", "New Zealand")
+corrupt <- map(all_data, ~ keep(.x, ~ any(grepl("37001", colnames(.)))))
 
-corrupt[[3]][[1]]$Year
+
+
+# Adjusting tibble structure for all tibbles
+adjusted_data <- map(corrupt, ~ map(.x, ~ {
+  .x %>%
+    setNames(ifelse(names(.) == "Year", "Year", as.character(slice(., 2)))) %>%
+    slice(-2) %>%
+    mutate(across(-1, ~ replace_na(as.numeric(.), 0))) %>%
+    mutate(Tot = rowSums(select(., where(is.numeric) & !last_col()), na.rm = TRUE), .before = Year)
+}))
+
+my_panel <- adjusted_data %>%
+  imap_dfr(~ bind_rows(.x, .id = "sheet") %>% 
+             mutate(country = .y, .before = 1))
+
+my_panel <- my_panel %>%
+  select(country, `Land/Sector`, Tot, Year) %>%
+  filter(`Land/Sector` != "sector number") %>%
+  clean_names() %>%
+  rename(code = country) %>%
+  rename(country = land_sector)
