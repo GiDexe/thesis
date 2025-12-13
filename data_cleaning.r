@@ -24,15 +24,19 @@ excel_files <- all_excel_files[grepl(
 
 # Function to extract all sheets except the first from one file
 extract_sheets <- function(file_path) {
+  # Extract the year from the file path (4-digit number between 2018 and 2024)
+  year <- str_extract(basename(file_path), "20(1[8-9]|2[0-4])")
+  
   # Get all sheet names
   sheet_names <- excel_sheets(file_path)
 
   # Skip the first sheet
   sheets_to_read <- sheet_names[-1]
 
-  # Read each sheet into a list
+  # Read each sheet into a list and add the year column
   data_list <- map(sheets_to_read, ~ {
-    read_excel(file_path, sheet = .x)
+    read_excel(file_path, sheet = .x) %>%
+      mutate(Year = year)
   })
 
   # Name the list elements
