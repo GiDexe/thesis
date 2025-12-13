@@ -36,12 +36,10 @@ _cache/
 *.bbl
 *.blg
 
+# Update the VS Code / Devcontainer section to look like this:
 # ==== VS Code / Devcontainer ====
-devcontainer.json
 .vscode/
-.devcontainer/*
-!.devcontainer/*.txt
-*.code-workspace
+.devcontainer/
 
 # ==== Docker ====
 *.dockerignore
