@@ -1,0 +1,26 @@
+{
+  "name": "Academic Research",
+  "image": "ghcr.io/rferrali/academic-docker:latest",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "REditorSupport.r",
+        "quarto.quarto",
+        "James-Yu.latex-workshop",
+        "kylebarron.stata-enhanced"
+      ],
+      "settings": {
+        "r.bracketedPaste": true,
+        "r.rterm.linux": "/home/vscode/.local/bin/radian",
+        "r.plot.useHttpgd": true,
+        "latex-workshop.formatting.latex": "latexindent"
+      }
+    }
+  },
+  "postStartCommand": "Rscript /startup_scripts/check_dev_dependencies.R",
+  "mounts": [
+    "source=devcontainer-renv-cache,target=/renv/cache,type=volume",
+    "source= INSERT PATH TO DROPBOX FOLDER HERE,target=/workspaces/thesis/data,type=bind",
+    "source= INSERT PATH TO /startup_scripts,target=/startup_scripts,type=bind"
+  ]
+}

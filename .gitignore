@@ -38,8 +38,8 @@ _cache/
 
 # ==== VS Code / Devcontainer ====
 .vscode/
-.devcontainer/devcontainer.json
-.devcontainer/docker-compose.yml
+.devcontainer/*
+!.devcontainer/*.txt
 *.code-workspace
 
 # ==== Docker ====
