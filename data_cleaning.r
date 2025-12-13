@@ -5,6 +5,7 @@ library(dplyr)
 library(tidyr)
 library(janitor)
 library(purrr)
+library(WDI)
 
 # Set your data directory
 data_dir <- "/workspaces/thesis/data"
@@ -80,6 +81,33 @@ my_panel <- adjusted_data %>%
 my_panel <- my_panel %>%
   select(country, `Land/Sector`, Tot, Year) %>%
   filter(`Land/Sector` != "sector number") %>%
+  filter(`Land/Sector` != "Sector number") %>%
   clean_names() %>%
   rename(code = country) %>%
   rename(country = land_sector)
+
+my_panel <- my_panel %>%
+  group_by(country) %>%
+  arrange(year) %>%  # ascending
+  mutate(delta = tot - lag(tot, default = 0))
+
+covariates <- WDI(
+  country = "all",
+  indicator = c(
+    "NY.GDP.PCAP.PP.KD",      # GDP per capita (constant PPP)
+    "CC.EST",                 # Control of Corruption
+    "RQ.EST",                 # Regulatory Quality
+    "SL.UEM.TOTL.ZS"          # Unemployment rate
+  ),
+  start = 2018,
+  end = 2024,
+  extra = TRUE
+) %>%
+  select(country, year, NY.GDP.PCAP.PP.KD, CC.EST, RQ.EST, SL.UEM.TOTL.ZS) %>%
+  rename(
+    gdp_pc = NY.GDP.PCAP.PP.KD,
+    corruption_control = CC.EST,
+    regulatory_quality = RQ.EST,
+    unemployment = SL.UEM.TOTL.ZS
+  ) %>%
+  filter(!is.na(gdp_pc))
