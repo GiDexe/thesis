@@ -37,6 +37,7 @@ _cache/
 *.blg
 
 # ==== VS Code / Devcontainer ====
+devcontainer.json
 .vscode/
 .devcontainer/*
 !.devcontainer/*.txt
