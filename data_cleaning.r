@@ -1,4 +1,4 @@
-# Load required libraries
+# libraries
 library(readxl)
 library(tidyverse)
 library(janitor)
@@ -13,11 +13,13 @@ library(CVXR)
 library(MASS)
 library(optimx)
 library(fixest)
-
+library(countrycode)
+# depaula's functions
 source("/workspaces/thesis/functions.r")
 
-# Set your data directory
 data_dir <- "/workspaces/thesis/data"
+
+#-----------------------------------------------------------------------
 
 # Get all Excel files
 all_excel_files <- list.files(data_dir,
@@ -44,9 +46,9 @@ extract_sheets <- function(file_path) {
   sheets_to_read <- sheet_names[-1]
 
   # Read each sheet into a list and add the year column
-  data_list <- map(sheets_to_read, ~ {
+  data_list <- purrr::map(sheets_to_read, ~ {
     read_excel(file_path, sheet = .x) %>%
-      mutate(Year = year)
+      dplyr::mutate(Year = year)
   })
 
   # Name the list elements
@@ -57,7 +59,7 @@ extract_sheets <- function(file_path) {
 
 
 # Extract sheets from all files
-all_data <- map(excel_files, extract_sheets)
+all_data <- purrr::map(excel_files, extract_sheets)
 
 # Nested structure
 g <- all_data[[1]]
@@ -66,33 +68,26 @@ g <- all_data[[1]]
 g[1]
 
 
-corrupt <- map(all_data, ~ keep(.x, ~ any(grepl("37001", colnames(.)))))
-
-# Manually Solving my conflicts
-select <- dplyr::select
-filter <- dplyr::filter
-map <- purrr::map
-summarize <- dplyr::summarize
-mutate <- dplyr::mutate
+corrupt <- purrr::map(all_data, ~ keep(.x, ~ any(grepl("37001", colnames(.)))))
 
 
 # Adjusting tibble structure
-adjusted_data <- map(corrupt, ~ map(.x, ~ {
+adjusted_data <- purrr::map(corrupt, ~ purrr::map(.x, ~ {
   .x %>%
     setNames(ifelse(names(.) == "Year", "Year", as.character(slice(., 2)))) %>%
     slice(-2) %>%
-    mutate(across(-1, ~ replace_na(as.numeric(.), 0))) %>%
-    mutate(Tot = rowSums(select(., where(is.numeric) & !last_col()), na.rm = TRUE), .before = Year)
+    dplyr::mutate(across(-1, ~ replace_na(as.numeric(.), 0))) %>%
+    dplyr::mutate(Tot = rowSums(dplyr::select(., where(is.numeric) & !last_col()), na.rm = TRUE), .before = Year)
 }))
 
 my_panel <- adjusted_data %>%
   imap_dfr(~ bind_rows(.x, .id = "sheet") %>%
-    mutate(country = .y, .before = 1))
+    dplyr::mutate(country = .y, .before = 1))
 
 my_panel <- my_panel %>%
-  select(country, `Land/Sector`, Tot, Year) %>%
-  filter(`Land/Sector` != "sector number") %>%
-  filter(`Land/Sector` != "Sector number") %>%
+  dplyr::select(country, `Land/Sector`, Tot, Year) %>%
+  dplyr::filter(`Land/Sector` != "sector number") %>%
+  dplyr::filter(`Land/Sector` != "Sector number") %>%
   clean_names() %>%
   rename(code = country) %>%
   rename(country = land_sector)
@@ -100,7 +95,7 @@ my_panel <- my_panel %>%
 my_panel <- my_panel %>%
   group_by(country) %>%
   arrange(year) %>% # ascending
-  mutate(delta = tot - lag(tot, default = 0))
+  dplyr::mutate(delta = tot - lag(tot, default = 0))
 
 
 # controls, old bit
@@ -116,14 +111,14 @@ covariates <- WDI(
   end = 2024,
   extra = F
 ) %>%
-  select(country, year, NY.GDP.PCAP.PP.KD, CC.EST, RQ.EST, SL.UEM.TOTL.ZS) %>%
+  dplyr::select(country, year, NY.GDP.PCAP.PP.KD, CC.EST, RQ.EST, SL.UEM.TOTL.ZS) %>%
   rename(
     gdp_pc = NY.GDP.PCAP.PP.KD,
     corruption_control = CC.EST,
     regulatory_quality = RQ.EST,
     unemployment = SL.UEM.TOTL.ZS
   ) %>%
-  filter(!is.na(gdp_pc))
+  dplyr::filter(!is.na(gdp_pc))
 
 saveRDS(covariates, file = "covariates.rds")
 
@@ -132,13 +127,13 @@ saveRDS(covariates, file = "covariates.rds")
 # FROM HERE CHECK NAMES AGAIN
 # Take only countries appearing in 2020 for lighter computation
 countries_2020 <- my_panel %>%
-  filter(year == 2020) %>%
+  dplyr::filter(year == 2020) %>%
   pull(country) %>%
   unique()
 
 
 my_panel <- my_panel %>%
-  filter(country %in% countries_2020) %>%
+  dplyr::filter(country %in% countries_2020) %>%
   ungroup() %>%
   complete(
     country,
@@ -150,15 +145,15 @@ my_panel <- my_panel %>%
   # Last Observation Carried Forward):
   # Ensuring tot_{t-1} - tot_{t-1} = 0.
   fill(tot, .direction = "down") %>%
-  mutate(tot = replace_na(tot, 0)) %>%
-  mutate(delta = tot - lag(tot, default = 0)) %>%
+  dplyr::mutate(tot = replace_na(tot, 0)) %>%
+  dplyr::mutate(delta = tot - lag(tot, default = 0)) %>%
   ungroup()
 
 
 # this is something i just changed
 panel_data <- my_panel %>%
   left_join(covariates, by = c("country", "year")) %>%
-  filter(!is.na(gdp_pc)) %>%
+  dplyr::filter(!is.na(gdp_pc)) %>%
   rename(
     time = year,
     y = tot,
@@ -171,17 +166,17 @@ panel_data <- my_panel %>%
 # id
 panel_data <- panel_data %>%
   ungroup() %>%
-  mutate(id = group_indices(., country))
+  dplyr::mutate(id = group_indices(., country))
 panel_balance <- panel_data %>%
   group_by(id) %>%
-  summarize(country = first(country), n_obs = n(), .groups = "drop")
+  dplyr::summarize(country = first(country), n_obs = n(), .groups = "drop")
 
 complete_ids <- panel_balance %>%
-  filter(n_obs == max(n_obs)) %>%
+  dplyr::filter(n_obs == max(n_obs)) %>%
   pull(id)
 
 panel_data <- panel_data %>%
-  filter(id %in% complete_ids) %>%
+  dplyr::filter(id %in% complete_ids) %>%
   dplyr::select(-code)
 
 panel_data_clean <- panel_data %>%
@@ -217,14 +212,14 @@ count_obs <- data_user %>%
 
 # 2. Identifichiamo gli ID che non hanno T=6 osservazioni
 id_to_remove <- count_obs %>%
-  filter(n_obs != 6) %>%
+  dplyr::filter(n_obs != 6) %>%
   pull(id)
 
 cat("\nIndividui da rimuovere (hanno meno di 6 osservazioni):", id_to_remove, "\n")
 
 # 3. Rimuoviamo questi ID dal dataset
 data_balanced <- data_user %>%
-  filter(!(id %in% id_to_remove))
+  dplyr::filter(!(id %in% id_to_remove))
 
 cat("Righe nel dataset bilanciato:", nrow(data_balanced), "\n")
 cat("Individui nel dataset bilanciato (N):", length(unique(data_balanced$id)), "\n")
