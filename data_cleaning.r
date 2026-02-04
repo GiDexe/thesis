@@ -1,24 +1,11 @@
 # Load required libraries
 library(readxl)
 library(tidyverse)
-library(dplyr)
-library(tidyr)
 library(janitor)
 library(purrr)
 library(WDI)
-library(dplyr)
-library(tidyr)
-# Install packages if not already installed
-packages <- c("devtools", "cvxr", "kableExtra", "dplyr", "magrittr", "Matrix", "glmnet", "CVXR", "MASS", "optimx", "fixest")
-new_packages <- packages[!(packages %in% installed.packages()[, "Package"])]
-if (length(new_packages)) {
-  install.packages(new_packages)
-}
-
-# Load libraries
 library(devtools)
 library(kableExtra)
-library(dplyr)
 library(magrittr)
 library(Matrix)
 library(glmnet)
@@ -196,15 +183,6 @@ complete_ids <- panel_balance %>%
 panel_data <- panel_data %>%
   filter(id %in% complete_ids) %>%
   dplyr::select(-code)
-
-required_packages <- c("Matrix", "glmnet", "CVXR", "MASS", "optimx", "fixest")
-
-# Check and install missing packages? Attention, conflixts are present. Need for a better structure.
-new_packages <- required_packages[!(required_packages %in% installed.packages()[, "Package"])]
-if (length(new_packages)) {
-  install.packages(new_packages)
-}
-
 
 panel_data_clean <- panel_data %>%
   dplyr::select(-country, -delta)
