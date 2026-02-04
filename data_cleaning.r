@@ -8,17 +8,24 @@ library(purrr)
 library(WDI)
 library(dplyr)
 library(tidyr)
+# Install packages if not already installed
+packages <- c("devtools", "cvxr", "kableExtra", "dplyr", "magrittr", "Matrix", "glmnet", "CVXR", "MASS", "optimx", "fixest")
+new_packages <- packages[!(packages %in% installed.packages()[, "Package"])]
+if (length(new_packages)) {
+  install.packages(new_packages)
+}
+
+# Load libraries
 library(devtools)
-library(cvxr)
 library(kableExtra)
 library(dplyr)
 library(magrittr)
-library(Matrix)       
-library(glmnet)       
-library(CVXR)         
-library(MASS)        
-library(optimx)      
-library(fixest)      
+library(Matrix)
+library(glmnet)
+library(CVXR)
+library(MASS)
+library(optimx)
+library(fixest)
 
 source("/workspaces/thesis/functions.r")
 
@@ -42,7 +49,7 @@ excel_files <- all_excel_files[grepl(
 extract_sheets <- function(file_path) {
   # Extract the year from the file path (4-digit number between 2018 and 2024)
   year <- str_extract(basename(file_path), "20(1[8-9]|2[0-4])")
-  
+
   # Get all sheet names
   sheet_names <- excel_sheets(file_path)
 
@@ -65,7 +72,7 @@ extract_sheets <- function(file_path) {
 # Extract sheets from all files
 all_data <- map(excel_files, extract_sheets)
 
-# Nested structure 
+# Nested structure
 g <- all_data[[1]]
 
 
@@ -74,13 +81,15 @@ g[1]
 
 corrupt <- map(all_data, ~ keep(.x, ~ any(grepl("37001", colnames(.)))))
 
-#countries <- c("Italy", "Brazil", "South Korea", "Egypt", "Kenya", 
-# "Norway", "Thailand", "Argentina", "Morocco", "New Zealand")
-corrupt <- map(all_data, ~ keep(.x, ~ any(grepl("37001", colnames(.)))))
+# Manually Solving my conflicts
+select <- dplyr::select
+filter <- dplyr::filter
+map <- purrr::map
+summarize <- dplyr::summarize
+mutate <- dplyr::mutate
 
 
-
-# Adjusting tibble structure for all tibbles
+# Adjusting tibble structure
 adjusted_data <- map(corrupt, ~ map(.x, ~ {
   .x %>%
     setNames(ifelse(names(.) == "Year", "Year", as.character(slice(., 2)))) %>%
@@ -90,8 +99,8 @@ adjusted_data <- map(corrupt, ~ map(.x, ~ {
 }))
 
 my_panel <- adjusted_data %>%
-  imap_dfr(~ bind_rows(.x, .id = "sheet") %>% 
-             mutate(country = .y, .before = 1))
+  imap_dfr(~ bind_rows(.x, .id = "sheet") %>%
+    mutate(country = .y, .before = 1))
 
 my_panel <- my_panel %>%
   select(country, `Land/Sector`, Tot, Year) %>%
@@ -103,20 +112,22 @@ my_panel <- my_panel %>%
 
 my_panel <- my_panel %>%
   group_by(country) %>%
-  arrange(year) %>%  # ascending
+  arrange(year) %>% # ascending
   mutate(delta = tot - lag(tot, default = 0))
 
+
+# controls, old bit
 covariates <- WDI(
   country = "all",
   indicator = c(
-    "NY.GDP.PCAP.PP.KD",      # GDP per capita (constant PPP)
-    "CC.EST",                 # Control of Corruption
-    "RQ.EST",                 # Regulatory Quality
-    "SL.UEM.TOTL.ZS"          # Unemployment rate
+    "NY.GDP.PCAP.PP.KD", # GDP per capita (constant PPP)
+    "CC.EST", # Control of Corruption
+    "RQ.EST", # Regulatory Quality
+    "SL.UEM.TOTL.ZS" # Unemployment rate
   ),
   start = 2018,
   end = 2024,
-  extra = TRUE
+  extra = F
 ) %>%
   select(country, year, NY.GDP.PCAP.PP.KD, CC.EST, RQ.EST, SL.UEM.TOTL.ZS) %>%
   rename(
@@ -127,14 +138,12 @@ covariates <- WDI(
   ) %>%
   filter(!is.na(gdp_pc))
 
-
-####
-
+saveRDS(covariates, file = "covariates.rds")
 
 #---
 
-
-# Identifica l'insieme di paesi presenti nell'anno di riferimento (2020)
+# FROM HERE CHECK NAMES AGAIN
+# Take only countries appearing in 2020 for lighter computation
 countries_2020 <- my_panel %>%
   filter(year == 2020) %>%
   pull(country) %>%
@@ -142,42 +151,39 @@ countries_2020 <- my_panel %>%
 
 
 my_panel <- my_panel %>%
-    filter(country %in% countries_2020) %>%
-  
+  filter(country %in% countries_2020) %>%
   ungroup() %>%
-  
   complete(
-    country, 
+    country,
     year,
     fill = list(tot = NA)
-   ) %>%
+  ) %>%
   group_by(country) %>%
   arrange(year) %>%
-  #Last Observation Carried Forward):
-  # Se tot_t è NA, viene riempito con tot_{t-1}.
-  # Questo assicura che il calcolo del delta sia: tot_{t-1} - tot_{t-1} = 0.
+  # Last Observation Carried Forward):
+  # Ensuring tot_{t-1} - tot_{t-1} = 0.
   fill(tot, .direction = "down") %>%
   mutate(tot = replace_na(tot, 0)) %>%
   mutate(delta = tot - lag(tot, default = 0)) %>%
-  
   ungroup()
 
 
+# this is something i just changed
 panel_data <- my_panel %>%
   left_join(covariates, by = c("country", "year")) %>%
   filter(!is.na(gdp_pc)) %>%
   rename(
     time = year,
-    y = delta,
+    y = tot,
     x1 = gdp_pc,
     x2 = corruption_control,
     x3 = regulatory_quality,
     x4 = unemployment
   )
 
-#id
+# id
 panel_data <- panel_data %>%
-  ungroup() %>%  
+  ungroup() %>%
   mutate(id = group_indices(., country))
 panel_balance <- panel_data %>%
   group_by(id) %>%
@@ -189,11 +195,11 @@ complete_ids <- panel_balance %>%
 
 panel_data <- panel_data %>%
   filter(id %in% complete_ids) %>%
-dplyr::select(-code)
+  dplyr::select(-code)
 
 required_packages <- c("Matrix", "glmnet", "CVXR", "MASS", "optimx", "fixest")
 
-# Check and install missing packages
+# Check and install missing packages? Attention, conflixts are present. Need for a better structure.
 new_packages <- required_packages[!(required_packages %in% installed.packages()[, "Package"])]
 if (length(new_packages)) {
   install.packages(new_packages)
@@ -201,29 +207,30 @@ if (length(new_packages)) {
 
 
 panel_data_clean <- panel_data %>%
-    dplyr::select(-country, -tot)
+  dplyr::select(-country, -delta)
 MODEL_COLS <- c("y", "x1", "x2", "x3", "x4", "id", "time")
 
 panel_data_final <- panel_data_clean %>%
-  drop_na(all_of(MODEL_COLS)) 
+  drop_na(all_of(MODEL_COLS))
 
 MODEL_COLS <- c("y", "x1", "x2", "x3", "x4", "id", "time")
 
 data_user <- read.csv("data/panel_data_final.csv")
 data_user <- panel_data_clean
-# Verifica dimensioni: N=27, T=6
+# DImension Check
 cat("Dimensioni dataset:", nrow(data_user), "righe.\n")
 cat("Individui unici:", length(unique(data_user$id)), "\n")
 cat("Periodi temporali:", length(unique(data_user$time)), "\n")
 
-# Ordiniamo per Tempo e poi ID (Best practice per dati panel)
-data_user <- data_user[order(data_user$time, data_user$id),]
+data_user <- data_user[order(data_user$time, data_user$id), ]
 
-# Verifica struttura: y, x1, x2, x3, x4, id, time
+#  y, x1, x2, x3, x4, id, time
 head(data_user)
 
 data_user <- na.omit(data_user)
 
+
+# Tricky: I clearly had some issues with merging some steps ago - Ideally I will remove this further section
 
 # 1. Contiamo quante osservazioni ha ogni ID
 count_obs <- data_user %>%
@@ -259,3 +266,5 @@ cat("\nMatrice W (Primi 5 nodi) -> Dovrebbe essere la tua soluzione!\n")
 print(W_est[1:5, 1:5])
 
 saveRDS(W_est, file = "matrice_W_stima.rds")
+
+readRDS("matrice_W_stima.rds")
