@@ -191,9 +191,9 @@ MODEL_COLS <- c("y", "x1", "x2", "x3", "x4", "id", "time")
 data_user <- read.csv("data/panel_data_final.csv")
 data_user <- panel_data_clean
 # DImension Check
-cat("Dimensioni dataset:", nrow(data_user), "righe.\n")
-cat("Individui unici:", length(unique(data_user$id)), "\n")
-cat("Periodi temporali:", length(unique(data_user$time)), "\n")
+cat("Dimensions of the dataset:", nrow(data_user), "righe.\n")
+cat("Unique countries:", length(unique(data_user$id)), "\n")
+cat("Periods:", length(unique(data_user$time)), "\n")
 
 data_user <- data_user[order(data_user$time, data_user$id), ]
 
@@ -203,41 +203,41 @@ head(data_user)
 data_user <- na.omit(data_user)
 
 
-# Tricky: I clearly had some issues with merging some steps ago - Ideally I will remove this further section
+#  to be reviewed???
 
-# 1. Contiamo quante osservazioni ha ogni ID
+# 1. counting obs
 count_obs <- data_user %>%
   group_by(id) %>%
   summarise(n_obs = n())
 
-# 2. Identifichiamo gli ID che non hanno T=6 osservazioni
+# 2. spotting ids not having at least 6 observations
 id_to_remove <- count_obs %>%
   dplyr::filter(n_obs != 6) %>%
   pull(id)
 
-cat("\nIndividui da rimuovere (hanno meno di 6 osservazioni):", id_to_remove, "\n")
+cat("\nCountries to be removed - Less than 6 obs:", id_to_remove, "\n")
 
-# 3. Rimuoviamo questi ID dal dataset
+# 3. Removing those ids from the dataset
 data_balanced <- data_user %>%
   dplyr::filter(!(id %in% id_to_remove))
 
-cat("Righe nel dataset bilanciato:", nrow(data_balanced), "\n")
-cat("Individui nel dataset bilanciato (N):", length(unique(data_balanced$id)), "\n")
+cat("Nrows (balanced):", nrow(data_balanced), "\n")
+cat("Countries in balanced dataset (N):", length(unique(data_balanced$id)), "\n")
 
-# 4. Eseguiamo la stima con il dataset bilanciato
+# 4. Balanced estimate
 lambda_vec <- c(0.05, 0.02, 0.10)
-cat("\nAvvio stima recoverNetwork sul dataset bilanciato...\n")
+cat("\nEstimating recoverNetwork on balanced dataset...\n")
 
-# Usa 'data_balanced' invece di 'data_user'
+# Use 'data_balanced' 
 rn <- recoverNetwork(data = data_balanced, lambda = lambda_vec, exoeffects = 1)
 
-# Estrazione Risultati (come prima)
+# Results
 W_est <- rn$unpenalisedgmm$W
-cat("\n--- Risultati Stima ---\n")
+cat("\n--- Results ---\n")
 cat("Rho (Endogenous Effect):", rn$unpenalisedgmm$rho, "\n")
-cat("\nMatrice W (Primi 5 nodi) -> Dovrebbe essere la tua soluzione!\n")
+cat("\nMatrix W (First 5 nodes)\n")
 print(W_est[1:5, 1:5])
 
-saveRDS(W_est, file = "matrice_W_stima.rds")
+saveRDS(W_est, file = "matrice_W_stima_2.rds")
 
-readRDS("matrice_W_stima.rds")
+readRDS("matrice_W_stima_2.rds")
