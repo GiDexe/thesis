@@ -26,7 +26,6 @@ all_excel_files <- list.files(data_dir,
   pattern = "\\.xlsx$|\\.xls$|\\.xlsm$",
   full.names = TRUE
 )
-# Restricting to ISO 37001 (computational constraints)
 
 # Get all Excel files about ISO 37001
 excel_files <- all_excel_files[grepl(
@@ -99,29 +98,29 @@ my_panel <- my_panel %>%
 
 
 # controls, old bit
-covariates <- WDI(
-  country = "all",
-  indicator = c(
-    "NY.GDP.PCAP.PP.KD", # GDP per capita (constant PPP)
-    "CC.EST", # Control of Corruption
-    "RQ.EST", # Regulatory Quality
-    "SL.UEM.TOTL.ZS" # Unemployment rate
-  ),
-  start = 2018,
-  end = 2024,
-  extra = F
-) %>%
-  dplyr::select(country, year, NY.GDP.PCAP.PP.KD, CC.EST, RQ.EST, SL.UEM.TOTL.ZS) %>%
-  rename(
-    gdp_pc = NY.GDP.PCAP.PP.KD,
-    corruption_control = CC.EST,
-    regulatory_quality = RQ.EST,
-    unemployment = SL.UEM.TOTL.ZS
-  ) %>%
-  dplyr::filter(!is.na(gdp_pc))
-
-saveRDS(covariates, file = "covariates.rds")
-
+#covariates <- WDI(
+#  country = "all",
+#  indicator = c(
+#    "NY.GDP.PCAP.PP.KD", # GDP per capita (constant PPP)
+#    "CC.EST", # Control of Corruption
+#    "RQ.EST", # Regulatory Quality
+#    "SL.UEM.TOTL.ZS" # Unemployment rate
+#  ),
+#  start = 2018,
+#  end = 2024,
+#  extra = F
+#) %>%
+#  dplyr::select(country, year, NY.GDP.PCAP.PP.KD, CC.EST, RQ.EST, SL.UEM.TOTL.ZS) %>%
+#  rename(
+#    gdp_pc = NY.GDP.PCAP.PP.KD,
+#    corruption_control = CC.EST,
+#    regulatory_quality = RQ.EST,
+#    unemployment = SL.UEM.TOTL.ZS
+#  ) %>%
+#  dplyr::filter(!is.na(gdp_pc))
+#
+#saveRDS(covariates, file = "covariates.rds")
+covariates <- readRDS("covariates.rds")
 #---
 
 # FROM HERE CHECK NAMES AGAIN
