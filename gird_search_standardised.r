@@ -1,10 +1,6 @@
 # =============================================================================
 # 02_grid_search_standardised.R
-# 
-# PART 1: Grid search con standardizzazione, N=37, entrambe le ISO
-# PART 2: Grid search senza standardizzazione, N=32, solo ISO 45001
-#
-# Tempo stimato: ~8-10 ore totali
+
 # =============================================================================
 
 library(dplyr)
@@ -19,6 +15,7 @@ source("/workspaces/thesis/functions.r")
 
 # === LOAD DATA ===============================================================
 
+# Skipped: the script is supposed to be run after grid_search_32.r
 
 # === LAMBDA GRID =============================================================
 
@@ -68,7 +65,7 @@ run_grid_search <- function(data, iso_label, grid) {
   bic_vec <- rep(NA, n_grid)
   timings <- rep(NA, n_grid)
   
-  # --- Prima run per calcolare Wder ---
+  # ---  Wder ---
   cat("\n", iso_label, "- Calcolo Wder (run iniziale)...\n")
   t0 <- Sys.time()
   
@@ -91,11 +88,11 @@ run_grid_search <- function(data, iso_label, grid) {
     
   }, error = function(e) {
     timings[1] <<- as.numeric(difftime(Sys.time(), t0, units = "mins"))
-    cat(" ERRORE nella run iniziale:", e$message, "\n")
-    cat(" Impossibile continuare senza Wder. Aborting ", iso_label, "\n")
+    cat(" ERRORE in the first run:", e$message, "\n")
+    cat(" Missing Wder. Aborting ", iso_label, "\n")
     
     save(results, bic_vec, timings, grid,
-         file = paste0("grid_search_", iso_label, "_FAILED.RData"))
+         file = paste0("data/output_data/grid_search_", iso_label, "_FAILED.RData"))
     return(list(results = results, bic_vec = bic_vec, timings = timings, Wder = NULL))
   })
   
@@ -104,7 +101,7 @@ run_grid_search <- function(data, iso_label, grid) {
     return(list(results = results, bic_vec = bic_vec, timings = timings, Wder = NULL))
   }
   
-  # --- Rimanenti run con Wder riusato ---
+  # --- Already having Wder ---
   for (g in 2:n_grid) {
     cat(iso_label, "- Run", g, "/", n_grid, 
         " lambda=", as.numeric(grid[g,]))
@@ -122,21 +119,21 @@ run_grid_search <- function(data, iso_label, grid) {
       timings[g] <- as.numeric(difftime(Sys.time(), t0, units = "mins"))
       
       cat(" BIC=", round(bic_vec[g], 4),
-          " tempo=", round(timings[g], 1), "min\n")
+          " time=", round(timings[g], 1), "min\n")
       
     }, error = function(e) {
       timings[g] <<- as.numeric(difftime(Sys.time(), t0, units = "mins"))
-      cat(" ERRORE:", e$message, "\n")
+      cat(" ERROR:", e$message, "\n")
     })
     
-    # Salva risultati intermedi dopo ogni run (safety)
+    # Save (safety)
     save(results, bic_vec, timings, grid, Wder,
-         file = paste0("grid_search_", iso_label, "_PARTIAL.RData"))
+         file = paste0("data/output_data/grid_search_", iso_label, "_PARTIAL.RData"))
   }
   
-  # Salva risultati finali
+  # final save
   save(results, bic_vec, timings, grid, Wder,
-       file = paste0("grid_search_", iso_label, ".RData"))
+       file = paste0("data/output_data/grid_search_", iso_label, ".RData"))
   
   return(list(results = results, bic_vec = bic_vec, timings = timings, Wder = Wder))
 }
@@ -146,16 +143,16 @@ run_grid_search <- function(data, iso_label, grid) {
 print_summary <- function(gs, iso_label, grid) {
   valid <- which(!is.na(gs$bic_vec))
   if (length(valid) == 0) {
-    cat("\n=== ", iso_label, " === TUTTE LE RUN FALLITE\n")
+    cat("\n=== ", iso_label, " === All the runs failed\n")
     return(invisible(NULL))
   }
   best <- valid[which.min(gs$bic_vec[valid])]
   cat("\n===", iso_label, "===\n")
-  cat("  Miglior lambda:", as.numeric(grid[best,]), "\n")
+  cat("  Best lambda:", as.numeric(grid[best,]), "\n")
   cat("  BIC:", gs$bic_vec[best], "\n")
   cat("  rho:", gs$results[[best]]$unpenalisedgmm$rho, "\n")
   cat("  N edges:", sum(abs(gs$results[[best]]$adaen$W) > 1e-5), "\n")
-  cat("  Run riuscite:", length(valid), "/", nrow(grid), "\n")
+  cat("  Successful Runs :", length(valid), "/", nrow(grid), "\n")
 }
 
 # =============================================================================
@@ -165,19 +162,19 @@ print_summary <- function(gs, iso_label, grid) {
 cat("\n########################################\n")
 cat("PART 1: STANDARDISED, N=37\n")
 cat("########################################\n")
-cat("Ora:", format(Sys.time(), "%H:%M"), "\n")
+cat("Hour:", format(Sys.time(), "%H:%M"), "\n")
 
 # --- ISO 45001 standardised ---
 cat("\n>>> ISO 45001 STANDARDISED <<<\n")
 t_start <- Sys.time()
 gs_45001_std <- run_grid_search(data_45001_std, "ISO45001_standardised", grid)
-cat("\nISO 45001 std completato in", 
+cat("\nISO 45001 std completed in", 
     round(as.numeric(difftime(Sys.time(), t_start, units = "hours")), 1), "ore\n")
 # --- ISO 37001 standardised ---
 cat("\n>>> ISO 37001 STANDARDISED <<<\n")
 t_start <- Sys.time()
 gs_37001_std <- run_grid_search(data_37001_std, "ISO37001_standardised", grid)
-cat("\nISO 37001 std completato in", 
+cat("\nISO 37001 std completed in", 
     round(as.numeric(difftime(Sys.time(), t_start, units = "hours")), 1), "ore\n")
 
 
@@ -204,11 +201,11 @@ for (label in c("ISO37001_standardised", "ISO45001_standardised")) {
 # =============================================================================
 
 cat("\n########################################\n")
-cat("TUTTO COMPLETATO\n")
-cat("Ora:", format(Sys.time(), "%H:%M"), "\n")
+cat("Status: Completed\n")
+cat("Hour:", format(Sys.time(), "%H:%M"), "\n")
 cat("########################################\n")
 
-cat("\nFile salvati:\n")
+cat("\nFiles saved in:\n")
 cat("  grid_search_ISO37001_standardised.RData\n")
 cat("  grid_search_ISO45001_standardised.RData\n")
 

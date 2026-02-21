@@ -1,10 +1,12 @@
+#to be added to container
+install.packages(c("igraph"))
 library(igraph)
 
 # === LOAD ALL RESULTS ===
-e_37 <- new.env(); load("grid_search_ISO37001.RData", envir = e_37)
-e_45 <- new.env(); load("grid_search_ISO45001.RData", envir = e_45)
-e_37s <- new.env(); load("grid_search_ISO37001_standardised.RData", envir = e_37s)
-e_45s <- new.env(); load("grid_search_ISO45001_standardised.RData", envir = e_45s)
+e_37 <- new.env(); load("data/output_data/grid_search_ISO37001.RData", envir = e_37)
+e_45 <- new.env(); load("data/output_data/grid_search_ISO45001.RData", envir = e_45)
+e_37s <- new.env(); load("data/output_data/grid_search_ISO37001_standardised.RData", envir = e_37s)
+e_45s <- new.env(); load("data/output_data/grid_search_ISO45001_standardised.RData", envir = e_45s)
 
 r37  <- e_37$results[[which.min(e_37$bic_vec)]]
 r45  <- e_45$results[[which.min(e_45$bic_vec)]]
@@ -12,10 +14,10 @@ r37s <- e_37s$results[[which.min(e_37s$bic_vec)]]
 r45s <- e_45s$results[[which.min(e_45s$bic_vec)]]
 
 # === SAVE RDS ===
-saveRDS(r37,  "results_37001_N32.rds")
-saveRDS(r45,  "results_45001_N32.rds")
-saveRDS(r37s, "results_37001_N37_std.rds")
-saveRDS(r45s, "results_45001_N37_std.rds")
+saveRDS(r37,  "data/output_data/results_37001_N32.rds")
+saveRDS(r45,  "data/output_data/results_45001_N32.rds")
+saveRDS(r37s, "data/output_data/results_37001_N37_std.rds")
+saveRDS(r45s, "data/output_data/results_45001_N37_std.rds")
 
 # === HELPER: format number ===
 fmt <- function(x, digits = 3) formatC(x, format = "f", digits = digits)

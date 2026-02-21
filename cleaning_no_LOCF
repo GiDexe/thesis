@@ -17,6 +17,7 @@ library(janitor)
 # === SETTINGS ================================================================
 
 data_dir <- "/workspaces/thesis/data"
+out_data_dir <- "data/output_data"
 
 oecd <- c("Australia", "Austria", "Belgium", "Canada", "Chile", "Colombia", 
   "Costa Rica", "Czech Republic", "Denmark", "Estonia", "Finland", 
@@ -26,10 +27,11 @@ oecd <- c("Australia", "Austria", "Belgium", "Canada", "Chile", "Colombia",
   "Poland", "Portugal", "Slovak Republic", "Slovenia", "Spain", 
   "Sweden", "Switzerland", "Turkey", "United Kingdom", "United States")
 
-# === LOAD COVARIATES =========================================================
+# === LOAD COVARIATES ========================================================= (to be inserted manually)
 
 covariates <- read_rds("covariates.rds")
 
+head(covariates)
 # Harmonize WB country names to OECD standard
 covariates <- covariates %>%
   dplyr::mutate(country = case_match(country,
