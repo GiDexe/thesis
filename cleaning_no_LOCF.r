@@ -200,3 +200,5 @@ cat("  data_balanced_37001.rds\n")
 cat("  data_balanced_45001.rds\n")
 cat("  country_map_37001.rds\n")
 cat("  country_map_45001.rds\n")
+
+max(panel_37001$data$id)

@@ -4,8 +4,10 @@ author: "Gianluigi De Rubertis"
 date: "`r Sys.Date()`"
 format:
   pdf:
-    output-file: "preliminary_results.pdf"
+    output-file: "preliminary_results.pdf" 
 ---
+
+
 ```{r}
 #| label: setup
 #| include: false

@@ -1,41 +1,60 @@
-.PHONY: all std no_std clean
+.PHONY: all clean
 
-# Default: All
+# =============================================================================
+# ALL
+# =============================================================================
+
 all: output/preliminary_results.pdf
 
-# --- NO_STD (N=32) ---
-no_std: data/output_data/grid_search_ISO37001.RData \
-        data/output_data/grid_search_ISO45001.RData
+# =============================================================================
+# CLEANING
+# =============================================================================
 
 data/output_data/data_balanced_37001.rds \
 data/output_data/data_balanced_45001.rds: cleaning_no_LOCF.r
 	Rscript cleaning_no_LOCF.r
 
+data/output_data/data_balanced_37001_lf.rds \
+data/output_data/data_balanced_45001_lf.rds: cleaning_standardisation.r \
+    data/output_data/data_balanced_37001.rds \
+    data/output_data/data_balanced_45001.rds
+	Rscript cleaning_standardisation.r
+
+# =============================================================================
+# GRID SEARCH
+# =============================================================================
+
 data/output_data/grid_search_ISO37001.RData \
 data/output_data/grid_search_ISO45001.RData: grid_search_32.r \
-	data/output_data/data_balanced_37001.rds \
-	data/output_data/data_balanced_45001.rds
+    data/output_data/data_balanced_37001.rds \
+    data/output_data/data_balanced_45001.rds
 	Rscript grid_search_32.r
-
-# --- STD (N=37) ---
-std: data/output_data/grid_search_ISO37001_standardised.RData \
-     data/output_data/grid_search_ISO45001_standardised.RData
 
 data/output_data/grid_search_ISO37001_standardised.RData \
 data/output_data/grid_search_ISO45001_standardised.RData: gird_search_standardised.r \
-	data/output_data/data_balanced_37001.rds \
-	data/output_data/data_balanced_45001.rds
+    data/output_data/data_balanced_37001_lf.rds \
+    data/output_data/data_balanced_45001_lf.rds
 	Rscript gird_search_standardised.r
 
-# --- PRELIMINARY OUTPUT ---
+# =============================================================================
+# TABS + OUTPUT
+# =============================================================================
+
+output/tabs/: preliminary_results_tabs.r \
+    data/output_data/grid_search_ISO37001.RData \
+    data/output_data/grid_search_ISO45001.RData \
+    data/output_data/grid_search_ISO37001_standardised.RData \
+    data/output_data/grid_search_ISO45001_standardised.RData
+	Rscript preliminary_results_tabs.r
+
 output/preliminary_results.pdf: preliminary_results.qmd \
-	data/output_data/grid_search_ISO37001.RData \
-	data/output_data/grid_search_ISO45001.RData \
-	data/output_data/grid_search_ISO37001_standardised.RData \
-	data/output_data/grid_search_ISO45001_standardised.RData
+    output/tabs/
 	quarto render preliminary_results.qmd --output-dir output
 
-# --- CLEAN ---
+# =============================================================================
+# CLEAN
+# =============================================================================
+
 clean:
 	rm -f output/tabs/*.tex output/tabs/*.pdf output/preliminary_results.pdf
 	rm -f data/output_data/grid_search_*.RData
