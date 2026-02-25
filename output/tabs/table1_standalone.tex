@@ -1,3 +1,10 @@
+\documentclass{article}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{geometry}
+\geometry{margin=2cm}
+\begin{document}
+\pagestyle{empty}
 \begin{table}[htbp]
 \centering
 \caption{Estimation results}
@@ -8,18 +15,18 @@
 \cmidrule(lr){2-3} \cmidrule(lr){4-5}
  & ISO~37001 & ISO~45001 & ISO~37001 & ISO~45001 \\
 \hline
-$\hat{\rho}$ & 0.950 & 0.118 & 0.925 & 0.118 \\
-$\hat{\beta}_{\text{GDP per capita}}$ & 0.002 & -0.046 & -0.742 & -0.605 \\
-$\hat{\beta}_{\text{Rule of Law}}$ & 49.195 & -1187.510 & -0.536 & -0.437 \\
-$\hat{\beta}_{\text{Trade openness}}$ & 0.536 & -12.930 & -0.593 & -0.484 \\
-$\hat{\beta}_{\text{Unemployment}}$ & 3.515 & -84.839 & -0.184 & -0.150 \\
-$\hat{\gamma}_{\text{GDP per capita}}$ & 0.002 & 0.031 & 0.222 & 0.408 \\
-$\hat{\gamma}_{\text{Rule of Law}}$ & 52.403 & 801.923 & 0.160 & 0.295 \\
-$\hat{\gamma}_{\text{Trade openness}}$ & 0.571 & 8.732 & 0.177 & 0.326 \\
-$\hat{\gamma}_{\text{Unemployment}}$ & 3.744 & 57.292 & 0.055 & 0.101 \\
+$\hat{\rho}$ & 0.950 & 0.118 & 0.950 & 0.118 \\
+$\hat{\beta}_{\text{GDP per capita}}$ & 0.002 & -0.046 & 0.417 & -0.605 \\
+$\hat{\beta}_{\text{Rule of Law}}$ & 46.746 & -1186.785 & 0.301 & -0.436 \\
+$\hat{\beta}_{\text{Trade openness}}$ & 0.509 & -12.922 & 0.333 & -0.483 \\
+$\hat{\beta}_{\text{Unemployment}}$ & 3.340 & -84.787 & 0.104 & -0.150 \\
+$\hat{\gamma}_{\text{GDP per capita}}$ & 0.002 & 0.031 & 0.441 & 0.409 \\
+$\hat{\gamma}_{\text{Rule of Law}}$ & 50.520 & 802.930 & 0.318 & 0.295 \\
+$\hat{\gamma}_{\text{Trade openness}}$ & 0.550 & 8.742 & 0.352 & 0.326 \\
+$\hat{\gamma}_{\text{Unemployment}}$ & 3.609 & 57.364 & 0.109 & 0.101 \\
 \hline
-BIC & 21.32 & 18.17 & 21.15 & 18.17 \\
-Edges in $\hat{W}$ & 42 & 29 & 41 & 29 \\
+BIC & 21.60 & 18.17 & 21.32 & 18.17 \\
+Edges in $\hat{W}$ & 43 & 29 & 42 & 29 \\
 $N$ & 32 & 32 & 37 & 37 \\
 $T$ & 6 & 6 & 6 & 6 \\
 Standardised & No & No & Yes & Yes \\
@@ -30,3 +37,4 @@ Standardised & No & No & Yes & Yes \\
 \footnotesize \textit{Notes:} Estimates from the three-step adaptive elastic net GMM procedure of De~Paula et al.\ (2024). $\hat{\rho}$ is the endogenous peer effect. $\hat{\beta}$ and $\hat{\gamma}$ are the own and contextual effects of covariates. Columns~1--2 use non-standardised data on the 32 original OECD members. Columns~3--4 standardise all variables to zero mean and unit variance and include all 37 OECD members. Penalisation parameters selected by BIC over a grid search.
 \end{minipage}
 \end{table}
+\end{document}

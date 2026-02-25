@@ -1,3 +1,10 @@
+\documentclass{article}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{geometry}
+\geometry{margin=2cm}
+\begin{document}
+\pagestyle{empty}
 \begin{table}[htbp]
 \centering
 \caption{ISO~37001 versus ISO~45001 networks (standardised, $N=37$)}
@@ -6,15 +13,15 @@
 \hline\hline
  & ISO~37001 & ISO~45001 \\
 \hline
-Number of edges & 41 & 29 \\
+Number of edges & 42 & 29 \\
 Edges in both networks & 17 & 17 \\
-Edges in ISO~37001 only & 24 & \\
+Edges in ISO~37001 only & 25 & \\
 Edges in ISO~45001 only & & 12 \\
-Clustering & 0.062 & 0.000 \\
-Reciprocated edges & 19.5\% & 6.9\% \\
+Clustering & 0.058 & 0.000 \\
+Reciprocated edges & 19.0\% & 6.9\% \\
 Degree distribution & & \\
-\quad Out-degree & 1.281 (0.888) & 0.906 (0.296) \\
-\quad In-degree & 1.281 (3.912) & 0.906 (3.364) \\
+\quad Out-degree & 1.312 (0.998) & 0.906 (0.296) \\
+\quad In-degree & 1.312 (3.914) & 0.906 (3.364) \\
 \hline\hline
 \end{tabular}
 \begin{minipage}{0.85\textwidth}
@@ -22,3 +29,4 @@ Degree distribution & & \\
 \footnotesize \textit{Notes:} Network statistics for the BIC-optimal estimated networks. $N=37$, $T=6$. All variables standardised to zero mean and unit variance. The clustering coefficient is the frequency of fully connected triplets over total triplets. Reciprocated edges is the share of directed edges whose reverse also exists. Degree distribution reports mean (standard deviation).
 \end{minipage}
 \end{table}
+\end{document}

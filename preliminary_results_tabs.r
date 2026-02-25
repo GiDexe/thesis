@@ -1,21 +1,26 @@
-#to be added to container
-install.packages(c("igraph"))
+# to be added to container
 library(igraph)
+setwd("/workspaces/thesis")
+dir.create("output/tabs", recursive = TRUE, showWarnings = FALSE)
 
 # === LOAD ALL RESULTS ===
-e_37 <- new.env(); load("data/output_data/grid_search_ISO37001.RData", envir = e_37)
-e_45 <- new.env(); load("data/output_data/grid_search_ISO45001.RData", envir = e_45)
-e_37s <- new.env(); load("data/output_data/grid_search_ISO37001_standardised.RData", envir = e_37s)
-e_45s <- new.env(); load("data/output_data/grid_search_ISO45001_standardised.RData", envir = e_45s)
+e_37 <- new.env()
+load("data/output_data/grid_search_ISO37001.RData", envir = e_37)
+e_45 <- new.env()
+load("data/output_data/grid_search_ISO45001.RData", envir = e_45)
+e_37s <- new.env()
+load("data/output_data/grid_search_ISO37001_standardised.RData", envir = e_37s)
+e_45s <- new.env()
+load("data/output_data/grid_search_ISO45001_standardised.RData", envir = e_45s)
 
-r37  <- e_37$results[[which.min(e_37$bic_vec)]]
-r45  <- e_45$results[[which.min(e_45$bic_vec)]]
+r37 <- e_37$results[[which.min(e_37$bic_vec)]]
+r45 <- e_45$results[[which.min(e_45$bic_vec)]]
 r37s <- e_37s$results[[which.min(e_37s$bic_vec)]]
 r45s <- e_45s$results[[which.min(e_45s$bic_vec)]]
 
 # === SAVE RDS ===
-saveRDS(r37,  "data/output_data/results_37001_N32.rds")
-saveRDS(r45,  "data/output_data/results_45001_N32.rds")
+saveRDS(r37, "data/output_data/results_37001_N32.rds")
+saveRDS(r45, "data/output_data/results_45001_N32.rds")
 saveRDS(r37s, "data/output_data/results_37001_N37_std.rds")
 saveRDS(r45s, "data/output_data/results_45001_N37_std.rds")
 
@@ -26,7 +31,7 @@ fmt <- function(x, digits = 3) formatC(x, format = "f", digits = digits)
 # TABLE 1 (tex)
 # =============================================================================
 
-t1 <- file("table1.tex", "w")
+t1 <- file("output/tabs/table1.tex", "w")
 
 writeLines(c(
   "\\begin{table}[htbp]",
@@ -42,40 +47,49 @@ writeLines(c(
 ), t1)
 
 # rho
-writeLines(sprintf("$\\hat{\\rho}$ & %s & %s & %s & %s \\\\",
+writeLines(sprintf(
+  "$\\hat{\\rho}$ & %s & %s & %s & %s \\\\",
   fmt(r37$unpenalisedgmm$rho), fmt(r45$unpenalisedgmm$rho),
-  fmt(r37s$unpenalisedgmm$rho), fmt(r45s$unpenalisedgmm$rho)), t1)
+  fmt(r37s$unpenalisedgmm$rho), fmt(r45s$unpenalisedgmm$rho)
+), t1)
 
 # beta
 covnames <- c("GDP per capita", "Rule of Law", "Trade openness", "Unemployment")
 for (i in 1:4) {
-  writeLines(sprintf("$\\hat{\\beta}_{\\text{%s}}$ & %s & %s & %s & %s \\\\",
+  writeLines(sprintf(
+    "$\\hat{\\beta}_{\\text{%s}}$ & %s & %s & %s & %s \\\\",
     covnames[i],
     fmt(r37$unpenalisedgmm$beta[i]), fmt(r45$unpenalisedgmm$beta[i]),
-    fmt(r37s$unpenalisedgmm$beta[i]), fmt(r45s$unpenalisedgmm$beta[i])), t1)
+    fmt(r37s$unpenalisedgmm$beta[i]), fmt(r45s$unpenalisedgmm$beta[i])
+  ), t1)
 }
 
 # gamma
 for (i in 1:4) {
-  writeLines(sprintf("$\\hat{\\gamma}_{\\text{%s}}$ & %s & %s & %s & %s \\\\",
+  writeLines(sprintf(
+    "$\\hat{\\gamma}_{\\text{%s}}$ & %s & %s & %s & %s \\\\",
     covnames[i],
     fmt(r37$unpenalisedgmm$gamma[i]), fmt(r45$unpenalisedgmm$gamma[i]),
-    fmt(r37s$unpenalisedgmm$gamma[i]), fmt(r45s$unpenalisedgmm$gamma[i])), t1)
+    fmt(r37s$unpenalisedgmm$gamma[i]), fmt(r45s$unpenalisedgmm$gamma[i])
+  ), t1)
 }
 
 writeLines("\\hline", t1)
 
 # BIC
-writeLines(sprintf("BIC & %s & %s & %s & %s \\\\",
+writeLines(sprintf(
+  "BIC & %s & %s & %s & %s \\\\",
   fmt(r37$BIC, 2), fmt(r45$BIC, 2),
-  fmt(r37s$BIC, 2), fmt(r45s$BIC, 2)), t1)
+  fmt(r37s$BIC, 2), fmt(r45s$BIC, 2)
+), t1)
 
 # Edges
-writeLines(sprintf("Edges in $\\hat{W}$ & %d & %d & %d & %d \\\\",
+writeLines(sprintf(
+  "Edges in $\\hat{W}$ & %d & %d & %d & %d \\\\",
   sum(abs(r37$adaen$W) > 1e-5), sum(abs(r45$adaen$W) > 1e-5),
-  sum(abs(r37s$adaen$W) > 1e-5), sum(abs(r45s$adaen$W) > 1e-5)), t1)
+  sum(abs(r37s$adaen$W) > 1e-5), sum(abs(r45s$adaen$W) > 1e-5)
+), t1)
 
-# N, T
 writeLines("$N$ & 32 & 32 & 37 & 37 \\\\", t1)
 writeLines("$T$ & 6 & 6 & 6 & 6 \\\\", t1)
 writeLines("Standardised & No & No & Yes & Yes \\\\", t1)
@@ -91,30 +105,31 @@ writeLines(c(
 ), t1)
 
 close(t1)
-cat("Saved table1.tex\n")
+cat("Saved output/tabs/table1.tex\n")
 
 # =============================================================================
 # TABLE 3 (tex) — one for each specification
 # =============================================================================
 
 write_table3 <- function(r1, r2, N, std_label, filename, caption_extra) {
-  
   W1 <- unname(as.matrix(r1$unpenalisedgmm$W))
   W2 <- unname(as.matrix(r2$unpenalisedgmm$W))
   W1b <- (abs(W1) > 1e-5) + 0
   W2b <- (abs(W2) > 1e-5) + 0
-  
+
   g1 <- graph_from_adjacency_matrix(W1b, mode = "directed")
   g2 <- graph_from_adjacency_matrix(W2b, mode = "directed")
-  
-  e1 <- sum(W1b); e2 <- sum(W2b)
+
+  e1 <- sum(W1b)
+  e2 <- sum(W2b)
   common <- sum(W1b * W2b)
-  clust1 <- transitivity(g1, "global"); clust2 <- transitivity(g2, "global")
+  clust1 <- transitivity(g1, "global")
+  clust2 <- transitivity(g2, "global")
   recip1 <- sum(W1b * t(W1b)) / max(e1, 1)
   recip2 <- sum(W2b * t(W2b)) / max(e2, 1)
-  
+
   f <- file(filename, "w")
-  
+
   writeLines(c(
     "\\begin{table}[htbp]",
     "\\centering",
@@ -129,28 +144,66 @@ write_table3 <- function(r1, r2, N, std_label, filename, caption_extra) {
     sprintf("Edges in ISO~37001 only & %d & \\\\", e1 - common),
     sprintf("Edges in ISO~45001 only & & %d \\\\", e2 - common),
     sprintf("Clustering & %s & %s \\\\", fmt(clust1), fmt(clust2)),
-    sprintf("Reciprocated edges & %s\\%% & %s\\%% \\\\", fmt(100*recip1, 1), fmt(100*recip2, 1)),
+    sprintf("Reciprocated edges & %s\\%% & %s\\%% \\\\", fmt(100 * recip1, 1), fmt(100 * recip2, 1)),
     "Degree distribution & & \\\\",
-    sprintf("\\quad Out-degree & %s (%s) & %s (%s) \\\\",
-      fmt(mean(degree(g1, mode="out"))), fmt(sd(degree(g1, mode="out"))),
-      fmt(mean(degree(g2, mode="out"))), fmt(sd(degree(g2, mode="out")))),
-    sprintf("\\quad In-degree & %s (%s) & %s (%s) \\\\",
-      fmt(mean(degree(g1, mode="in"))), fmt(sd(degree(g1, mode="in"))),
-      fmt(mean(degree(g2, mode="in"))), fmt(sd(degree(g2, mode="in")))),
+    sprintf(
+      "\\quad Out-degree & %s (%s) & %s (%s) \\\\",
+      fmt(mean(degree(g1, mode = "out"))), fmt(sd(degree(g1, mode = "out"))),
+      fmt(mean(degree(g2, mode = "out"))), fmt(sd(degree(g2, mode = "out")))
+    ),
+    sprintf(
+      "\\quad In-degree & %s (%s) & %s (%s) \\\\",
+      fmt(mean(degree(g1, mode = "in"))), fmt(sd(degree(g1, mode = "in"))),
+      fmt(mean(degree(g2, mode = "in"))), fmt(sd(degree(g2, mode = "in")))
+    ),
     "\\hline\\hline",
     "\\end{tabular}",
     "\\begin{minipage}{0.85\\textwidth}",
     "\\vspace{4pt}",
-    sprintf("\\footnotesize \\textit{Notes:} Network statistics for the BIC-optimal estimated networks. $N=%d$, $T=6$. %s The clustering coefficient is the frequency of fully connected triplets over total triplets. Reciprocated edges is the share of directed edges whose reverse also exists. Degree distribution reports mean (standard deviation).", N, ifelse(std_label=="std", "All variables standardised to zero mean and unit variance.", "Non-standardised data.")),
+    sprintf("\\footnotesize \\textit{Notes:} Network statistics for the BIC-optimal estimated networks. $N=%d$, $T=6$. %s The clustering coefficient is the frequency of fully connected triplets over total triplets. Reciprocated edges is the share of directed edges whose reverse also exists. Degree distribution reports mean (standard deviation).", N, ifelse(std_label == "std", "All variables standardised to zero mean and unit variance.", "Non-standardised data.")),
     "\\end{minipage}",
     "\\end{table}"
   ), f)
-  
+
   close(f)
   cat("Saved", filename, "\n")
 }
 
-write_table3(r37, r45, 32, "nonstd", "table3_nonstd.tex", " (non-standardised, $N=32$)")
-write_table3(r37s, r45s, 37, "std", "table3_std.tex", " (standardised, $N=37$)")
+write_table3(r37, r45, 32, "nonstd", "output/tabs/table3_nonstd.tex", " (non-standardised, $N=32$)")
+write_table3(r37s, r45s, 37, "std", "output/tabs/table3_std.tex", " (standardised, $N=37$)")
 
-cat("\nDone. Files: table1.tex, table3_nonstd.tex, table3_std.tex\n")
+cat("\nDone. Files: output/tabs/table1.tex, output/tabs/table3_nonstd.tex, output/tabs/table3_std.tex\n")
+
+# =============================================================================
+# COMPILE TO PDF
+# =============================================================================
+
+compile_table_pdf <- function(tex_file) {
+  content <- readLines(tex_file)
+
+  standalone <- c(
+    "\\documentclass{article}",
+    "\\usepackage{booktabs}",
+    "\\usepackage{caption}",
+    "\\usepackage{geometry}",
+    "\\geometry{margin=2cm}",
+    "\\begin{document}",
+    "\\pagestyle{empty}",
+    content,
+    "\\end{document}"
+  )
+
+  wrapper_file <- sub("\\.tex$", "_standalone.tex", tex_file)
+  writeLines(standalone, wrapper_file)
+
+  system(paste(
+    "pdflatex -interaction=nonstopmode -output-directory",
+    dirname(tex_file), wrapper_file
+  ))
+
+  cat("PDF created for", tex_file, "\n")
+}
+
+compile_table_pdf("output/tabs/table1.tex")
+compile_table_pdf("output/tabs/table3_nonstd.tex")
+compile_table_pdf("output/tabs/table3_std.tex")

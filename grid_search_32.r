@@ -12,7 +12,7 @@ library(optimx)
 library(fixest)
 
 source("/workspaces/thesis/functions.r")
-
+set.seed(1861)
 
 # === LOAD DATA ===============================================================
 data_37001 <- readRDS("data/output_data/data_balanced_37001.rds")
@@ -21,28 +21,38 @@ data_45001 <- readRDS("data/output_data/data_balanced_45001.rds")
 # === FILTER N=32 (exclude countries added with case_match) ===================
 
 
-old_countries <- c("Australia", "Austria", "Belgium", "Canada", "Chile", "Colombia", 
-  "Costa Rica", "Denmark", "Estonia", "Finland", "France", "Germany", 
-  "Greece", "Hungary", "Iceland", "Ireland", "Israel", "Italy", "Japan", 
-  "Latvia", "Lithuania", "Luxembourg", "Mexico", "Netherlands", "New Zealand", 
-  "Norway", "Poland", "Portugal", "Slovenia", "Spain", "Sweden", "Switzerland")
+old_countries <- c(
+  "Australia", "Austria", "Belgium", "Canada", "Chile", "Colombia",
+  "Costa Rica", "Denmark", "Estonia", "Finland", "France", "Germany",
+  "Greece", "Hungary", "Iceland", "Ireland", "Israel", "Italy", "Japan",
+  "Latvia", "Lithuania", "Luxembourg", "Mexico", "Netherlands", "New Zealand",
+  "Norway", "Poland", "Portugal", "Slovenia", "Spain", "Sweden", "Switzerland"
+)
 
 cmap_37 <- readRDS("data/output_data/country_map_37001.rds")
-old_ids_37 <- cmap_37 %>% dplyr::filter(country %in% old_countries) %>% dplyr::pull(id)
+old_ids_37 <- cmap_37 %>%
+  dplyr::filter(country %in% old_countries) %>%
+  dplyr::pull(id)
 data_37001 <- data_37001 %>%
   dplyr::filter(id %in% old_ids_37) %>%
   dplyr::mutate(id = as.integer(factor(id)))
 
 cmap_45 <- readRDS("data/output_data/country_map_45001.rds")
-old_ids_45 <- cmap_45 %>% dplyr::filter(country %in% old_countries) %>% dplyr::pull(id)
+old_ids_45 <- cmap_45 %>%
+  dplyr::filter(country %in% old_countries) %>%
+  dplyr::pull(id)
 data_45001 <- data_45001 %>%
   dplyr::filter(id %in% old_ids_45) %>%
   dplyr::mutate(id = as.integer(factor(id)))
 
-cat("ISO 37001 - N:", length(unique(data_37001$id)), 
-    "T:", length(unique(data_37001$time)), "\n")
-cat("ISO 45001 - N:", length(unique(data_45001$id)), 
-    "T:", length(unique(data_45001$time)), "\n")
+cat(
+  "ISO 37001 - N:", length(unique(data_37001$id)),
+  "T:", length(unique(data_37001$time)), "\n"
+)
+cat(
+  "ISO 45001 - N:", length(unique(data_45001$id)),
+  "T:", length(unique(data_45001$time)), "\n"
+)
 
 
 # === LAMBDA GRID =============================================================
@@ -61,66 +71,75 @@ cat("Tempo stimato (30 min/run):", nrow(grid) * 30 * 2 / 60, "ore\n")
 # === FUNCTION: RUN GRID SEARCH ===============================================
 
 run_grid_search <- function(data, iso_label, grid) {
-  
   n_grid <- nrow(grid)
   results <- vector("list", n_grid)
   bic_vec <- rep(NA, n_grid)
   timings <- rep(NA, n_grid)
-  
+
   # --- 1st run Wder ---
   cat("\n", iso_label, "- Calcolo Wder (run iniziale)...\n")
   t0 <- Sys.time()
-  
+
   first_run <- recoverNetwork(
     data = data,
     lambda = as.numeric(grid[1, ]),
     exoeffects = 1
   )
-  
+
   Wder <- first_run$Wder
   results[[1]] <- first_run
   bic_vec[1] <- first_run$BIC
   timings[1] <- as.numeric(difftime(Sys.time(), t0, units = "mins"))
-  
-  cat(iso_label, "- Run 1/", n_grid, 
-      " lambda=", as.numeric(grid[1,]),
-      " BIC=", round(bic_vec[1], 4),
-      " tempo=", round(timings[1], 1), "min\n")
-  
+
+  cat(
+    iso_label, "- Run 1/", n_grid,
+    " lambda=", as.numeric(grid[1, ]),
+    " BIC=", round(bic_vec[1], 4),
+    " tempo=", round(timings[1], 1), "min\n"
+  )
+
   # --- Remaining runs with same Wder ---
   for (g in 2:n_grid) {
-    cat(iso_label, "- Run", g, "/", n_grid, 
-        " lambda=", as.numeric(grid[g,]))
-    
+    cat(
+      iso_label, "- Run", g, "/", n_grid,
+      " lambda=", as.numeric(grid[g, ])
+    )
+
     t0 <- Sys.time()
-    
-    tryCatch({
-      results[[g]] <- recoverNetwork(
-        data = data,
-        lambda = as.numeric(grid[g, ]),
-        exoeffects = 1,
-        Wder = Wder
-      )
-      bic_vec[g] <- results[[g]]$BIC
-      timings[g] <- as.numeric(difftime(Sys.time(), t0, units = "mins"))
-      
-      cat(" BIC=", round(bic_vec[g], 4),
-          " tempo=", round(timings[g], 1), "min\n")
-      
-    }, error = function(e) {
-      timings[g] <<- as.numeric(difftime(Sys.time(), t0, units = "mins"))
-      cat(" ERRORE:", e$message, "\n")
-    })
-    
+
+    tryCatch(
+      {
+        results[[g]] <- recoverNetwork(
+          data = data,
+          lambda = as.numeric(grid[g, ]),
+          exoeffects = 1,
+          Wder = Wder
+        )
+        bic_vec[g] <- results[[g]]$BIC
+        timings[g] <- as.numeric(difftime(Sys.time(), t0, units = "mins"))
+
+        cat(
+          " BIC=", round(bic_vec[g], 4),
+          " tempo=", round(timings[g], 1), "min\n"
+        )
+      },
+      error = function(e) {
+        timings[g] <<- as.numeric(difftime(Sys.time(), t0, units = "mins"))
+        cat(" ERRORE:", e$message, "\n")
+      }
+    )
+
     # Save after every run
     save(results, bic_vec, timings, grid, Wder,
-         file = paste0("data/output_data/grid_search_", iso_label, "_PARTIAL.RData"))
+      file = paste0("data/output_data/grid_search_", iso_label, "_PARTIAL.RData")
+    )
   }
-  
+
   # Final save
   save(results, bic_vec, timings, grid, Wder,
-       file = paste0("data/output_data/grid_search_", iso_label, ".RData"))
-  
+    file = paste0("data/output_data/grid_search_", iso_label, ".RData")
+  )
+
   return(list(results = results, bic_vec = bic_vec, timings = timings, Wder = Wder))
 }
 
@@ -136,16 +155,20 @@ cat("\n>>> ISO 37001 <<<\n")
 t_start_37 <- Sys.time()
 gs_37001 <- run_grid_search(data_37001, "ISO37001", grid)
 t_end_37 <- Sys.time()
-cat("\nISO 37001 completed in", 
-    round(as.numeric(difftime(t_end_37, t_start_37, units = "hours")), 1), "ore\n")
+cat(
+  "\nISO 37001 completed in",
+  round(as.numeric(difftime(t_end_37, t_start_37, units = "hours")), 1), "ore\n"
+)
 
 # --- ISO 45001 ---
 cat("\n>>> ISO 45001 <<<\n")
 t_start_45 <- Sys.time()
 gs_45001 <- run_grid_search(data_45001, "ISO45001", grid)
 t_end_45 <- Sys.time()
-cat("\nISO 45001 completed in", 
-    round(as.numeric(difftime(t_end_45, t_start_45, units = "hours")), 1), "ore\n")
+cat(
+  "\nISO 45001 completed in",
+  round(as.numeric(difftime(t_end_45, t_start_45, units = "hours")), 1), "ore\n"
+)
 
 # === SUMMARY =================================================================
 
@@ -159,7 +182,7 @@ cat("========================================\n")
 valid_37 <- which(!is.na(gs_37001$bic_vec))
 best_37 <- valid_37[which.min(gs_37001$bic_vec[valid_37])]
 cat("\n=== ISO 37001 ===\n")
-cat("  Best lambda:", as.numeric(grid[best_37,]), "\n")
+cat("  Best lambda:", as.numeric(grid[best_37, ]), "\n")
 cat("  BIC:", gs_37001$bic_vec[best_37], "\n")
 cat("  rho:", gs_37001$results[[best_37]]$unpenalisedgmm$rho, "\n")
 cat("  N edges:", sum(abs(gs_37001$results[[best_37]]$adaen$W) > 1e-5), "\n")
@@ -168,7 +191,7 @@ cat("  N edges:", sum(abs(gs_37001$results[[best_37]]$adaen$W) > 1e-5), "\n")
 valid_45 <- which(!is.na(gs_45001$bic_vec))
 best_45 <- valid_45[which.min(gs_45001$bic_vec[valid_45])]
 cat("\n=== ISO 45001 ===\n")
-cat("  Best lambda:", as.numeric(grid[best_45,]), "\n")
+cat("  Best lambda:", as.numeric(grid[best_45, ]), "\n")
 cat("  BIC:", gs_45001$bic_vec[best_45], "\n")
 cat("  rho:", gs_45001$results[[best_45]]$unpenalisedgmm$rho, "\n")
 cat("  N edges:", sum(abs(gs_45001$results[[best_45]]$adaen$W) > 1e-5), "\n")
@@ -180,7 +203,7 @@ for (iso in c("37001", "45001")) {
   valid <- which(!is.na(gs$bic_vec))
   all_W <- lapply(gs$results[valid], function(r) (abs(r$adaen$W) > 1e-5) + 0)
   stability <- Reduce("+", all_W) / length(all_W)
-  
+
   cat(paste0("\nISO ", iso, ":\n"))
   cat("  Robust Edges (>80%):", sum(stability > 0.8), "\n")
   cat("  Robust Edges (>60%):", sum(stability > 0.6), "\n")
@@ -224,10 +247,10 @@ cat("  grid_search_ISO37001.RData  (all results)\n")
 cat("  grid_search_ISO45001.RData  (all results)\n")
 
 ###
-load("grid_search_ISO37001.RData")
+load("data/output_data/grid_search_ISO37001.RData")
 rho_37_all <- sapply(results, function(r) r$unpenalisedgmm$rho)
 
-load("grid_search_ISO45001.RData")
+load("data/output_data/grid_search_ISO45001.RData")
 rho_45_all <- sapply(results, function(r) r$unpenalisedgmm$rho)
 
 comparison <- grid %>%
@@ -239,5 +262,7 @@ comparison <- grid %>%
 
 print(comparison)
 
-cat("\nrho_37001 > rho_45001 for all?", 
-    all(comparison$rho_37_greater), "\n")
+cat(
+  "\nrho_37001 > rho_45001 for all?",
+  all(comparison$rho_37_greater), "\n"
+)

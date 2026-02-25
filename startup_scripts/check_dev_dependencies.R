@@ -4,7 +4,7 @@
 cat("Checking installation of R development and thesis packages...\n")
 
 # Ensure renv is available
-if(!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
+if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
 
 # --- FORCING EXACT VERSIONS ---
 # We use the @version syntax to pin your specific environment
@@ -16,7 +16,7 @@ pinned_pkgs <- c(
   "devtools@2.4.6", "usethis@3.2.1", "WDI@2.7.9", "janitor@2.2.1",
   "lubridate@1.9.4", "forcats@1.0.1", "stringr@1.5.2", "dplyr@1.1.4",
   "purrr@1.1.0", "readr@2.1.5", "tidyr@1.3.1", "tibble@3.3.0",
-  "ggplot2@4.0.0", "tidyverse@2.0.0", "readxl@1.4.5", "countrycode@1.6.1"
+  "ggplot2@4.0.0", "tidyverse@2.0.0", "readxl@1.4.5", "countrycode@1.6.1", "igraph@2.2.2"
 )
 
 # Install pinned packages
@@ -24,17 +24,17 @@ pinned_pkgs <- c(
 renv::install(pinned_pkgs)
 
 # --- VS CODE / DEV TOOLS ---
-if(!requireNamespace("desc", quietly = TRUE)) renv::install("desc")
+if (!requireNamespace("desc", quietly = TRUE)) renv::install("desc")
 library(desc)
 
 args <- commandArgs(trailingOnly = TRUE)
-vscode <- ! "--no-vscode" %in% args
+vscode <- !"--no-vscode" %in% args
 
-if(vscode) {
+if (vscode) {
   cat("Checking VS Code dev tools...\n")
   vscode_deps <- c(
-    "languageserver",      
-    "nx10/httpgd",        
+    "languageserver",
+    "nx10/httpgd",
     "ManuelHentschel/vscDebugger"
   )
   renv::install(vscode_deps)
@@ -42,12 +42,17 @@ if(vscode) {
 
 # --- DESCRIPTION FILE CHECK ---
 # Check if there are any other dependencies in the DESCRIPTION file
-desc_file <- tryCatch({ description$new() }, error = function(e) NULL)
-if(!is.null(desc_file)) {
+desc_file <- tryCatch(
+  {
+    description$new()
+  },
+  error = function(e) NULL
+)
+if (!is.null(desc_file)) {
   extra_deps <- c(desc_file$get_deps()$package, desc_file$get_remotes())
   # Filter out what we already installed
   extra_deps <- extra_deps[!(extra_deps %in% gsub("@.*", "", pinned_pkgs))]
-  if(length(extra_deps) > 0) renv::install(extra_deps)
+  if (length(extra_deps) > 0) renv::install(extra_deps)
 }
 
 cat("Environment check complete. All versions are locked.\n")
