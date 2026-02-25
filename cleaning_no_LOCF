@@ -189,7 +189,7 @@ cat("=== Building ISO 45001 panel ===\n")
 panel_45001 <- build_panel("45001")
 
 # Save
-saveRDS(panel_37001$data, file = "data_balanced_37001.rds")
+saveRDS(panel_37001$data, file = "data/output_data/data_balanced_37001.rds")
 saveRDS(panel_37001$country_map, file = "data/output_data/country_map_37001.rds")
 
 saveRDS(panel_45001$data, file = "data/output_data/data_balanced_45001.rds")
