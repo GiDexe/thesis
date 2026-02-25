@@ -55,7 +55,7 @@ lf_mapped <- lf %>%
   left_join(country_map[, c("iso2c", "id")], by = "iso2c")
 
 # =============================================================================
-# FUNZIONE DI NORMALIZZAZIONE
+# NORMALIZATION
 # =============================================================================
 
 normalize_lf <- function(data, name) {
@@ -78,7 +78,7 @@ normalize_lf <- function(data, name) {
 }
 
 # =============================================================================
-# APPLICA E SALVA
+# SAVE
 # =============================================================================
 
 data_37001 <- readRDS("data/output_data/data_balanced_37001.rds")

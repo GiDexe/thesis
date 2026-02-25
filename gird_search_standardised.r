@@ -13,10 +13,10 @@ library(fixest)
 
 source("/workspaces/thesis/functions.r")
 set.seed(1861)
+
 # === LOAD DATA ===============================================================
-
-# Skipped: the script is supposed to be run after grid_search_32.r
-
+data_37001 <- readRDS("data/output_data/data_balanced_37001_lf.rds")
+data_45001 <- readRDS("data/output_data/data_balanced_45001_lf.rds")
 # === LAMBDA GRID =============================================================
 
 grid <- expand.grid(
@@ -25,24 +25,7 @@ grid <- expand.grid(
   lambdaL1Star = c(0.25, 0.375, 0.75)
 )
 
-# === STANDARDISE =============================================================
-# Standardise y and x to unit variance for both ISO standards
-# This ensures penalisation acts comparably across variables and across ISOs
-# rho and W are invariant to scaling; beta and gamma become "per SD" effects
 
-standardise <- function(data) {
-  data %>%
-    dplyr::mutate(
-      y  = (y - mean(y)) / sd(y),
-      x1 = (x1 - mean(x1)) / sd(x1),
-      x2 = (x2 - mean(x2)) / sd(x2),
-      x3 = (x3 - mean(x3)) / sd(x3),
-      x4 = (x4 - mean(x4)) / sd(x4)
-    )
-}
-
-data_37001_std <- standardise(data_37001)
-data_45001_std <- standardise(data_45001)
 
 cat("=== STANDARDISED DATA ===\n")
 cat(
