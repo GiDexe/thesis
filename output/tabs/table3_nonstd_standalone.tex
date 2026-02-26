@@ -1,0 +1,32 @@
+\documentclass{article}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{geometry}
+\geometry{margin=2cm}
+\begin{document}
+\pagestyle{empty}
+\begin{table}[htbp]
+\centering
+\caption{ISO~37001 versus ISO~45001 networks (non-standardised, $N=32$)}
+\label{tab:networks_nonstd}
+\begin{tabular}{lcc}
+\hline\hline
+ & ISO~37001 & ISO~45001 \\
+\hline
+Number of edges & 43 & 29 \\
+Edges in both networks & 17 & 17 \\
+Edges in ISO~37001 only & 26 & \\
+Edges in ISO~45001 only & & 12 \\
+Clustering & 0.058 & 0.000 \\
+Reciprocated edges & 23.3\% & 6.9\% \\
+Degree distribution & & \\
+\quad Out-degree & 1.344 (1.153) & 0.906 (0.296) \\
+\quad In-degree & 1.344 (3.907) & 0.906 (3.364) \\
+\hline\hline
+\end{tabular}
+\begin{minipage}{0.85\textwidth}
+\vspace{4pt}
+\footnotesize \textit{Notes:} Network statistics for the BIC-optimal estimated networks. $N=32$, $T=6$. Non-standardised data. The clustering coefficient is the frequency of fully connected triplets over total triplets. Reciprocated edges is the share of directed edges whose reverse also exists. Degree distribution reports mean (standard deviation).
+\end{minipage}
+\end{table}
+\end{document}
