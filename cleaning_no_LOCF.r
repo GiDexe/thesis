@@ -1,0 +1,204 @@
+# =============================================================================
+# 01_cleaning.R
+# Produce i panel data bilanciati per ISO 37001 e ISO 45001, li salva come RDS
+# N=37 OECD countries, T=6 (2018-2023)
+# =============================================================================
+
+library(devtools)
+library(kableExtra)
+library(dplyr)
+library(magrittr)
+library(readxl)
+library(stringr)
+library(purrr)
+library(tidyr)
+library(janitor)
+
+# === SETTINGS ================================================================
+set.seed(1861)
+data_dir <- "/workspaces/thesis/data"
+out_data_dir <- "data/output_data"
+
+oecd <- c(
+  "Australia", "Austria", "Belgium", "Canada", "Chile", "Colombia",
+  "Costa Rica", "Czech Republic", "Denmark", "Estonia", "Finland",
+  "France", "Germany", "Greece", "Hungary", "Iceland", "Ireland",
+  "Israel", "Italy", "Japan", "Korea", "Latvia", "Lithuania",
+  "Luxembourg", "Mexico", "Netherlands", "New Zealand", "Norway",
+  "Poland", "Portugal", "Slovak Republic", "Slovenia", "Spain",
+  "Sweden", "Switzerland", "Turkey", "United Kingdom", "United States"
+)
+
+# === LOAD COVARIATES ========================================================= (to be inserted manually)
+
+covariates <- readRDS("/workspaces/thesis/data/covariates.rds")
+
+head(covariates)
+# Harmonize WB country names to OECD standard
+covariates <- covariates %>%
+  dplyr::mutate(country = case_match(country,
+    "Korea, Rep." ~ "Korea",
+    "Turkiye" ~ "Turkey",
+    .default = country
+  ))
+
+# === HELPER FUNCTIONS ========================================================
+
+extract_sheets <- function(file_path) {
+  year <- str_extract(basename(file_path), "20(1[8-9]|2[0-4])")
+  sheet_names <- excel_sheets(file_path)
+  sheets_to_read <- sheet_names[-1]
+  data_list <- purrr::map(sheets_to_read, ~ {
+    read_excel(file_path, sheet = .x) %>%
+      dplyr::mutate(Year = year)
+  })
+  names(data_list) <- sheets_to_read
+  return(data_list)
+}
+
+build_panel <- function(iso_code) {
+  # --- Read Excel files ---
+  all_excel_files <- list.files(data_dir,
+    pattern = "\\.xlsx$|\\.xls$|\\.xlsm$",
+    full.names = TRUE
+  )
+  excel_files <- all_excel_files[grepl("ISO Survey 20", basename(all_excel_files))]
+  all_data <- purrr::map(excel_files, extract_sheets)
+
+  # --- Filter to ISO code ---
+  iso_data <- purrr::map(all_data, ~ purrr::keep(.x, ~ any(grepl(iso_code, colnames(.)))))
+
+  # --- Adjust tibble structure ---
+  adjusted_data <- purrr::map(iso_data, ~ purrr::map(.x, ~ {
+    .x %>%
+      setNames(ifelse(names(.) == "Year", "Year", as.character(dplyr::slice(., 2)))) %>%
+      dplyr::slice(-2) %>%
+      dplyr::mutate(across(-1, ~ replace_na(as.numeric(.), 0))) %>%
+      dplyr::mutate(Tot = rowSums(dplyr::select(., where(is.numeric) & !last_col()), na.rm = TRUE), .before = Year)
+  }))
+
+  my_panel <- adjusted_data %>%
+    purrr::imap_dfr(~ bind_rows(.x, .id = "sheet") %>%
+      dplyr::mutate(country = .y, .before = 1))
+
+  my_panel <- my_panel %>%
+    dplyr::select(country, `Land/Sector`, Tot, Year) %>%
+    dplyr::filter(`Land/Sector` != "sector number") %>%
+    dplyr::filter(`Land/Sector` != "Sector number") %>%
+    clean_names() %>%
+    dplyr::rename(code = country) %>%
+    dplyr::rename(country = land_sector)
+
+  my_panel <- my_panel %>%
+    dplyr::group_by(country) %>%
+    dplyr::arrange(year) %>%
+    dplyr::mutate(delta = tot - lag(tot, default = 0))
+
+  # --- Harmonize ISO country names to OECD standard ---
+  my_panel <- my_panel %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(country = case_match(country,
+      "Korea (Republic of)" ~ "Korea",
+      "Korea (the Republic of)" ~ "Korea",
+      "Czech Republic" ~ "Czech Republic",
+      "Czechia" ~ "Czech Republic",
+      "Slovakia" ~ "Slovak Republic",
+      "Turkey" ~ "Turkey",
+      "United Kingdom of Great Britain and Northern Ireland" ~ "United Kingdom",
+      "United Kingdom of Great Britain and Northern Ireland (the)" ~ "United Kingdom",
+      "United States of America" ~ "United States",
+      "United States of America (the)" ~ "United States",
+      "Netherlands (Kingdom of the)" ~ "Netherlands",
+      .default = country
+    ))
+
+  # --- Complete panel ---
+  my_panel <- my_panel %>%
+    dplyr::ungroup() %>%
+    tidyr::complete(country, year, fill = list(tot = NA)) %>%
+    dplyr::group_by(country) %>%
+    dplyr::arrange(year) %>%
+    tidyr::fill(tot, .direction = "down") %>%
+    dplyr::mutate(tot = replace_na(tot, 0)) %>%
+    dplyr::mutate(delta = tot - lag(tot, default = 0)) %>%
+    dplyr::ungroup()
+
+  # --- Merge covariates and filter to 2018-2023 ---
+  panel_data <- my_panel %>%
+    dplyr::left_join(covariates, by = c("country", "year")) %>%
+    dplyr::filter(!is.na(gdp_pc), !is.na(rule_of_law)) %>%
+    dplyr::rename(
+      time = year,
+      y = tot,
+      x1 = gdp_pc,
+      x2 = rule_of_law,
+      x3 = trade,
+      x4 = unemployment
+    )
+
+  # --- Filter OECD ---
+  panel_data <- panel_data %>%
+    dplyr::filter(country %in% oecd)
+
+  # --- Balance check ---
+  obs_per_country <- panel_data %>%
+    dplyr::group_by(country) %>%
+    dplyr::summarise(n_obs = dplyr::n(), .groups = "drop")
+
+  T_max <- max(obs_per_country$n_obs)
+  countries_to_keep <- obs_per_country %>%
+    dplyr::filter(n_obs == T_max) %>%
+    dplyr::pull(country)
+
+  panel_data <- panel_data %>%
+    dplyr::filter(country %in% countries_to_keep)
+
+  # --- Save country mapping, then assign consecutive IDs ---
+  country_map <- panel_data %>%
+    dplyr::distinct(country) %>%
+    dplyr::arrange(country) %>%
+    dplyr::mutate(id = dplyr::row_number())
+
+  panel_data <- panel_data %>%
+    dplyr::select(-delta) %>%
+    dplyr::left_join(country_map, by = "country")
+
+  # --- Remove country name, keep only numeric columns for recoverNetwork ---
+  data_balanced <- panel_data %>%
+    dplyr::select(time, y, x1, x2, x3, x4, id) %>%
+    dplyr::arrange(time, id)
+
+  data_balanced <- na.omit(data_balanced)
+
+  cat(paste0("ISO ", iso_code, ":\n"))
+  cat("  N:", length(unique(data_balanced$id)), "\n")
+  cat("  T:", length(unique(data_balanced$time)), "\n")
+  cat("  Rows:", nrow(data_balanced), "\n")
+  cat("  ID range:", range(data_balanced$id), "\n")
+  cat("  Years:", sort(unique(data_balanced$time)), "\n\n")
+
+  return(list(data = data_balanced, country_map = country_map))
+}
+
+# === BUILD AND SAVE ==========================================================
+
+cat("=== Building ISO 37001 panel ===\n")
+panel_37001 <- build_panel("37001")
+
+cat("=== Building ISO 45001 panel ===\n")
+panel_45001 <- build_panel("45001")
+
+# Save
+saveRDS(panel_37001$data, file = "data/output_data/data_balanced_37001.rds")
+saveRDS(panel_37001$country_map, file = "data/output_data/country_map_37001.rds")
+
+saveRDS(panel_45001$data, file = "data/output_data/data_balanced_45001.rds")
+saveRDS(panel_45001$country_map, file = "data/output_data/country_map_45001.rds")
+
+cat("=== Files Saved ===\n")
+cat("  data_balanced_37001.rds\n")
+cat("  data_balanced_45001.rds\n")
+cat("  country_map_37001.rds\n")
+cat("  country_map_45001.rds\n")
+
+max(panel_37001$data$id)

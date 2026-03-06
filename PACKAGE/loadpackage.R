@@ -1,0 +1,15 @@
+
+library(stringr)
+library(fixest)
+library(tibble)
+library(dplyr)
+library(devtools)
+library(glmnet)
+library(CVXR)
+library(MASS)
+library(Matrix)
+
+source(paste(relativepath,"functions/gendata.R",sep=""))
+source(paste(relativepath,"functions/main.R",sep=""))
+source(paste(relativepath,"functions/genbootstrap.R",sep=""))
+load(paste(relativepath,"data/W0.rda",sep=""))

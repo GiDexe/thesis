@@ -1,91 +1,58 @@
 #!/usr/bin/env Rscript
 
-#' Check and Install R Development Dependencies
-#' 
-#' This script checks for missing R package dependencies and installs them using renv.
-#' It handles both regular package dependencies (from DESCRIPTION file) and optional
-#' VS Code-specific development packages.
-#' 
-#' @description
-#' The script performs the following operations:
-#' 1. Reads package dependencies from DESCRIPTION file (if present)
-#' 2. Optionally includes VS Code development packages (unless --no-vscode is specified)
-#' 3. Checks which packages are missing from the current R library
-#' 4. Installs missing packages using renv::install()
-#' 
-#' @param --no-vscode Optional command line argument to skip VS Code packages
-#' 
-#' @details
-#' VS Code packages included by default:
-#' - languageserver: R language server for VS Code
-#' - nx10/httpgd: HTTP graphics device for VS Code
-#' - ManuelHentschel/vscDebugger: R debugger for VS Code
-#' 
-#' @examples
-#' # Check and install all dependencies (including VS Code packages)
-#' Rscript check_dependencies.R
-#' 
-#' # Check and install only DESCRIPTION dependencies (skip VS Code packages)
-#' Rscript check_dependencies.R --no-vscode
-#' 
-#' @author Data Project
-#' @date September 2025
+#' Check and Install R Development and Thesis Dependencies
+cat("Checking installation of R development and thesis packages...\n")
 
-cat("Checking installation of R development packages... ")
-if(!requireNamespace("desc", quietly = TRUE)) {
-  renv::install("desc")
-}
+# Ensure renv is available
+if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv")
+
+# --- FORCING EXACT VERSIONS ---
+# We use the @version syntax to pin your specific environment
+cat("Pinning exact package versions for thesis stability...\n")
+
+pinned_pkgs <- c(
+  "fixest@0.13.2", "optimx@2025-4.9", "MASS@7.3-65", "CVXR@1.0-15",
+  "glmnet@4.1-10", "Matrix@1.7-3", "magrittr@2.0.4", "kableExtra@1.4.0",
+  "devtools@2.4.6", "usethis@3.2.1", "WDI@2.7.9", "janitor@2.2.1",
+  "lubridate@1.9.4", "forcats@1.0.1", "stringr@1.5.2", "dplyr@1.1.4",
+  "purrr@1.1.0", "readr@2.1.5", "tidyr@1.3.1", "tibble@3.3.0",
+  "ggplot2@4.0.0", "tidyverse@2.0.0", "readxl@1.4.5", "countrycode@1.6.1", "igraph@2.2.2"
+)
+
+# Install pinned packages
+# renv is smart: if the version is already there, it skips it instantly
+renv::install(pinned_pkgs)
+
+# --- VS CODE / DEV TOOLS ---
+if (!requireNamespace("desc", quietly = TRUE)) renv::install("desc")
 library(desc)
 
-# Parse command line arguments
-vscode <- FALSE
 args <- commandArgs(trailingOnly = TRUE)
-vscode <- ! "--no-vscode" %in% args
+vscode <- !"--no-vscode" %in% args
 
-# VS Code development packages
-vscode_deps <- c(
-  "languageserver",      # R language server for VS Code
-  "nx10/httpgd",        # HTTP graphics device for VS Code  
-  "ManuelHentschel/vscDebugger"  # R debugger for VS Code
-)
-
-# Read DESCRIPTION file if it exists
-desc <- tryCatch({
-    description$new()
-  }, error = function(e) NULL)
-
-# Extract dependencies from DESCRIPTION file
-deps <- if(!is.null(desc)) {
-  c(
-    desc$get_deps()$package,  # Regular dependencies
-    desc$get_remotes()        # Remote dependencies (e.g., GitHub)
+if (vscode) {
+  cat("Checking VS Code dev tools...\n")
+  vscode_deps <- c(
+    "languageserver",
+    "nx10/httpgd",
+    "ManuelHentschel/vscDebugger"
   )
-} else {
-  character(0)
+  renv::install(vscode_deps)
 }
 
-# Add VS Code dependencies if not excluded
-if(vscode) {
-  deps <- c(deps, vscode_deps)
-}
-
-# Create data frame with package info
-deps <- data.frame(
-  package = deps,
-  package_name = gsub(".*/", "", deps)  # Extract package name from GitHub repos
+# --- DESCRIPTION FILE CHECK ---
+# Check if there are any other dependencies in the DESCRIPTION file
+desc_file <- tryCatch(
+  {
+    description$new()
+  },
+  error = function(e) NULL
 )
-
-# Check which packages are missing
-deps$missing <- !sapply(deps$package_name, function(pkg) {
-  requireNamespace(pkg, quietly = TRUE)
-})
-
-deps <- deps[deps$missing, ]
-
-# Install missing packages or report success
-if(nrow(deps) == 0) {
-  cat("Done.\n")
-} else {
-  cat(paste0("\nInstalling ", nrow(deps), " missing packages...\n"))
-  renv::install(deps$package)
+if (!is.null(desc_file)) {
+  extra_deps <- c(desc_file$get_deps()$package, desc_file$get_remotes())
+  # Filter out what we already installed
+  extra_deps <- extra_deps[!(extra_deps %in% gsub("@.*", "", pinned_pkgs))]
+  if (length(extra_deps) > 0) renv::install(extra_deps)
 }
+
+cat("Environment check complete. All versions are locked.\n")
