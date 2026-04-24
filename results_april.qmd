@@ -1247,13 +1247,24 @@ cat(
 )
 cat("\\end{table}\n")
 ```
-```{r}
-#| label: eurostat-monadic-dyadic
-#| include: false
-library(dplyr)
-library(tidyr)
-library(readr)
 
+```{r}
+#| label: dzemski-main
+#| echo: false
+#| results: asis
+#| warning: false
+#| message: false
+suppressPackageStartupMessages({
+  library(fixest)
+  library(dplyr)
+  library(tidyr)
+  library(readr)
+  library(purrr)
+})
+
+# ----------------------------------------------------------------------------
+# 1. Eurostat monadic + bilateral FDI
+# ----------------------------------------------------------------------------
 eu_map <- c(
   AT = "Austria", BE = "Belgium", BG = "Bulgaria", CY = "Cyprus",
   CZ = "Czech Republic", DE = "Germany", DK = "Denmark", EE = "Estonia",
@@ -1276,8 +1287,7 @@ rd <- function(n) {
     dplyr::filter(!is.na(obs_value))
 }
 
-# --- Bilateral: FDI stocks (i -> j) ---
-fdi <- rd("estat_bop_fdi6_pos_en.csv.gz") |>
+fdi_h <- rd("estat_bop_fdi6_pos_en.csv.gz") |>
   dplyr::filter(
     stk_flow == "ASS", fdi_item == "DI__D__F", currency == "MIO_EUR",
     nace_r2 == "FDI", counterp == "IMM", entity == "TOTAL",
@@ -1288,8 +1298,7 @@ fdi <- rd("estat_bop_fdi6_pos_en.csv.gz") |>
   dplyr::mutate(country_i = eu_map[geo], country_j = eu_map[partner]) |>
   dplyr::select(country_i, country_j, fdi)
 
-# --- Monadic helpers ---
-mon <- function(df) {
+mon_collect <- function(df) {
   df |>
     dplyr::filter(geo %in% eu_codes) |>
     dplyr::group_by(geo) |>
@@ -1299,66 +1308,40 @@ mon <- function(df) {
     dplyr::filter(!is.nan(v))
 }
 
-pop <- rd("estat_demo_gind_en.csv.gz") |>
+pop_h <- rd("estat_demo_gind_en.csv.gz") |>
   dplyr::filter(indic_de == "JAN") |>
-  mon() |>
+  mon_collect() |>
   dplyr::rename(pop = v)
 
 etax_raw <- rd("estat_env_ac_taxind2_en.csv.gz") |>
   dplyr::filter(tax == "ENV", unit == "MIO_EUR")
-etax_nace <- if ("TOTAL" %in% etax_raw$nace_r2) {
-  "TOTAL"
-} else
-if ("A" %in% etax_raw$nace_r2) "A" else unique(etax_raw$nace_r2)[1]
-etax <- etax_raw |>
+etax_nace <- if ("TOTAL" %in% etax_raw$nace_r2) "TOTAL" else if ("A" %in% etax_raw$nace_r2) "A" else unique(etax_raw$nace_r2)[1]
+etax_h <- etax_raw |>
   dplyr::filter(nace_r2 == etax_nace) |>
-  mon() |>
+  mon_collect() |>
   dplyr::rename(etax = v)
 
 ghg_raw <- rd("estat_env_air_gge_en.csv.gz") |>
   dplyr::filter(airpol == "GHG", unit == "MIO_T")
-ghg_src <- if ("TOTXMEMO" %in% ghg_raw$src_crf) {
-  "TOTXMEMO"
-} else
-if ("TOTX4_MEMO" %in% ghg_raw$src_crf) "TOTX4_MEMO" else unique(ghg_raw$src_crf)[1]
-ghg <- ghg_raw |>
+ghg_src <- if ("TOTXMEMO" %in% ghg_raw$src_crf) "TOTXMEMO" else if ("TOTX4_MEMO" %in% ghg_raw$src_crf) "TOTX4_MEMO" else unique(ghg_raw$src_crf)[1]
+ghg_h <- ghg_raw |>
   dplyr::filter(src_crf == ghg_src) |>
-  mon() |>
+  mon_collect() |>
   dplyr::rename(ghg = v)
 
-rd_p <- rd("estat_rd_p_persocc_en.csv.gz") |>
+rd_h <- rd("estat_rd_p_persocc_en.csv.gz") |>
   dplyr::filter(sectperf == "TOTAL", prof_pos == "TOTAL", sex == "T", unit == "FTE") |>
-  mon() |>
+  mon_collect() |>
   dplyr::rename(rd = v)
 
-est_mon <- pop |>
-  dplyr::full_join(etax, "country") |>
-  dplyr::full_join(ghg, "country") |>
-  dplyr::full_join(rd_p, "country")
+est_mon_h <- pop_h |>
+  dplyr::full_join(etax_h, "country") |>
+  dplyr::full_join(ghg_h, "country") |>
+  dplyr::full_join(rd_h, "country")
 
-stopifnot(nrow(est_mon) >= 20, nrow(fdi) > 0)
-```
-
-```{r}
-#| label: dyadic-prep
-#| include: false
-# -----------------------------------------------------------------------------
-# Build the restricted theory-driven covariate set, the dyadic data frames,
-# and the labels/helpers shared by all six regression tables below.
-#
-# Retained monadic set (13 variables):
-#   Eurostat: pop, etax, ghg, rd
-#   WDI:      gdp_pc, trade, gov_eff, renew, rent, pm25, gov_exp, patents, edu_exp
-# Bilateral: log(1 + FDI stock i -> j)
-# -----------------------------------------------------------------------------
-suppressPackageStartupMessages({
-  library(dplyr)
-  library(tidyr)
-  library(readr)
-  library(purrr)
-  library(fixest)
-})
-
+# ----------------------------------------------------------------------------
+# 2. WDI monadic
+# ----------------------------------------------------------------------------
 load_wdi_mean <- function(f, v, start_yr = 1999, end_yr = 2017) {
   readr::read_csv(file.path(data_dir, f), skip = 4, show_col_types = FALSE) |>
     dplyr::select(country = 1, as.character(start_yr):as.character(end_yr)) |>
@@ -1370,61 +1353,51 @@ load_wdi_mean <- function(f, v, start_yr = 1999, end_yr = 2017) {
     dplyr::summarise(!!v := mean(v, na.rm = TRUE), .groups = "drop")
 }
 
-wdi_files_r <- list(
+wdi_files_h <- list(
   c("API_NY.GDP.PCAP.KD_DS2_en_csv_v2_234.csv", "gdp_pc"),
   c("API_NE.TRD.GNFS.ZS_DS2_en_csv_v2_334.csv", "trade"),
   c("API_GE.EST_DS2_en_csv_v2_213352.csv", "gov_eff"),
-  c("API_EG.FEC.RNEW.ZS_DS2_en_csv_v2_4948.csv", "renew"),
-  c("API_NY.GDP.TOTL.RT.ZS_DS2_en_csv_v2_362.csv", "rent"),
-  c("API_EN.ATM.PM25.MC.M3_DS2_en_csv_v2_316.csv", "pm25"),
-  c("API_GC.XPN.TOTL.GD.ZS_DS2_en_csv_v2_608.csv", "gov_exp"),
-  c("API_IP.PAT.RESD_DS2_en_csv_v2_213364.csv", "patents"),
-  c("API_SE.XPD.TOTL.GD.ZS_DS2_en_csv_v2_15.csv", "edu_exp")
+  c("API_EG.FEC.RNEW.ZS_DS2_en_csv_v2_4948.csv", "renew")
 )
-wdi_r <- purrr::reduce(
-  purrr::map(wdi_files_r, ~ load_wdi_mean(.x[1], .x[2])),
+
+wdi_h <- purrr::reduce(
+  purrr::map(wdi_files_h, ~ load_wdi_mean(.x[1], .x[2])),
   dplyr::full_join,
   by = "country"
 )
 
-keep_eurostat <- intersect(c("pop", "etax", "ghg", "rd"), names(est_mon))
-est_mon_r <- dplyr::full_join(
-  est_mon |> dplyr::select(country, dplyr::all_of(keep_eurostat)),
-  wdi_r,
-  by = "country"
+mon_all_h <- dplyr::full_join(est_mon_h, wdi_h, by = "country")
+
+mon_vars_h <- c(
+  "pop", "gdp_pc", "gov_eff", "rd", "trade",
+  "ghg", "renew", "etax"
 )
 
-mon_vars_r <- names(est_mon_r)[-1]
-mon_vars_r <- mon_vars_r[
-  sapply(mon_vars_r, function(v) sum(!is.na(est_mon_r[[v]])) >= 20)
-]
-stopifnot(length(mon_vars_r) >= 10)
+# ----------------------------------------------------------------------------
+# 3. Dyadic data
+# ----------------------------------------------------------------------------
+cs_h <- sort(sync_eu)
+N_h <- length(cs_h)
 
-# --- Build dyadic data frames with BOTH outcomes (weight and edge) ---
-cs <- sort(sync_eu)
-N <- length(cs)
-
-build_dyad_r <- function(rn) {
+build_dyad_h <- function(rn) {
   W <- as.matrix(rn$unpenalisedgmm$W)
   diag(W) <- 0
-  g <- expand.grid(i = seq_len(N), j = seq_len(N), KEEP.OUT.ATTRS = FALSE)
+  g <- expand.grid(i = seq_len(N_h), j = seq_len(N_h), KEEP.OUT.ATTRS = FALSE)
   g <- g[g$i != g$j, ]
-  ci <- cs[g$i]
-  cj <- cs[g$j]
+  ci <- cs_h[g$i]
+  cj <- cs_h[g$j]
   wt <- as.numeric(W[cbind(g$i, g$j)])
 
-  mono <- list()
-  for (v in mon_vars_r) {
-    x <- setNames(log1p(as.numeric(est_mon_r[[v]])), est_mon_r$country)
-    mono[[paste0("send_", v)]] <- as.numeric(x[ci])
-    mono[[paste0("recv_", v)]] <- as.numeric(x[cj])
-    mono[[paste0("diff_", v)]] <- as.numeric(abs(x[ci] - x[cj]))
+  diff_terms <- list()
+  for (v in mon_vars_h) {
+    x <- setNames(log1p(as.numeric(mon_all_h[[v]])), mon_all_h$country)
+    diff_terms[[paste0("diff_", v)]] <- as.numeric(abs(x[ci] - x[cj]))
   }
 
   k <- paste(ci, cj, sep = "||")
   fdi_lk <- setNames(
-    as.numeric(fdi$fdi),
-    paste(fdi$country_i, fdi$country_j, sep = "||")
+    as.numeric(fdi_h$fdi),
+    paste(fdi_h$country_i, fdi_h$country_j, sep = "||")
   )
   fv <- unname(as.numeric(fdi_lk[k]))
   fv[is.na(fv) | fv < 0] <- 0
@@ -1432,364 +1405,153 @@ build_dyad_r <- function(rn) {
   as.data.frame(c(
     list(
       country_i = ci, country_j = cj,
-      weight = wt,
+      weight = wt, abs_w = abs(wt),
       edge = as.integer(abs(wt) > 1e-5),
       log_fdi = log1p(fv)
     ),
-    mono
+    diff_terms
   ), stringsAsFactors = FALSE)
 }
 
-d9_r <- build_dyad_r(best[["9001_eu"]]$rn)
-d14_r <- build_dyad_r(best[["14001_eu"]]$rn)
+d9_h <- build_dyad_h(best[["9001_eu"]]$rn)
+d14_h <- build_dyad_h(best[["14001_eu"]]$rn)
 
-# --- RHS vectors for the three specifications ---
-rhs_hom <- c(paste0("diff_", mon_vars_r), "log_fdi")
-rhs_sr <- c(
-  paste0("send_", mon_vars_r),
-  paste0("recv_", mon_vars_r), "log_fdi"
-)
-rhs_full <- c(
-  paste0("send_", mon_vars_r),
-  paste0("recv_", mon_vars_r),
-  paste0("diff_", mon_vars_r), "log_fdi"
-)
-
-# --- Fit helpers: OLS for weighted outcome, logit for binary ---
-fit_w <- function(rhs, data) {
-  feols(reformulate(rhs, response = "weight"), data,
-    cluster = ~ country_i + country_j
-  )
+# ----------------------------------------------------------------------------
+# 4. Fit: Dzemski (2018) specification with sender and receiver FE
+# ----------------------------------------------------------------------------
+rhs_h <- c(paste0("diff_", mon_vars_h), "log_fdi")
+fe_part <- "country_i + country_j"
+make_fml <- function(y) {
+  as.formula(paste(y, "~", paste(rhs_h, collapse = " + "), "|", fe_part))
 }
-fit_b <- function(rhs, data) {
-  feglm(reformulate(rhs, response = "edge"), data,
+
+m_h_logit <- list(
+  "Quality" = feglm(make_fml("edge"), d9_h,
+    family = binomial("logit"),
+    cluster = ~ country_i + country_j
+  ),
+  "Environment" = feglm(make_fml("edge"), d14_h,
     family = binomial("logit"),
     cluster = ~ country_i + country_j
   )
-}
-
-# --- All six model lists ---
-m_w_hom <- list(
-  "Quality (ISO 9001)" = fit_w(rhs_hom, d9_r),
-  "Environment (ISO 14001)" = fit_w(rhs_hom, d14_r)
 )
-m_w_sr <- list(
-  "Quality (ISO 9001)" = fit_w(rhs_sr, d9_r),
-  "Environment (ISO 14001)" = fit_w(rhs_sr, d14_r)
-)
-m_w_full <- list(
-  "Quality (ISO 9001)" = fit_w(rhs_full, d9_r),
-  "Environment (ISO 14001)" = fit_w(rhs_full, d14_r)
-)
-
-m_b_hom <- list(
-  "Quality (ISO 9001)" = fit_b(rhs_hom, d9_r),
-  "Environment (ISO 14001)" = fit_b(rhs_hom, d14_r)
-)
-m_b_sr <- list(
-  "Quality (ISO 9001)" = fit_b(rhs_sr, d9_r),
-  "Environment (ISO 14001)" = fit_b(rhs_sr, d14_r)
-)
-m_b_full <- list(
-  "Quality (ISO 9001)" = fit_b(rhs_full, d9_r),
-  "Environment (ISO 14001)" = fit_b(rhs_full, d14_r)
-)
-
-# --- Dictionary and rendering helper ---
-dict_r <- c(
-  diff_pop     = "$|\\Delta\\log|$ Population",
-  diff_etax    = "$|\\Delta\\log|$ Env.\\ tax revenue",
-  diff_ghg     = "$|\\Delta\\log|$ GHG emissions",
-  diff_rd      = "$|\\Delta\\log|$ R\\&D personnel",
-  diff_gdp_pc  = "$|\\Delta\\log|$ GDP per capita",
-  diff_trade   = "$|\\Delta\\log|$ Trade openness",
-  diff_gov_eff = "$|\\Delta\\log|$ Gov.\\ effectiveness",
-  diff_renew   = "$|\\Delta\\log|$ Renewables share",
-  diff_rent    = "$|\\Delta\\log|$ Nat.\\ resource rents",
-  diff_pm25    = "$|\\Delta\\log|$ PM2.5",
-  diff_gov_exp = "$|\\Delta\\log|$ Gov.\\ expenditure",
-  diff_patents = "$|\\Delta\\log|$ Patents",
-  diff_edu_exp = "$|\\Delta\\log|$ Education spending",
-  send_pop     = "Sender Population (log)",
-  send_etax    = "Sender Env.\\ tax revenue (log)",
-  send_ghg     = "Sender GHG emissions (log)",
-  send_rd      = "Sender R\\&D personnel (log)",
-  send_gdp_pc  = "Sender GDP per capita (log)",
-  send_trade   = "Sender Trade openness (log)",
-  send_gov_eff = "Sender Gov.\\ effectiveness (log)",
-  send_renew   = "Sender Renewables share (log)",
-  send_rent    = "Sender Nat.\\ resource rents (log)",
-  send_pm25    = "Sender PM2.5 (log)",
-  send_gov_exp = "Sender Gov.\\ expenditure (log)",
-  send_patents = "Sender Patents (log)",
-  send_edu_exp = "Sender Education spending (log)",
-  recv_pop     = "Receiver Population (log)",
-  recv_etax    = "Receiver Env.\\ tax revenue (log)",
-  recv_ghg     = "Receiver GHG emissions (log)",
-  recv_rd      = "Receiver R\\&D personnel (log)",
-  recv_gdp_pc  = "Receiver GDP per capita (log)",
-  recv_trade   = "Receiver Trade openness (log)",
-  recv_gov_eff = "Receiver Gov.\\ effectiveness (log)",
-  recv_renew   = "Receiver Renewables share (log)",
-  recv_rent    = "Receiver Nat.\\ resource rents (log)",
-  recv_pm25    = "Receiver PM2.5 (log)",
-  recv_gov_exp = "Receiver Gov.\\ expenditure (log)",
-  recv_patents = "Receiver Patents (log)",
-  recv_edu_exp = "Receiver Education spending (log)",
-  log_fdi      = "log$(1+$FDI stock $i\\to j)$"
-)
-
-capture_etable <- function(...) {
-  paste(capture.output(do.call(etable, list(...))), collapse = "\n")
-}
-
-render_tex <- function(models, title, label, notes, landscape = FALSE) {
-  tex <- capture_etable(
-    models,
-    tex = TRUE, title = title, label = label,
-    dict = dict_r, notes = notes, digits = 3, digits.stats = 3
-  )
-  fn <- paste0("tab_", gsub("[-:]", "_", label), ".tex")
-  writeLines(tex, file.path(out_dir, fn))
-  if (landscape) {
-    cat("\\begin{landscape}\n\\footnotesize\n")
-    cat(tex, sep = "\n")
-    cat("\\end{landscape}\n")
-  } else {
-    cat(tex, sep = "\n")
-  }
-}
-```
-
-\newpage
-## Dyadic regressions on the recovered peer-effect network
-
-We present six dyadic regressions, crossing three specifications — *homophily only*, *sender/receiver only*, and *full* (both sets of terms combined) — with two outcomes. The **weighted** outcome $\hat w_{ij}$ preserves the cardinal information estimated by `recoverNetwork`: the peer-effect coefficient of country $i$ on country $j$. OLS is the natural choice because $\hat w_{ij}$ is continuous and signed; logit does not apply. The **binary** outcome $\mathbb{1}\{|\hat w_{ij}| > 10^{-5}\}$ reduces the network to a link-formation problem and is estimated via logit. Both blocks use two-way clustered standard errors on sender and receiver, the practitioner implementation of the Fafchamps--Gubert (2007) dyadic-robust estimator discussed in Graham (2019).
-
-### Weighted outcome: $\hat w_{ij}$
-
-```{r}
-#| label: weighted-homophily
-#| echo: false
-#| results: asis
-render_tex(
-  m_w_hom,
-  title = "Weighted network, homophily specification, EU ($N=27$).",
-  label = "tab:w-hom",
-  notes = paste(
-    "Dependent variable: continuous peer-effect weight $\\hat w_{ij}$.",
-    "Each monadic covariate enters as a homophily term",
-    "$|\\log(1+X_i) - \\log(1+X_j)|$.",
-    "OLS with two-way clustered standard errors on sender and receiver",
-    "(Fafchamps \\& Gubert 2007; Graham 2019)."
-  )
-)
-```
-
-```{r}
-#| label: weighted-sender-receiver
-#| echo: false
-#| results: asis
-render_tex(
-  m_w_sr,
-  title = "Weighted network, sender/receiver specification, EU ($N=27$).",
-  label = "tab:w-sr",
-  notes = paste(
-    "Dependent variable: continuous peer-effect weight $\\hat w_{ij}$.",
-    "Each monadic covariate enters separately as sender $\\log(1+X_i)$",
-    "and receiver $\\log(1+X_j)$, following Graham (2017).",
-    "OLS with two-way clustered standard errors on sender and receiver."
+m_h_ols <- list(
+  "Quality" = feols(make_fml("weight"), d9_h,
+    cluster = ~ country_i + country_j
   ),
-  landscape = TRUE
-)
-```
-
-```{r}
-#| label: weighted-full
-#| echo: false
-#| results: asis
-render_tex(
-  m_w_full,
-  title = "Weighted network, full specification (sender + receiver + homophily), EU ($N=27$).",
-  label = "tab:w-full",
-  notes = paste(
-    "Dependent variable: continuous peer-effect weight $\\hat w_{ij}$.",
-    "Each monadic covariate enters jointly as sender $\\log(1+X_i)$,",
-    "receiver $\\log(1+X_j)$, and homophily $|\\log(1+X_i)-\\log(1+X_j)|$.",
-    "The homophily term captures non-linear gap effects on top of the",
-    "linear sender and receiver contributions.",
-    "OLS with two-way clustered standard errors on sender and receiver."
-  ),
-  landscape = TRUE
-)
-```
-
-### Binary outcome: $\mathbb{1}\{|\hat w_{ij}| > 10^{-5}\}$
-
-```{r}
-#| label: binary-homophily
-#| echo: false
-#| results: asis
-render_tex(
-  m_b_hom,
-  title = "Binary network, homophily specification (logit), EU ($N=27$).",
-  label = "tab:b-hom",
-  notes = paste(
-    "Dependent variable: edge indicator $g_{ij}=\\mathbb{1}\\{|\\hat w_{ij}|>10^{-5}\\}$.",
-    "Logit model with each monadic covariate entering as a homophily term",
-    "$|\\log(1+X_i)-\\log(1+X_j)|$.",
-    "Two-way clustered standard errors on sender and receiver."
-  )
-)
-```
-
-```{r}
-#| label: binary-sender-receiver
-#| echo: false
-#| results: asis
-render_tex(
-  m_b_sr,
-  title = "Binary network, sender/receiver specification (logit), EU ($N=27$).",
-  label = "tab:b-sr",
-  notes = paste(
-    "Dependent variable: edge indicator $g_{ij}=\\mathbb{1}\\{|\\hat w_{ij}|>10^{-5}\\}$.",
-    "Logit model with each monadic covariate entering separately as sender",
-    "$\\log(1+X_i)$ and receiver $\\log(1+X_j)$, following Graham (2017).",
-    "Two-way clustered standard errors on sender and receiver."
-  ),
-  landscape = TRUE
-)
-```
-
-```{r}
-#| label: binary-full
-#| echo: false
-#| results: asis
-render_tex(
-  m_b_full,
-  title = "Binary network, full specification (sender + receiver + homophily, logit), EU ($N=27$).",
-  label = "tab:b-full",
-  notes = paste(
-    "Dependent variable: edge indicator $g_{ij}=\\mathbb{1}\\{|\\hat w_{ij}|>10^{-5}\\}$.",
-    "Logit model with each monadic covariate entering jointly as sender",
-    "$\\log(1+X_i)$, receiver $\\log(1+X_j)$, and homophily",
-    "$|\\log(1+X_i)-\\log(1+X_j)|$.",
-    "Two-way clustered standard errors on sender and receiver.",
-    "Some coefficients may be NA if logit separation occurs with sparse edges."
-  ),
-  landscape = TRUE
-)
-```
-
-```{r}
-#| label: tabs-poisson-weighted
-#| echo: false
-#| results: asis
-# -----------------------------------------------------------------------------
-# POISSON PSEUDO-MAXIMUM LIKELIHOOD (PPML) ON |w_ij|
-#
-# Following the gravity-econometrics convention (Santos Silva & Tenreyro 2006,
-# "The Log of Gravity", Review of Economics and Statistics), we re-estimate
-# the three specifications (homophily, sender/receiver, full) on the
-# absolute value of the recovered peer-effect weight |w_ij|, which is non-
-# negative and includes mass at zero (sparse network). PPML handles zeros
-# naturally, is robust to heteroskedasticity, and delivers coefficients that
-# are interpretable as elasticities for log-transformed regressors.
-#
-# Estimator: fepois (Poisson pseudo-maximum likelihood).
-# Outcome: abs_w = |w_ij|.
-# Covariates: same as the OLS/logit tables (log-transformed monadic vars,
-# log(1+FDI) bilateral).
-# Standard errors: two-way clustered on sender and receiver.
-#
-# Reuses est_mon_r, mon_vars_r, rhs_hom, rhs_sr, rhs_full, dict_r,
-# render_tex() from the `dyadic-prep` chunk.
-# -----------------------------------------------------------------------------
-
-suppressPackageStartupMessages({
-  library(dplyr)
-  library(fixest)
-})
-stopifnot(
-  exists("d9_r"), exists("d14_r"),
-  exists("rhs_hom"), exists("rhs_sr"), exists("rhs_full"),
-  exists("dict_r"), exists("render_tex")
-)
-
-# Add non-negative outcome |w_ij| to the dyadic datasets
-d9_r$abs_w <- abs(d9_r$weight)
-d14_r$abs_w <- abs(d14_r$weight)
-
-# PPML fitter with two-way clustered SE
-fit_p <- function(rhs, data) {
-  fepois(
-    reformulate(rhs, response = "abs_w"),
-    data = data,
+  "Environment" = feols(make_fml("weight"), d14_h,
     cluster = ~ country_i + country_j
   )
-}
-
-m_p_hom <- list(
-  "Quality (ISO 9001)"      = fit_p(rhs_hom, d9_r),
-  "Environment (ISO 14001)" = fit_p(rhs_hom, d14_r)
 )
-m_p_sr <- list(
-  "Quality (ISO 9001)"      = fit_p(rhs_sr, d9_r),
-  "Environment (ISO 14001)" = fit_p(rhs_sr, d14_r)
-)
-m_p_full <- list(
-  "Quality (ISO 9001)"      = fit_p(rhs_full, d9_r),
-  "Environment (ISO 14001)" = fit_p(rhs_full, d14_r)
-)
-
-# ---- Render the three PPML tables ----
-
-render_tex(
-  m_p_hom,
-  title = "PPML on $|\\hat w_{ij}|$, homophily specification, EU ($N=27$).",
-  label = "tab:p-hom",
-  notes = paste(
-    "Dependent variable: $|\\hat w_{ij}|$, the absolute value of the recovered",
-    "peer-effect weight (non-negative, with mass at zero).",
-    "Estimator: Poisson pseudo-maximum likelihood (PPML), following",
-    "Santos Silva and Tenreyro (2006, \\emph{Review of Economics and Statistics}).",
-    "PPML accommodates zeros without log-linearisation and is consistent under",
-    "heteroskedasticity.",
-    "Each monadic covariate enters as a homophily term",
-    "$|\\log(1+X_i) - \\log(1+X_j)|$; bilateral FDI enters as $\\log(1+\\text{FDI})$.",
-    "Coefficients on log-transformed regressors are interpretable as elasticities.",
-    "Two-way clustered standard errors on sender and receiver",
-    "(Cameron, Gelbach \\& Miller 2008)."
+m_h_ppml <- list(
+  "Quality" = fepois(make_fml("abs_w"), d9_h,
+    cluster = ~ country_i + country_j
+  ),
+  "Environment" = fepois(make_fml("abs_w"), d14_h,
+    cluster = ~ country_i + country_j
   )
 )
 
-render_tex(
-  m_p_sr,
-  title = "PPML on $|\\hat w_{ij}|$, sender/receiver specification, EU ($N=27$).",
-  label = "tab:p-sr",
-  notes = paste(
-    "Dependent variable: $|\\hat w_{ij}|$.",
-    "Estimator: Poisson pseudo-maximum likelihood (PPML), Santos Silva and",
-    "Tenreyro (2006).",
-    "Each monadic covariate enters separately as sender $\\log(1+X_i)$ and",
-    "receiver $\\log(1+X_j)$.",
-    "Two-way clustered standard errors on sender and receiver."
-  ),
-  landscape = TRUE
+# ----------------------------------------------------------------------------
+# 5. Render
+# ----------------------------------------------------------------------------
+dict_h <- c(
+  diff_pop     = "$|\\Delta|$ Population",
+  diff_gdp_pc  = "$|\\Delta|$ GDP per capita",
+  diff_gov_eff = "$|\\Delta|$ Gov.\\ effectiveness",
+  diff_rd      = "$|\\Delta|$ R\\&D personnel",
+  diff_trade   = "$|\\Delta|$ Trade openness",
+  diff_ghg     = "$|\\Delta|$ GHG emissions",
+  diff_renew   = "$|\\Delta|$ Renewables share",
+  diff_etax    = "$|\\Delta|$ Env.\\ tax revenue",
+  log_fdi      = "$\\log(1+\\mathrm{FDI}_{ij})$",
+  country_i    = "Sender FE ($\\alpha_i^{\\text{out}}$)",
+  country_j    = "Receiver FE ($\\alpha_j^{\\text{in}}$)"
 )
 
-render_tex(
-  m_p_full,
-  title = "PPML on $|\\hat w_{ij}|$, full specification (sender + receiver + homophily), EU ($N=27$).",
-  label = "tab:p-full",
-  notes = paste(
-    "Dependent variable: $|\\hat w_{ij}|$.",
-    "Estimator: Poisson pseudo-maximum likelihood (PPML), Santos Silva and",
-    "Tenreyro (2006).",
-    "Each monadic covariate enters jointly as sender $\\log(1+X_i)$, receiver",
-    "$\\log(1+X_j)$, and homophily $|\\log(1+X_i)-\\log(1+X_j)|$.",
-    "Two-way clustered standard errors on sender and receiver."
-  ),
-  landscape = TRUE
+render_h <- function(models, title, label, notes, fitstat) {
+  tex <- paste(capture.output(
+    etable(models,
+      tex = TRUE, title = title, label = label,
+      dict = dict_h, notes = notes,
+      headers = list("^_Network" = names(models)),
+      digits = 3, digits.stats = 3,
+      fitstat = fitstat,
+      style.tex = style.tex(
+        depvar.title = "", fixef.suffix = ":",
+        fixef.title  = "", var.title    = "",
+        model.title  = ""
+      )
+    )
+  ), collapse = "\n")
+  fn <- paste0("tab_", gsub("[-:]", "_", label), ".tex")
+  writeLines(tex, file.path(out_dir, fn))
+  cat(tex, sep = "\n")
+  cat("\n\n")
+}
+
+# ----------------------------------------------------------------------------
+# 6. Section
+# ----------------------------------------------------------------------------
+cat("\\newpage\n")
+cat("# Dyadic determinants of peer-effect links\n\n")
+
+cat("Following Dzemski (2018) and the dyadic linking framework reviewed in ")
+cat("de Paula (2020), we model each off-diagonal entry of the recovered ")
+cat("network as a function of pair-level covariates, with sender and receiver ")
+cat("fixed effects absorbing unobserved country-level propensity to send or ")
+cat("receive links:\n\n")
+
+cat("\\begin{equation}\n")
+cat("W_{ij} = \\mathbf{1}\\bigl(X_{ij}^{\\top}\\beta ")
+cat("+ \\alpha_i^{\\text{out}} + \\alpha_j^{\\text{in}} + \\epsilon_{ij} \\geq 0\\bigr)\n")
+cat("\\label{eq:dzemski}\n")
+cat("\\end{equation}\n\n")
+
+cat("The vector $X_{ij}$ collects pair-level covariates: eight homophily ")
+cat("terms $|\\log(1+X_i^k) - \\log(1+X_j^k)|$ spanning economic, ")
+cat("institutional, technological and environmental dimensions, plus ")
+cat("bilateral integration $\\log(1+\\mathrm{FDI}_{ij})$. Country-level ")
+cat("heterogeneity in the propensity to lead ($\\alpha_i^{\\text{out}}$) or ")
+cat("follow ($\\alpha_j^{\\text{in}}$) is absorbed into two-sided fixed ")
+cat("effects, so that $\\beta$ is identified only from within-pair variation ")
+cat("in similarity and bilateral ties.\n\n")
+
+cat("The outcome is estimated in three forms: the edge indicator ")
+cat("$g_{ij} = \\mathbb{1}\\{|\\hat w_{ij}|>10^{-5}\\}$ (logit), the signed ")
+cat("weight $\\hat w_{ij}$ (OLS), and its magnitude $|\\hat w_{ij}|$ (PPML; ")
+cat("Santos Silva and Tenreyro, 2006). Standard errors are clustered two-way ")
+cat("on sender and receiver (Fafchamps and Gubert, 2007).\n\n")
+
+render_h(m_h_logit,
+  title = "Link formation (logit) on edge indicator $g_{ij}$.",
+  label = "tab:dz-logit",
+  notes = "Sender and receiver FE absorbed. Two-way clustered SE.",
+  fitstat = ~ n + pr2 + bic
 )
+
+cat("\\emph{Comment.} Table \\ref{tab:dz-logit} identifies homophily and ")
+cat("bilateral effects net of country-level sender/receiver heterogeneity.\n\n")
+
+render_h(m_h_ols,
+  title = "Signed peer-effect weight (OLS) on $\\hat w_{ij}$.",
+  label = "tab:dz-ols",
+  notes = "Sender and receiver FE absorbed. Two-way clustered SE.",
+  fitstat = ~ n + r2 + ar2 + bic
+)
+
+cat("\\emph{Comment.} Corroborates link-formation evidence on the signed ")
+cat("strength margin.\n\n")
+
+render_h(m_h_ppml,
+  title = "Peer-effect magnitude (PPML) on $|\\hat w_{ij}|$.",
+  label = "tab:dz-ppml",
+  notes = "Sender and receiver FE absorbed. Two-way clustered SE. Coefficients are elasticities.",
+  fitstat = ~ n + pr2 + bic
+)
+
+cat("\\emph{Comment.} Coefficients robust across logit, OLS and PPML ")
+cat("constitute the main descriptive findings; differences between Quality ")
+cat("and Environment columns identify dimensions on which the two standards ")
+cat("diffuse through different pair-level channels.\n")
 ```
