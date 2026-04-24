@@ -652,109 +652,6 @@ Table \ref{tab:network_eu_same_lambda} confirms that the structural differences 
 country_labels <- sort(sync_eu)
 ```
 ```{r}
-#| label: dyadic-regression
-#| include: false
-library(fixest)
-
-load_wdi <- function(f, v, start_yr, end_yr) {
-  readr::read_csv(file.path(data_dir, f), skip = 4, show_col_types = FALSE) %>%
-    dplyr::select(country = 1, as.character(start_yr):as.character(end_yr)) %>%
-    tidyr::pivot_longer(-country, names_to = "year", values_to = v) %>%
-    dplyr::mutate(
-      year = as.integer(year),
-      !!v := as.numeric(as.character(.data[[v]]))
-    ) %>%
-    harmonise_names() %>%
-    dplyr::filter(country %in% sync_eu) %>%
-    dplyr::group_by(country) %>%
-    dplyr::summarise(!!v := mean(.data[[v]], na.rm = TRUE), .groups = "drop")
-}
-
-wdi_files <- list(
-  c("API_NY.GDP.PCAP.KD_DS2_en_csv_v2_234.csv", "gdp_pc"),
-  c("API_NE.TRD.GNFS.ZS_DS2_en_csv_v2_334.csv", "trade"),
-  c("API_RL.EST_DS2_en_csv_v2_1905.csv", "rol"),
-  c("API_EG.FEC.RNEW.ZS_DS2_en_csv_v2_4948.csv", "renew"),
-  c("API_NY.GDP.TOTL.RT.ZS_DS2_en_csv_v2_362.csv", "rent"),
-  c("API_AG.LND.FRST.ZS_DS2_en_csv_v2_215030.csv", "forest"),
-  c("API_EN.ATM.PM25.MC.M3_DS2_en_csv_v2_316.csv", "pm25"),
-  c("API_GC.XPN.TOTL.GD.ZS_DS2_en_csv_v2_608.csv", "gov_exp"),
-  c("API_GE.EST_DS2_en_csv_v2_213352.csv", "gov_eff"),
-  c("API_IP.PAT.RESD_DS2_en_csv_v2_213364.csv", "patents"),
-  c("API_SE.XPD.TOTL.GD.ZS_DS2_en_csv_v2_15.csv", "edu_exp")
-)
-
-country_vars_9001 <- purrr::reduce(
-  purrr::map(wdi_files, ~ load_wdi(.x[1], .x[2], 1993, 2017)),
-  dplyr::full_join,
-  by = "country"
-)
-country_vars_14001 <- purrr::reduce(
-  purrr::map(wdi_files, ~ load_wdi(.x[1], .x[2], 1999, 2017)),
-  dplyr::full_join,
-  by = "country"
-)
-
-make_dyadic <- function(rn, country_vars) {
-  W <- as.matrix(rn$unpenalisedgmm$W)
-  diag(W) <- 0
-  N <- nrow(W)
-  countries <- sort(sync_eu)
-  var_names <- setdiff(names(country_vars), "country")
-
-  dyads <- expand.grid(i = 1:N, j = 1:N) %>%
-    dplyr::filter(i != j) %>%
-    dplyr::mutate(
-      country_i = countries[i],
-      country_j = countries[j],
-      edge = as.integer(abs(W[cbind(i, j)]) > 1e-5),
-      weight = W[cbind(i, j)]
-    )
-
-  for (v in var_names) {
-    vals <- setNames(country_vars[[v]], country_vars$country)
-    dyads[[paste0("diff_", v)]] <- abs(vals[dyads$country_i] - vals[dyads$country_j])
-  }
-
-  dyads %>% tidyr::drop_na()
-}
-
-dyad_9001 <- make_dyadic(best[["9001_eu"]]$rn, country_vars_9001)
-dyad_14001 <- make_dyadic(best[["14001_eu"]]$rn, country_vars_14001)
-
-reg_vars <- c(
-  "diff_gdp_pc", "diff_trade", "diff_rol", "diff_renew", "diff_rent",
-  "diff_forest", "diff_pm25", "diff_gov_exp", "diff_gov_eff",
-  "diff_patents", "diff_edu_exp"
-)
-
-# --- Pooled OLS (baseline) ---
-fml_ols <- as.formula(paste("edge ~", paste(reg_vars, collapse = " + ")))
-ols_9001 <- lm(fml_ols, data = dyad_9001)
-ols_14001 <- lm(fml_ols, data = dyad_14001)
-
-# --- Sender + receiver FE, two-way clustered SEs ---
-fml_fe <- as.formula(paste(
-  "edge ~", paste(reg_vars, collapse = " + "),
-  "| country_i + country_j"
-))
-fe_9001 <- feols(fml_fe, data = dyad_9001, cluster = ~ country_i + country_j)
-fe_14001 <- feols(fml_fe, data = dyad_14001, cluster = ~ country_i + country_j)
-
-# --- Weighted versions ---
-fml_ols_w <- as.formula(paste("weight ~", paste(reg_vars, collapse = " + ")))
-ols_w_9001 <- lm(fml_ols_w, data = dyad_9001)
-ols_w_14001 <- lm(fml_ols_w, data = dyad_14001)
-
-fml_fe_w <- as.formula(paste(
-  "weight ~", paste(reg_vars, collapse = " + "),
-  "| country_i + country_j"
-))
-fe_w_9001 <- feols(fml_fe_w, data = dyad_9001, cluster = ~ country_i + country_j)
-fe_w_14001 <- feols(fml_fe_w, data = dyad_14001, cluster = ~ country_i + country_j)
-```
-
-```{r}
 #| label: fig-networks-weighted-full-2
 #| echo: false
 #| fig-width: 13
@@ -1493,65 +1390,56 @@ render_h <- function(models, title, label, notes, fitstat) {
 # ----------------------------------------------------------------------------
 # 6. Section
 # ----------------------------------------------------------------------------
-cat("\\newpage\n")
-cat("# Dyadic determinants of peer-effect links\n\n")
-
-cat("Following Dzemski (2018) and the dyadic linking framework reviewed in ")
-cat("de Paula (2020), we model each off-diagonal entry of the recovered ")
-cat("network as a function of pair-level covariates, with sender and receiver ")
-cat("fixed effects absorbing unobserved country-level propensity to send or ")
-cat("receive links:\n\n")
-
-cat("\\begin{equation}\n")
-cat("W_{ij} = \\mathbf{1}\\bigl(X_{ij}^{\\top}\\beta ")
-cat("+ \\alpha_i^{\\text{out}} + \\alpha_j^{\\text{in}} + \\epsilon_{ij} \\geq 0\\bigr)\n")
-cat("\\label{eq:dzemski}\n")
-cat("\\end{equation}\n\n")
-
-cat("The vector $X_{ij}$ collects pair-level covariates: eight homophily ")
-cat("terms $|\\log(1+X_i^k) - \\log(1+X_j^k)|$ spanning economic, ")
-cat("institutional, technological and environmental dimensions, plus ")
-cat("bilateral integration $\\log(1+\\mathrm{FDI}_{ij})$. Country-level ")
-cat("heterogeneity in the propensity to lead ($\\alpha_i^{\\text{out}}$) or ")
-cat("follow ($\\alpha_j^{\\text{in}}$) is absorbed into two-sided fixed ")
-cat("effects, so that $\\beta$ is identified only from within-pair variation ")
-cat("in similarity and bilateral ties.\n\n")
-
-cat("The outcome is estimated in three forms: the edge indicator ")
-cat("$g_{ij} = \\mathbb{1}\\{|\\hat w_{ij}|>10^{-5}\\}$ (logit), the signed ")
-cat("weight $\\hat w_{ij}$ (OLS), and its magnitude $|\\hat w_{ij}|$ (PPML; ")
-cat("Santos Silva and Tenreyro, 2006). Standard errors are clustered two-way ")
-cat("on sender and receiver (Fafchamps and Gubert, 2007).\n\n")
 
 render_h(m_h_logit,
-  title = "Link formation (logit) on edge indicator $g_{ij}$.",
+  title = "Dyadic Regression (logit) on edge indicator $g_{ij}$.",
   label = "tab:dz-logit",
   notes = "Sender and receiver FE absorbed. Two-way clustered SE.",
   fitstat = ~ n + pr2 + bic
 )
 
-cat("\\emph{Comment.} Table \\ref{tab:dz-logit} identifies homophily and ")
-cat("bilateral effects net of country-level sender/receiver heterogeneity.\n\n")
 
 render_h(m_h_ols,
-  title = "Signed peer-effect weight (OLS) on $\\hat w_{ij}$.",
+  title = "Dyadic Regression (OLS) on $\\hat w_{ij}$.",
   label = "tab:dz-ols",
   notes = "Sender and receiver FE absorbed. Two-way clustered SE.",
   fitstat = ~ n + r2 + ar2 + bic
 )
 
-cat("\\emph{Comment.} Corroborates link-formation evidence on the signed ")
-cat("strength margin.\n\n")
 
 render_h(m_h_ppml,
-  title = "Peer-effect magnitude (PPML) on $|\\hat w_{ij}|$.",
+  title = "Dyadic Regression (PPML) on $|\\hat w_{ij}|$.",
   label = "tab:dz-ppml",
   notes = "Sender and receiver FE absorbed. Two-way clustered SE. Coefficients are elasticities.",
   fitstat = ~ n + pr2 + bic
 )
-
-cat("\\emph{Comment.} Coefficients robust across logit, OLS and PPML ")
-cat("constitute the main descriptive findings; differences between Quality ")
-cat("and Environment columns identify dimensions on which the two standards ")
-cat("diffuse through different pair-level channels.\n")
 ```
+
+# Dyadic determinants of peer-effect links
+
+Following Dzemski (2018) and the dyadic linking framework reviewed in
+de Paula (2020), we model each off-diagonal entry of the recovered
+network as a function of pair-level covariates, with sender and receiver
+fixed effects absorbing unobserved country-level propensity to send or
+receive links:
+
+\begin{equation}
+W_{ij} = \mathbf{1}\bigl(X_{ij}^{\top}\beta + \alpha_i^{\text{out}} +
+\alpha_j^{\text{in}} + \epsilon_{ij} \geq 0\bigr)
+\label{eq:dzemski}
+\end{equation}
+
+The vector $X_{ij}$ collects pair-level covariates: eight homophily
+terms $|\log(1+X_i^k) - \log(1+X_j^k)|$ spanning economic, institutional,
+technological and environmental dimensions, plus bilateral integration
+$\log(1+\mathrm{FDI}_{ij})$. Country-level heterogeneity in the
+propensity to lead ($\alpha_i^{\text{out}}$) or follow
+($\alpha_j^{\text{in}}$) is absorbed into two-sided fixed effects, so
+that $\beta$ is identified only from within-pair variation in similarity
+and bilateral ties.
+
+The outcome is estimated in three forms: the edge indicator
+$g_{ij} = \mathbb{1}\{|\hat w_{ij}|>10^{-5}\}$ (logit), the signed
+weight $\hat w_{ij}$ (OLS), and its magnitude $|\hat w_{ij}|$ (PPML;
+Santos Silva and Tenreyro, 2006). Standard errors are clustered two-way
+on sender and receiver (Fafchamps and Gubert, 2007).
