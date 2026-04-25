@@ -248,9 +248,7 @@ sync_eu <- intersect(
 dp_9001_eu <- finalize_panel(f9001, sync_eu, "9001_EU (synced)")
 dp_14001_eu <- finalize_panel(f14001, sync_eu, "14001_EU (synced)")
 ```
- # Standardisation: log-difference of certifications.
-    #
-    # y_it = log(n_it + 1) - log(n_{i,t-1} + 1)
+
 ```{r}
 #| label: grid-search
 #| include: false
@@ -1443,3 +1441,15 @@ $g_{ij} = \mathbb{1}\{|\hat w_{ij}|>10^{-5}\}$ (logit), the signed
 weight $\hat w_{ij}$ (OLS), and its magnitude $|\hat w_{ij}|$ (PPML;
 Santos Silva and Tenreyro, 2006). Standard errors are clustered two-way
 on sender and receiver (Fafchamps and Gubert, 2007).
+
+```{r}
+#| label: check-goveff-nans
+#| echo: true
+cat(sprintf(
+  "NaN in log1p(gov_eff): %d / %d — range gov_eff: [%.2f, %.2f]\n",
+  sum(is.nan(log1p(mon_all_h$gov_eff))),
+  length(mon_all_h$gov_eff),
+  min(mon_all_h$gov_eff, na.rm = TRUE),
+  max(mon_all_h$gov_eff, na.rm = TRUE)
+))
+```
