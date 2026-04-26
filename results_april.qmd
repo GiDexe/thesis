@@ -496,7 +496,7 @@ cat("\\end{table}\n")
 
 Table \ref{tab:desc_stats} reports raw certification counts across EU countries. Quality adoption is roughly four times larger than Environment by 2017, yet the development-adjusted intensity (last column) suggests that the gap narrows once economic size is accounted for.
 
-## Netork recovery
+## Network recovery
 
 ```{r}
 #| label: table-eu
@@ -557,7 +557,7 @@ if (!is.null(best[["9001_eu"]]) && !is.null(best[["14001_eu"]])) {
     formatC(best[["14001_eu"]]$bic, format = "f", digits = 2)
   ))
   cat("\\hline\\hline\n\\end{tabular}\n")
-  cat("\\parbox{\\textwidth}{\\footnotesize \\textit{Notes:} This compares statistics from the BIC-selected estimated networks for Quality (ISO 9001, $T = 24$, 1993--2017) and Environment (ISO 14001, $T = 18$, 1999--2017) across 27 EU countries. The number of edges, edges in both networks, edges in $W_{\\text{Quality}}$ only, and edges in $W_{\\text{Environment}}$ only count the number of directed links in each category. Reciprocated edges is the frequency of in-edges that are reciprocated by out-edges. The clustering coefficient is the frequency of fully connected triplets over the total number of triplets. The degree distribution across nodes counts the average number of connections (standard deviation in parentheses), shown separately for in-degree and out-degree. $\\hat{\\rho}$ (GMM) is the post-LASSO estimate of the peer-effect parameter, interpretable as the speed of diffusion through the network. $\\lambda = (\\lambda_1, \\lambda_2, \\lambda_1^*)$ are the elastic net penalty parameters selected by BIC.}\n")
+  cat("\\parbox{\\textwidth}{\\footnotesize \\textit{Notes:} This compares statistics from the BIC-selected estimated networks for Quality (ISO 9001, $T = 24$, 1993--2017) and Environment (ISO 14001, $T = 18$, 1999--2017) across 27 EU countries. The number of edges, edges in both networks, edges in $W_{\\text{Quality}}$ only, and edges in $W_{\\text{Environment}}$ only count the number of directed links in each category. Reciprocated edges is the frequency of in-edges that are reciprocated by out-edges. The clustering coefficient is the frequency of fully connected triplets over the total number of triplets. The degree distribution across nodes counts the average number of connections (standard deviation in parentheses), shown separately for in-degree and out-degree. $\\hat{\\rho}$ (GMM) is the post-LASSO estimate of the peer-effect parameter. $\\lambda = (\\lambda_1, \\lambda_2, \\lambda_1^*)$ are the elastic net penalty parameters selected by BIC.}\n")
   cat("\\end{table}\n")
 } else {
   cat("\\textbf{EU table not available: one or both panels failed all grid runs.}\n")
@@ -566,10 +566,13 @@ if (!is.null(best[["9001_eu"]]) && !is.null(best[["14001_eu"]])) {
 
 The two networks are comparable in size despite the large difference in raw adoption volumes, suggesting that peer-effect channels operate at a similar density for both standards. The estimated $\hat{\rho}_{GMM}$ is reported at the bottom of Table \ref{tab:network_eu}. Reciprocated edges indicate country pairs with bidirectional influence.
 
+
+The two networks are similar in aggregate (34 vs 38 edges, comparable clustering and degree distributions) but share only 3 edges, so the standards differ in *who diffuses to whom* rather than in how much diffusion occurs. The estimated peer-effect parameter is higher for Environment ($\hat\rho = 0.236$) than for Quality ($\hat\rho = 0.151$), matching the cross-country imitation pattern in Albuquerque, Bronnenberg and Corbett (2007, Figure 5),  who in a Bass-type diffusion model estimate cross-country imitation coefficients of approximately 0.16 for Quality and 0.27 for Environment (averaging early and late adopters), attributing the gap to the installed base of Quality having reduced uncertainty about the value of management standards by the time Environment was introduced.
 ```{r}
 #| label: table-eu-same-lambda
 #| echo: false
 #| results: asis
+#| output: false
 shared_runs <- list()
 for (li in seq_along(lambda_grid)) {
   lam <- lambda_grid[[li]]
@@ -640,7 +643,6 @@ cat(sprintf("\\parbox{\\textwidth}{\\footnotesize \\textit{Notes:} Same as Table
 cat("\\end{table}\n")
 ```
 
-Table \ref{tab:network_eu_same_lambda} confirms that the structural differences between the two networks are not driven by the choice of penalty parameters: imposing a common $\lambda$ (selected by lowest average BIC across the two panels) yields similar network statistics.
 
 ## Network visualisation
 
@@ -748,88 +750,6 @@ plot_full_weighted_net(g_e_full, layout_e_full, "Environment — Environment lay
 ```
 
 ```{r}
-#| label: table-centrality-eigenvector
-#| echo: false
-#| results: asis
-# Eigenvector centrality separated by direction.
-# Convention: W[i,j] = influence of i on j (directed edge i -> j).
-#
-#   outward(i) = principal right eigvec of |W|   → high if i points to central nodes
-#   inward(i)  = principal right eigvec of |W|^T → high if i is pointed to by central nodes
-#
-eigen_centrality_2way <- function(W, countries) {
-  W_abs <- abs(W)
-  diag(W_abs) <- 0
-
-  pick_principal <- function(mat) {
-    eg <- eigen(mat, symmetric = FALSE)
-    idx <- which.max(Re(eg$values))
-    v <- abs(Re(eg$vectors[, idx]))
-    if (max(v) > 0) v / max(v) else rep(0, length(v))
-  }
-
-  tibble(
-    country = countries,
-    outward = pick_principal(W_abs),
-    inward  = pick_principal(t(W_abs))
-  )
-}
-
-N_TOP <- 7
-countries_sorted <- sort(sync_eu)
-W_q <- as.matrix(best[["9001_eu"]]$rn$unpenalisedgmm$W)
-W_e <- as.matrix(best[["14001_eu"]]$rn$unpenalisedgmm$W)
-
-ec_q <- eigen_centrality_2way(W_q, countries_sorted)
-ec_e <- eigen_centrality_2way(W_e, countries_sorted)
-
-top_n_str <- function(df, col, n) {
-  df |>
-    arrange(desc(.data[[col]])) |>
-    slice_head(n = n) |>
-    mutate(entry = sprintf("%s (%.3f)", country, .data[[col]])) |>
-    pull(entry)
-}
-
-q_out_e <- top_n_str(ec_q, "outward", N_TOP)
-q_in_e <- top_n_str(ec_q, "inward", N_TOP)
-e_out_e <- top_n_str(ec_e, "outward", N_TOP)
-e_in_e <- top_n_str(ec_e, "inward", N_TOP)
-
-cat("\\begin{table}[H]\n\\centering\n")
-cat("\\caption{Top ", N_TOP,
-  " countries by eigenvector centrality, by direction (EU, $N = 27$)}\n",
-  sep = ""
-)
-cat("\\label{tab:centrality_eigen}\n")
-cat("\\begin{tabular}{clcclc}\n\\hline\\hline\n")
-cat("& \\multicolumn{2}{c}{Quality} & & \\multicolumn{2}{c}{Environment} \\\\\n")
-cat("\\cmidrule(lr){2-3} \\cmidrule(lr){5-6}\n")
-cat("Rank & Outward & Inward & & Outward & Inward \\\\\n\\hline\n")
-for (r in seq_len(N_TOP)) {
-  cat(sprintf(
-    "%d & %s & %s & & %s & %s \\\\\n",
-    r, q_out_e[r], q_in_e[r], e_out_e[r], e_in_e[r]
-  ))
-}
-cat("\\hline\\hline\n\\end{tabular}\n")
-cat(
-  "\\parbox{\\textwidth}{\\footnotesize \\textit{Notes:} ",
-  "Eigenvector centrality computed on the absolute-value weighted recovered network $|\\hat W|$. ",
-  "Convention: $\\hat W_{ij}$ represents the influence of $i$ on $j$. ",
-  "\\emph{Outward} centrality is the principal right eigenvector of $|\\hat W|$: a country scores high ",
-  "if it influences other high-centrality countries. ",
-  "\\emph{Inward} centrality is the principal right eigenvector of $|\\hat W|^\\top$: a country scores ",
-  "high if it is influenced by other high-centrality countries. ",
-  "Both scores are normalised to $[0,1]$, with 1 assigned to the top-ranked country. ",
-  "Identical scores equal to 1 signal a reducible network with multiple strongly-connected components: ",
-  "the principal eigenvalue has multiplicity greater than one, and the returned eigenvectors reflect ",
-  "an arbitrary basis. PageRank (Table \\ref{tab:centrality_pagerank}) is the robust alternative in this case.}\n"
-)
-cat("\\end{table}\n")
-```
-
-```{r}
 #| label: table-cert-intensity
 #| echo: false
 #| results: asis
@@ -861,7 +781,7 @@ cat("\\begin{table}[H]\n\\centering\n")
 cat("\\caption{Certification intensity: ISO certificates per 1{,}000 active firms (2017, EU, $N = 27$)}\n")
 cat("\\label{tab:cert_intensity}\n")
 cat("\\begin{tabular}{lrrrrr}\n\\hline\\hline\n")
-cat("Country & Firms & 9001 & 14001 & 9001/1k firms & 14001/1k firms \\\\\n\\hline\n")
+cat("Country & Firms & Quality & Environment & Quality/1k firms & Environment/1k firms \\\\\n\\hline\n")
 for (i in seq_len(nrow(cert_intensity))) {
   r <- cert_intensity[i, ]
   cat(sprintf(
@@ -886,46 +806,100 @@ cat("\\end{table}\n")
 ```
 
 ```{r}
-#| label: table-centrality-pagerank
+#| label: table-centrality-eigenvector2
 #| echo: false
 #| results: asis
-# PageRank centrality separated by direction.
-# Convention: W[i,j] = influence of i on j (directed edge i -> j).
-#
-# igraph::page_rank gives high score to nodes that RECEIVE edges from high-PR
-# nodes. With our convention:
-#   inward(i)  = PR on original graph |W|    → receives from central nodes
-#   outward(i) = PR on reversed graph |W|^T  → sends to central nodes
-#
-# Damping d = 0.85 is the Page-Brin standard; teleportation probability 1-d
-# makes PR well-defined even on reducible or disconnected graphs.
-#
-pagerank_centrality_2way <- function(W, countries, damping = 0.85) {
+# Eigenvector centrality via igraph::eigen_centrality with scale = FALSE.
+# Outward = eigen_centrality on the reversed graph.
+
+make_weighted_graph <- function(W) {
   W_abs <- abs(W)
   diag(W_abs) <- 0
+  igraph::graph_from_adjacency_matrix(W_abs, mode = "directed", weighted = TRUE)
+}
 
-  g_in <- igraph::graph_from_adjacency_matrix(W_abs, mode = "directed", weighted = TRUE)
-  g_out <- igraph::graph_from_adjacency_matrix(t(W_abs), mode = "directed", weighted = TRUE)
+eigen_centrality_2way <- function(W, countries) {
+  g <- make_weighted_graph(W)
+  ec_in <- igraph::eigen_centrality(g, directed = TRUE)$vector
+  ec_out <- igraph::eigen_centrality(igraph::reverse_edges(g), directed = TRUE)$vector
+  tibble(country = countries, outward = ec_out, inward = ec_in)
+}
 
-  pr_in <- igraph::page_rank(g_in, damping = damping)$vector
-  pr_out <- igraph::page_rank(g_out, damping = damping)$vector
+N_TOP <- 5
 
-  norm01 <- function(x) if (max(x) > 0) x / max(x) else x
+countries_sorted <- sort(sync_eu)
+W_q <- as.matrix(best[["9001_eu"]]$rn$unpenalisedgmm$W)
+W_e <- as.matrix(best[["14001_eu"]]$rn$unpenalisedgmm$W)
 
-  tibble(
-    country = countries,
-    outward = norm01(pr_out),
-    inward  = norm01(pr_in)
-  )
+ec_q <- eigen_centrality_2way(W_q, countries_sorted)
+ec_e <- eigen_centrality_2way(W_e, countries_sorted)
+
+top_n_str <- function(df, col, n, digits = 3) {
+  fmt <- paste0("%s (%.", digits, "f)")
+  df |>
+    arrange(desc(.data[[col]])) |>
+    slice_head(n = n) |>
+    mutate(entry = sprintf(fmt, country, .data[[col]])) |>
+    pull(entry)
+}
+
+q_out_e <- top_n_str(ec_q, "outward", N_TOP)
+q_in_e <- top_n_str(ec_q, "inward", N_TOP)
+e_out_e <- top_n_str(ec_e, "outward", N_TOP)
+e_in_e <- top_n_str(ec_e, "inward", N_TOP)
+
+cat("\\begin{table}[H]\n\\centering\n")
+cat("\\caption{Top ", N_TOP,
+  " countries by eigenvector centrality, by direction (EU, $N = 27$)}\n",
+  sep = ""
+)
+cat("\\label{tab:centrality_eigen}\n")
+cat("\\begin{tabular}{clcclc}\n\\hline\\hline\n")
+cat("& \\multicolumn{2}{c}{Quality} & & \\multicolumn{2}{c}{Environment} \\\\\n")
+cat("\\cmidrule(lr){2-3} \\cmidrule(lr){5-6}\n")
+cat("Rank & Outward & Inward & & Outward & Inward \\\\\n\\hline\n")
+for (r in seq_len(N_TOP)) {
+  cat(sprintf(
+    "%d & %s & %s & & %s & %s \\\\\n",
+    r, q_out_e[r], q_in_e[r], e_out_e[r], e_in_e[r]
+  ))
+}
+cat("\\hline\\hline\n\\end{tabular}\n")
+cat(
+  "\\parbox{\\textwidth}{\\footnotesize \\textit{Notes:} ",
+  "Eigenvector centrality computed via \\texttt{igraph::eigen\\_centrality()} on the absolute-value ",
+  "weighted recovered network $|\\hat W|$. Scores are normalised so that the maximum entry equals 1 ",
+  "(\\texttt{igraph} 2.1.1+ enforces normalisation regardless of the \\texttt{scale} argument). ",
+  "Convention: $\\hat W_{ij}$ is the influence of $i$ on $j$. ",
+  "\\emph{Outward} centrality is computed on the reversed graph, \\emph{inward} on the graph as ",
+  "stated. On reducible networks the principal eigenvalue can have multiplicity greater than one ",
+  "and the returned eigenvector reflects an arbitrary basis; PageRank ",
+  "(Table \\ref{tab:centrality_pagerank}) is the robust alternative in that case.}\n"
+)
+cat("\\end{table}\n")
+```
+
+```{r}
+#| label: table-centrality-pagerank2
+#| echo: false
+#| results: asis
+# PageRank via igraph::page_rank (default damping = 0.85).
+# Outward = page_rank on the reversed graph.
+
+pagerank_centrality_2way <- function(W, countries) {
+  g <- make_weighted_graph(W)
+  pr_in <- igraph::page_rank(g)$vector
+  pr_out <- igraph::page_rank(igraph::reverse_edges(g))$vector
+  tibble(country = countries, outward = pr_out, inward = pr_in)
 }
 
 pc_q <- pagerank_centrality_2way(W_q, countries_sorted)
 pc_e <- pagerank_centrality_2way(W_e, countries_sorted)
 
-q_out_p <- top_n_str(pc_q, "outward", N_TOP)
-q_in_p <- top_n_str(pc_q, "inward", N_TOP)
-e_out_p <- top_n_str(pc_e, "outward", N_TOP)
-e_in_p <- top_n_str(pc_e, "inward", N_TOP)
+q_out_p <- top_n_str(pc_q, "outward", N_TOP, digits = 4)
+q_in_p <- top_n_str(pc_q, "inward", N_TOP, digits = 4)
+e_out_p <- top_n_str(pc_e, "outward", N_TOP, digits = 4)
+e_in_p <- top_n_str(pc_e, "inward", N_TOP, digits = 4)
 
 cat("\\begin{table}[H]\n\\centering\n")
 cat("\\caption{Top ", N_TOP,
@@ -946,88 +920,32 @@ for (r in seq_len(N_TOP)) {
 cat("\\hline\\hline\n\\end{tabular}\n")
 cat(
   "\\parbox{\\textwidth}{\\footnotesize \\textit{Notes:} ",
-  "PageRank centrality computed on the absolute-value weighted recovered network $|\\hat W|$, ",
-  "damping factor $d = 0.85$. Convention: $\\hat W_{ij}$ represents the influence of $i$ on $j$. ",
-  "\\emph{Outward} centrality is PageRank on the reversed graph ($|\\hat W|^\\top$): a country scores ",
-  "high if it points to high-PageRank countries. ",
-  "\\emph{Inward} centrality is PageRank on the graph as stated ($|\\hat W|$): a country scores high ",
-  "if it is pointed to by high-PageRank countries. ",
-  "Both scores are normalised to $[0,1]$, with 1 assigned to the top-ranked country. ",
-  "Unlike eigenvector centrality (Table \\ref{tab:centrality_eigen}), PageRank is well-defined on ",
-  "reducible networks thanks to the teleportation probability, avoiding the degenerate ties visible ",
-  "in the eigenvector version on sparse networks.}\n"
+  "PageRank centrality computed via \\texttt{igraph::page\\_rank()} on the absolute-value weighted ",
+  "recovered network $|\\hat W|$ (default damping factor $d = 0.85$). Convention: $\\hat W_{ij}$ ",
+  "is the influence of $i$ on $j$. \\emph{Outward} centrality is PageRank on the reversed graph; ",
+  "\\emph{inward} is on the graph as stated. PageRank values form a probability distribution over ",
+  "nodes (each column sums to 1); a uniform PageRank across $N=27$ nodes would assign ",
+  "$1/27 \\approx 0.0370$ to each. Unlike eigenvector centrality, PageRank is well-defined on ",
+  "reducible networks thanks to the teleportation probability.}\n"
 )
 cat("\\end{table}\n")
 ```
 
+
 ```{r}
-#| label: table-centrality-katz
+#| label: table-centrality-katz2
 #| echo: false
 #| results: asis
-# Katz-Bonacich centrality with direction-aware interpretation.
-#
-# Definition (classic Katz, walks of length >= 1):
-#   c = alpha * M^T * (I - alpha * M^T)^{-1} * 1 = (I - alpha * M^T)^{-1} * 1 - 1
-#
-# We subtract the length-0 term (the leading 1) so that isolated nodes
-# (no outgoing or no incoming edges, depending on direction) receive
-# score 0, not 1. This is the source of the spurious 1.000 ties
-# observed earlier on sparse networks.
-#
-# Convention: W[i,j] = influence of i on j.
-#   outward(i) := Katz on W    -> walks of length >= 1 starting at i in W
-#                                (i is the source)
-#   inward(i)  := Katz on W^T  -> walks of length >= 1 ending at i in W
-#                                (i is the target)
-#
-# Note: solve(I - alpha * M^T, 1) returns sum_{k>=0} alpha^k (M^T)^k * 1,
-# whose i-th component counts walks ENDING at i under M. So:
-#   solve(I - alpha * t(W), 1) - 1  counts walks ending at i under W =
-#                                    inward centrality of i under W
-#   solve(I - alpha * t(t(W)), 1) - 1 = solve(I - alpha * W, 1) - 1
-#                                    counts walks ending at i under W^T =
-#                                    walks starting from i under W =
-#                                    outward centrality of i under W
+# Katz / alpha-centrality via centiserve::katzcent (default alpha = 0.1).
+# centiserve::katzcent works on igraph objects and uses a sensible default
+# (alpha = 0.1) that is below 1/rho for typical networks.
+# Outward = katzcent on the reversed graph.
 
-katz_centrality_2way <- function(W, countries, alpha_frac = 0.5) {
-  W_abs <- abs(W)
-  diag(W_abs) <- 0
-  N <- nrow(W_abs)
-
-  safe_katz_endings <- function(M, alpha_frac) {
-    # Returns: for each i, sum over walks of length >= 1 that END at i under M
-    eg <- eigen(M, only.values = TRUE, symmetric = FALSE)
-    rho <- max(Mod(eg$values))
-    if (rho < 1e-10) {
-      return(rep(0, N))
-    }
-    alpha <- alpha_frac / rho
-    tryCatch(
-      {
-        full <- as.numeric(solve(diag(N) - alpha * t(M), rep(1, N)))
-        full - 1 # drop the length-0 term so isolates map to 0
-      },
-      error = function(e) rep(NA_real_, N)
-    )
-  }
-
-  norm01 <- function(x) {
-    if (all(is.na(x)) || max(x, na.rm = TRUE) <= 0) {
-      return(x)
-    }
-    x / max(x, na.rm = TRUE)
-  }
-
-  # outward: walks starting at i in W = walks ending at i in W^T
-  # inward:  walks ending at i in W
-  out_score <- safe_katz_endings(t(W_abs), alpha_frac) # pass W^T -> counts endings in W^T = starts in W
-  in_score <- safe_katz_endings(W_abs, alpha_frac) # pass W   -> counts endings in W
-
-  tibble(
-    country = countries,
-    outward = norm01(out_score),
-    inward  = norm01(in_score)
-  )
+katz_centrality_2way <- function(W, countries) {
+  g <- make_weighted_graph(W)
+  kc_in <- igraph::alpha_centrality(g, alpha = 0.1, exo = 1)
+  kc_out <- igraph::alpha_centrality(igraph::reverse_edges(g), alpha = 0.1, exo = 1)
+  tibble(country = countries, outward = as.numeric(kc_out), inward = as.numeric(kc_in))
 }
 
 kc_q <- katz_centrality_2way(W_q, countries_sorted)
@@ -1040,7 +958,7 @@ e_in_k <- top_n_str(kc_e, "inward", N_TOP)
 
 cat("\\begin{table}[H]\n\\centering\n")
 cat("\\caption{Top ", N_TOP,
-  " countries by Katz--Bonacich centrality, by direction (EU, $N = 27$)}\n",
+  " countries by Katz centrality, by direction (EU, $N = 27$)}\n",
   sep = ""
 )
 cat("\\label{tab:centrality_katz}\n")
@@ -1057,17 +975,12 @@ for (r in seq_len(N_TOP)) {
 cat("\\hline\\hline\n\\end{tabular}\n")
 cat(
   "\\parbox{\\textwidth}{\\footnotesize \\textit{Notes:} ",
-  "Katz--Bonacich centrality on the absolute-value weighted recovered network $|\\hat W|$, ",
-  "computed as $\\mathbf{c} = \\alpha M^\\top (I - \\alpha M^\\top)^{-1} \\mathbf{1}$ with ",
-  "$\\alpha = 0.5/\\rho(M)$ and $M \\in \\{|\\hat W|, |\\hat W|^\\top\\}$ for outward and inward ",
-  "respectively. The formulation counts only walks of length $\\ell \\geq 1$, so nodes with ",
-  "no outgoing (resp.\\ incoming) edges receive score 0. ",
+  "Katz centrality computed via \\texttt{centiserve::katzcent()} on the absolute-value weighted ",
+  "recovered network $|\\hat W|$ (default attenuation factor $\\alpha = 0.1$). ",
   "Convention: $\\hat W_{ij}$ is the influence of $i$ on $j$. ",
-  "\\emph{Outward}($i$) aggregates weights of walks originating at $i$; ",
-  "\\emph{inward}($i$) aggregates walks terminating at $i$. ",
-  "Walks of length $\\ell$ are attenuated by $\\alpha^\\ell$; the choice $\\alpha_{\\text{frac}} = 0.5$ ",
-  "balances direct connections (dominant) with higher-order network structure (secondary). ",
-  "Both scores are normalised to $[0,1]$, with 1 assigned to the top-ranked country.}\n"
+  "\\emph{Outward} centrality is computed ",
+  "on the reversed graph, \\emph{inward} on the graph as stated. Katz centrality counts walks of ",
+  "all lengths reaching each node, attenuated by $\\alpha^\\ell$ to ensure convergence.}\n"
 )
 cat("\\end{table}\n")
 ```
@@ -1076,6 +989,7 @@ cat("\\end{table}\n")
 #| label: table-centrality-strength
 #| echo: false
 #| results: asis
+#| output: false
 # Weighted out-strength and in-strength (directed degree centrality).
 #
 # Convention: W[i,j] = influence of i on j (directed edge i -> j).
@@ -1142,9 +1056,42 @@ cat(
 )
 cat("\\end{table}\n")
 ```
+PageRank centrality allows for a clear ranking of countries. The results are consistent with prior expectations: established EU economies (Germany and Austria for Quality) emerge as the main outward influencers, and established economies regarded as "green" (Sweden, Germany and Finland for Environment). Slovenia in particular ranks high on the Environment side, plausibly reflecting its integration into German supply chains and active engagement on sustainability commitments. The two standards display visibly different leader and follower dynamics.
+
+# Dyadic determinants of peer-effect links
+
+Following Dzemski (2018) and the dyadic linking framework reviewed in
+de Paula (2020), I model each off-diagonal entry of the recovered
+network as a function of pair-level covariates, with sender and receiver
+fixed effects absorbing unobserved country-level propensity to send or
+receive links:
+
+\begin{equation}
+W_{ij} = \mathbf{1}\bigl(X_{ij}^{\top}\beta + \alpha_i^{\text{out}} +
+\alpha_j^{\text{in}} + \epsilon_{ij} \geq 0\bigr)
+\label{eq:dzemski}
+\end{equation}
+
+The vector $X_{ij}$ collects pair-level covariates: eight homophily
+terms $|\log(1+X_i^k) - \log(1+X_j^k)|$ spanning economic, institutional,
+technological and environmental dimensions, plus bilateral integration
+$\log(1+\mathrm{FDI}_{ij})$. Country-level heterogeneity in the
+propensity to lead ($\alpha_i^{\text{out}}$) or follow
+($\alpha_j^{\text{in}}$) is absorbed into two-sided fixed effects, so
+that $\beta$ is identified only from within-pair variation in similarity
+and bilateral ties.
+
+The outcome is estimated in three forms: the edge indicator
+$g_{ij} = \mathbb{1}\{|\hat w_{ij}|>10^{-5}\}$ (logit), the signed
+weight $\hat w_{ij}$ (OLS), and its magnitude $|\hat w_{ij}|$ (PPML;
+Santos Silva and Tenreyro, 2006). Standard errors are clustered two-way
+on sender and receiver (Fafchamps and Gubert, 2007).
+
+
+The two standards may indeed be diffusing on different channels. For Quality, FDI is positive and significant across all the specifications (with fixed effects) while no homophily term reaches conventional significance: ISO 9001 (Quality), apparently and consistently with previous literature,travels along supply-chain investment ties. For Environment FDI is null, but Government Effectiveness similarity is significant and negative, indicating homophily: ISO 14001 (Environment) diffusion concentrates within governance-quality clusters rather than bridging across them. Some specifications seem to also indicate that there is an influence of Research and Development intensity for the diffusion of Environmental standards, possibly suggesting that influencers in its adoption may be more likely to be innovation leaders, and that would be coherent with PageRank results. When Sender/receiver fixed effects are not included, none of the covariates is significant (results not included in the document).
 
 ```{r}
-#| label: dzemski-main
+#| label: dzemski-tables-2
 #| echo: false
 #| results: asis
 #| warning: false
@@ -1269,12 +1216,15 @@ mon_vars_h <- c(
 )
 
 # ----------------------------------------------------------------------------
-# 3. Dyadic data
+# 3. Dyadic data — tab2: gov_eff in livelli
 # ----------------------------------------------------------------------------
 cs_h <- sort(sync_eu)
 N_h <- length(cs_h)
 
-build_dyad_h <- function(rn) {
+log_vars_2 <- c("pop", "gdp_pc", "rd", "trade", "ghg", "renew", "etax")
+# gov_eff intenzionalmente escluso: indice WGI già in [-2.5, 2.5]
+
+build_dyad_2 <- function(rn) {
   W <- as.matrix(rn$unpenalisedgmm$W)
   diag(W) <- 0
   g <- expand.grid(i = seq_len(N_h), j = seq_len(N_h), KEEP.OUT.ATTRS = FALSE)
@@ -1285,7 +1235,9 @@ build_dyad_h <- function(rn) {
 
   diff_terms <- list()
   for (v in mon_vars_h) {
-    x <- setNames(log1p(as.numeric(mon_all_h[[v]])), mon_all_h$country)
+    raw <- as.numeric(mon_all_h[[v]])
+    x_clean <- if (v %in% log_vars_2) log1p(raw) else raw
+    x <- setNames(x_clean, mon_all_h$country)
     diff_terms[[paste0("diff_", v)]] <- as.numeric(abs(x[ci] - x[cj]))
   }
 
@@ -1308,11 +1260,11 @@ build_dyad_h <- function(rn) {
   ), stringsAsFactors = FALSE)
 }
 
-d9_h <- build_dyad_h(best[["9001_eu"]]$rn)
-d14_h <- build_dyad_h(best[["14001_eu"]]$rn)
+d9_2 <- build_dyad_2(best[["9001_eu"]]$rn)
+d14_2 <- build_dyad_2(best[["14001_eu"]]$rn)
 
 # ----------------------------------------------------------------------------
-# 4. Fit: Dzemski (2018) specification with sender and receiver FE
+# 4. Fit
 # ----------------------------------------------------------------------------
 rhs_h <- c(paste0("diff_", mon_vars_h), "log_fdi")
 fe_part <- "country_i + country_j"
@@ -1320,29 +1272,29 @@ make_fml <- function(y) {
   as.formula(paste(y, "~", paste(rhs_h, collapse = " + "), "|", fe_part))
 }
 
-m_h_logit <- list(
-  "Quality" = feglm(make_fml("edge"), d9_h,
+m2_logit <- list(
+  "Quality" = feglm(make_fml("edge"), d9_2,
     family = binomial("logit"),
     cluster = ~ country_i + country_j
   ),
-  "Environment" = feglm(make_fml("edge"), d14_h,
+  "Environment" = feglm(make_fml("edge"), d14_2,
     family = binomial("logit"),
     cluster = ~ country_i + country_j
   )
 )
-m_h_ols <- list(
-  "Quality" = feols(make_fml("weight"), d9_h,
+m2_ols <- list(
+  "Quality" = feols(make_fml("weight"), d9_2,
     cluster = ~ country_i + country_j
   ),
-  "Environment" = feols(make_fml("weight"), d14_h,
+  "Environment" = feols(make_fml("weight"), d14_2,
     cluster = ~ country_i + country_j
   )
 )
-m_h_ppml <- list(
-  "Quality" = fepois(make_fml("abs_w"), d9_h,
+m2_ppml <- list(
+  "Quality" = fepois(make_fml("abs_w"), d9_2,
     cluster = ~ country_i + country_j
   ),
-  "Environment" = fepois(make_fml("abs_w"), d14_h,
+  "Environment" = fepois(make_fml("abs_w"), d14_2,
     cluster = ~ country_i + country_j
   )
 )
@@ -1350,25 +1302,25 @@ m_h_ppml <- list(
 # ----------------------------------------------------------------------------
 # 5. Render
 # ----------------------------------------------------------------------------
-dict_h <- c(
-  diff_pop     = "$|\\Delta|$ Population",
-  diff_gdp_pc  = "$|\\Delta|$ GDP per capita",
+dict_2 <- c(
+  diff_pop     = "$|\\Delta \\log|$ Population",
+  diff_gdp_pc  = "$|\\Delta \\log|$ GDP per capita",
   diff_gov_eff = "$|\\Delta|$ Gov.\\ effectiveness",
-  diff_rd      = "$|\\Delta|$ R\\&D personnel",
-  diff_trade   = "$|\\Delta|$ Trade openness",
-  diff_ghg     = "$|\\Delta|$ GHG emissions",
-  diff_renew   = "$|\\Delta|$ Renewables share",
-  diff_etax    = "$|\\Delta|$ Env.\\ tax revenue",
+  diff_rd      = "$|\\Delta \\log|$ R\\&D personnel",
+  diff_trade   = "$|\\Delta \\log|$ Trade openness",
+  diff_ghg     = "$|\\Delta \\log|$ GHG emissions",
+  diff_renew   = "$|\\Delta \\log|$ Renewables share",
+  diff_etax    = "$|\\Delta \\log|$ Env.\\ tax revenue",
   log_fdi      = "$\\log(1+\\mathrm{FDI}_{ij})$",
   country_i    = "Sender FE ($\\alpha_i^{\\text{out}}$)",
   country_j    = "Receiver FE ($\\alpha_j^{\\text{in}}$)"
 )
 
-render_h <- function(models, title, label, notes, fitstat) {
+render_2 <- function(models, title, label, notes, fitstat) {
   tex <- paste(capture.output(
     etable(models,
       tex = TRUE, title = title, label = label,
-      dict = dict_h, notes = notes,
+      dict = dict_2, notes = notes,
       headers = list("^_Network" = names(models)),
       digits = 3, digits.stats = 3,
       fitstat = fitstat,
@@ -1385,71 +1337,430 @@ render_h <- function(models, title, label, notes, fitstat) {
   cat("\n\n")
 }
 
-# ----------------------------------------------------------------------------
-# 6. Section
-# ----------------------------------------------------------------------------
+note_2 <- paste(
+  "Log-homophily covariates constructed as $|\\log(1+X_i)-\\log(1+X_j)|$.",
+  "Government Effectiveness (WGI) enters in levels as it already lies in $[-2.5, 2.5]$.",
+  "Sender and receiver FE absorbed. Two-way clustered SE."
+)
 
-render_h(m_h_logit,
-  title = "Dyadic Regression (logit) on edge indicator $g_{ij}$.",
-  label = "tab:dz-logit",
-  notes = "Sender and receiver FE absorbed. Two-way clustered SE.",
+render_2(m2_logit,
+  title   = "Dyadic Regression (logit) on edge indicator $g_{ij}$.",
+  label   = "tab:dz-logit-2",
+  notes   = note_2,
   fitstat = ~ n + pr2 + bic
 )
 
-
-render_h(m_h_ols,
-  title = "Dyadic Regression (OLS) on $\\hat w_{ij}$.",
-  label = "tab:dz-ols",
-  notes = "Sender and receiver FE absorbed. Two-way clustered SE.",
+render_2(m2_ols,
+  title   = "Dyadic Regression (OLS) on $\\hat w_{ij}$.",
+  label   = "tab:dz-ols-2",
+  notes   = note_2,
   fitstat = ~ n + r2 + ar2 + bic
 )
 
-
-render_h(m_h_ppml,
-  title = "Dyadic Regression (PPML) on $|\\hat w_{ij}|$.",
-  label = "tab:dz-ppml",
-  notes = "Sender and receiver FE absorbed. Two-way clustered SE. Coefficients are elasticities.",
+render_2(m2_ppml,
+  title   = "Dyadic Regression (PPML) on $|\\hat w_{ij}|$.",
+  label   = "tab:dz-ppml-2",
+  notes   = paste(note_2, "Coefficients are elasticities."),
   fitstat = ~ n + pr2 + bic
 )
 ```
 
-# Dyadic determinants of peer-effect links
+```{r}
+#| label: dzemski-tables-3
+#| echo: false
+#| results: asis
+#| warning: false
+#| message: false
+suppressPackageStartupMessages({
+  library(fixest)
+  library(dplyr)
+  library(tidyr)
+  library(readr)
+  library(purrr)
+})
 
-Following Dzemski (2018) and the dyadic linking framework reviewed in
-de Paula (2020), we model each off-diagonal entry of the recovered
-network as a function of pair-level covariates, with sender and receiver
-fixed effects absorbing unobserved country-level propensity to send or
-receive links:
+# ----------------------------------------------------------------------------
+# 1. Eurostat monadic + bilateral FDI
+# ----------------------------------------------------------------------------
+eu_map <- c(
+  AT = "Austria", BE = "Belgium", BG = "Bulgaria", CY = "Cyprus",
+  CZ = "Czech Republic", DE = "Germany", DK = "Denmark", EE = "Estonia",
+  EL = "Greece", ES = "Spain", FI = "Finland", FR = "France",
+  HR = "Croatia", HU = "Hungary", IE = "Ireland", IT = "Italy",
+  LT = "Lithuania", LU = "Luxembourg", LV = "Latvia", MT = "Malta",
+  NL = "Netherlands", PL = "Poland", PT = "Portugal", RO = "Romania",
+  SE = "Sweden", SI = "Slovenia", SK = "Slovak Republic"
+)
+eu_codes <- names(eu_map)
 
-\begin{equation}
-W_{ij} = \mathbf{1}\bigl(X_{ij}^{\top}\beta + \alpha_i^{\text{out}} +
-\alpha_j^{\text{in}} + \epsilon_{ij} \geq 0\bigr)
-\label{eq:dzemski}
-\end{equation}
+rd <- function(n) {
+  readr::read_csv(
+    file.path(data_dir, n),
+    show_col_types = FALSE,
+    col_types = cols(sex = col_character(), .default = col_guess())
+  ) |>
+    dplyr::rename_with(~ tolower(gsub(" ", "_", .))) |>
+    dplyr::mutate(obs_value = suppressWarnings(as.numeric(obs_value))) |>
+    dplyr::filter(!is.na(obs_value))
+}
 
-The vector $X_{ij}$ collects pair-level covariates: eight homophily
-terms $|\log(1+X_i^k) - \log(1+X_j^k)|$ spanning economic, institutional,
-technological and environmental dimensions, plus bilateral integration
-$\log(1+\mathrm{FDI}_{ij})$. Country-level heterogeneity in the
-propensity to lead ($\alpha_i^{\text{out}}$) or follow
-($\alpha_j^{\text{in}}$) is absorbed into two-sided fixed effects, so
-that $\beta$ is identified only from within-pair variation in similarity
-and bilateral ties.
+fdi_h <- rd("estat_bop_fdi6_pos_en.csv.gz") |>
+  dplyr::filter(
+    stk_flow == "ASS", fdi_item == "DI__D__F", currency == "MIO_EUR",
+    nace_r2 == "FDI", counterp == "IMM", entity == "TOTAL",
+    geo %in% eu_codes, partner %in% eu_codes, geo != partner
+  ) |>
+  dplyr::group_by(geo, partner) |>
+  dplyr::summarise(fdi = mean(obs_value, na.rm = TRUE), .groups = "drop") |>
+  dplyr::mutate(country_i = eu_map[geo], country_j = eu_map[partner]) |>
+  dplyr::select(country_i, country_j, fdi)
 
-The outcome is estimated in three forms: the edge indicator
-$g_{ij} = \mathbb{1}\{|\hat w_{ij}|>10^{-5}\}$ (logit), the signed
-weight $\hat w_{ij}$ (OLS), and its magnitude $|\hat w_{ij}|$ (PPML;
-Santos Silva and Tenreyro, 2006). Standard errors are clustered two-way
-on sender and receiver (Fafchamps and Gubert, 2007).
+mon_collect <- function(df) {
+  df |>
+    dplyr::filter(geo %in% eu_codes) |>
+    dplyr::group_by(geo) |>
+    dplyr::summarise(v = mean(obs_value, na.rm = TRUE), .groups = "drop") |>
+    dplyr::mutate(country = eu_map[geo]) |>
+    dplyr::select(country, v) |>
+    dplyr::filter(!is.nan(v))
+}
+
+pop_h <- rd("estat_demo_gind_en.csv.gz") |>
+  dplyr::filter(indic_de == "JAN") |>
+  mon_collect() |>
+  dplyr::rename(pop = v)
+
+etax_raw <- rd("estat_env_ac_taxind2_en.csv.gz") |>
+  dplyr::filter(tax == "ENV", unit == "MIO_EUR")
+etax_nace <- if ("TOTAL" %in% etax_raw$nace_r2) "TOTAL" else if ("A" %in% etax_raw$nace_r2) "A" else unique(etax_raw$nace_r2)[1]
+etax_h <- etax_raw |>
+  dplyr::filter(nace_r2 == etax_nace) |>
+  mon_collect() |>
+  dplyr::rename(etax = v)
+
+ghg_raw <- rd("estat_env_air_gge_en.csv.gz") |>
+  dplyr::filter(airpol == "GHG", unit == "MIO_T")
+ghg_src <- if ("TOTXMEMO" %in% ghg_raw$src_crf) "TOTXMEMO" else if ("TOTX4_MEMO" %in% ghg_raw$src_crf) "TOTX4_MEMO" else unique(ghg_raw$src_crf)[1]
+ghg_h <- ghg_raw |>
+  dplyr::filter(src_crf == ghg_src) |>
+  mon_collect() |>
+  dplyr::rename(ghg = v)
+
+rd_h <- rd("estat_rd_p_persocc_en.csv.gz") |>
+  dplyr::filter(sectperf == "TOTAL", prof_pos == "TOTAL", sex == "T", unit == "FTE") |>
+  mon_collect() |>
+  dplyr::rename(rd = v)
+
+est_mon_h <- pop_h |>
+  dplyr::full_join(etax_h, "country") |>
+  dplyr::full_join(ghg_h, "country") |>
+  dplyr::full_join(rd_h, "country")
+
+# ----------------------------------------------------------------------------
+# 2. WDI monadic
+# ----------------------------------------------------------------------------
+load_wdi_mean <- function(f, v, start_yr = 1999, end_yr = 2017) {
+  readr::read_csv(file.path(data_dir, f), skip = 4, show_col_types = FALSE) |>
+    dplyr::select(country = 1, as.character(start_yr):as.character(end_yr)) |>
+    tidyr::pivot_longer(-country, names_to = "year", values_to = "v") |>
+    dplyr::mutate(v = suppressWarnings(as.numeric(v))) |>
+    harmonise_names() |>
+    dplyr::filter(country %in% sync_eu) |>
+    dplyr::group_by(country) |>
+    dplyr::summarise(!!v := mean(v, na.rm = TRUE), .groups = "drop")
+}
+
+wdi_files_h <- list(
+  c("API_NY.GDP.PCAP.KD_DS2_en_csv_v2_234.csv", "gdp_pc"),
+  c("API_NE.TRD.GNFS.ZS_DS2_en_csv_v2_334.csv", "trade"),
+  c("API_GE.EST_DS2_en_csv_v2_213352.csv", "gov_eff"),
+  c("API_EG.FEC.RNEW.ZS_DS2_en_csv_v2_4948.csv", "renew")
+)
+
+wdi_h <- purrr::reduce(
+  purrr::map(wdi_files_h, ~ load_wdi_mean(.x[1], .x[2])),
+  dplyr::full_join,
+  by = "country"
+)
+
+mon_all_h <- dplyr::full_join(est_mon_h, wdi_h, by = "country")
+
+mon_vars_h <- c(
+  "pop", "gdp_pc", "gov_eff", "rd", "trade",
+  "ghg", "renew", "etax"
+)
+
+# ----------------------------------------------------------------------------
+# 3. Dyadic data — TUTTO IN LIVELLI
+# ----------------------------------------------------------------------------
+cs_h <- sort(sync_eu)
+N_h <- length(cs_h)
+
+build_dyad_2 <- function(rn) {
+  W <- as.matrix(rn$unpenalisedgmm$W)
+  diag(W) <- 0
+  g <- expand.grid(i = seq_len(N_h), j = seq_len(N_h), KEEP.OUT.ATTRS = FALSE)
+  g <- g[g$i != g$j, ]
+  ci <- cs_h[g$i]
+  cj <- cs_h[g$j]
+  wt <- as.numeric(W[cbind(g$i, g$j)])
+
+  diff_terms <- list()
+  for (v in mon_vars_h) {
+    x <- setNames(as.numeric(mon_all_h[[v]]), mon_all_h$country)
+    diff_terms[[paste0("diff_", v)]] <- as.numeric(abs(x[ci] - x[cj]))
+  }
+
+  k <- paste(ci, cj, sep = "||")
+  fdi_lk <- setNames(
+    as.numeric(fdi_h$fdi),
+    paste(fdi_h$country_i, fdi_h$country_j, sep = "||")
+  )
+  fv <- unname(as.numeric(fdi_lk[k]))
+  fv[is.na(fv) | fv < 0] <- 0
+
+  as.data.frame(c(
+    list(
+      country_i = ci, country_j = cj,
+      weight = wt, abs_w = abs(wt),
+      edge = as.integer(abs(wt) > 1e-5),
+      log_fdi = log1p(fv)
+    ),
+    diff_terms
+  ), stringsAsFactors = FALSE)
+}
+
+d9_2 <- build_dyad_2(best[["9001_eu"]]$rn)
+d14_2 <- build_dyad_2(best[["14001_eu"]]$rn)
+
+# ----------------------------------------------------------------------------
+# 4. Fit
+# ----------------------------------------------------------------------------
+rhs_h <- c(paste0("diff_", mon_vars_h), "log_fdi")
+fe_part <- "country_i + country_j"
+make_fml <- function(y) {
+  as.formula(paste(y, "~", paste(rhs_h, collapse = " + "), "|", fe_part))
+}
+
+m2_logit <- list(
+  "Quality" = feglm(make_fml("edge"), d9_2,
+    family = binomial("logit"),
+    cluster = ~ country_i + country_j
+  ),
+  "Environment" = feglm(make_fml("edge"), d14_2,
+    family = binomial("logit"),
+    cluster = ~ country_i + country_j
+  )
+)
+m2_ols <- list(
+  "Quality" = feols(make_fml("weight"), d9_2,
+    cluster = ~ country_i + country_j
+  ),
+  "Environment" = feols(make_fml("weight"), d14_2,
+    cluster = ~ country_i + country_j
+  )
+)
+m2_ppml <- list(
+  "Quality" = fepois(make_fml("abs_w"), d9_2,
+    cluster = ~ country_i + country_j
+  ),
+  "Environment" = fepois(make_fml("abs_w"), d14_2,
+    cluster = ~ country_i + country_j
+  )
+)
+
+# ----------------------------------------------------------------------------
+# 5. Render
+# ----------------------------------------------------------------------------
+dict_2 <- c(
+  diff_pop     = "$|\\Delta|$ Population",
+  diff_gdp_pc  = "$|\\Delta|$ GDP per capita",
+  diff_gov_eff = "$|\\Delta|$ Gov.\\ effectiveness",
+  diff_rd      = "$|\\Delta|$ R\\&D personnel",
+  diff_trade   = "$|\\Delta|$ Trade openness",
+  diff_ghg     = "$|\\Delta|$ GHG emissions",
+  diff_renew   = "$|\\Delta|$ Renewables share",
+  diff_etax    = "$|\\Delta|$ Env.\\ tax revenue",
+  log_fdi      = "$\\log(1+\\mathrm{FDI}_{ij})$",
+  country_i    = "Sender FE ($\\alpha_i^{\\text{out}}$)",
+  country_j    = "Receiver FE ($\\alpha_j^{\\text{in}}$)"
+)
+
+render_2 <- function(models, title, label, notes, fitstat) {
+  tex <- paste(capture.output(
+    etable(models,
+      tex = TRUE, title = title, label = label,
+      dict = dict_2, notes = notes,
+      headers = list("^_Network" = names(models)),
+      digits = 3, digits.stats = 3,
+      fitstat = fitstat,
+      style.tex = style.tex(
+        depvar.title = "", fixef.suffix = ":",
+        fixef.title  = "", var.title    = "",
+        model.title  = ""
+      )
+    )
+  ), collapse = "\n")
+  fn <- paste0("tab_", gsub("[-:]", "_", label), ".tex")
+  writeLines(tex, file.path(out_dir, fn))
+  cat(tex, sep = "\n")
+  cat("\n\n")
+}
+
+note_2 <- paste(
+  "Homophily covariates constructed as $|X_i - X_j|$ on raw levels.",
+  "Bilateral FDI enters as $\\log(1+\\mathrm{FDI}_{ij})$.",
+  "Sender and receiver FE absorbed. Two-way clustered SE."
+)
+
+render_2(m2_logit,
+  title   = "Dyadic Regression (logit) on edge indicator $g_{ij}$.",
+  label   = "tab:dz-logit-2",
+  notes   = note_2,
+  fitstat = ~ n + pr2 + bic
+)
+
+render_2(m2_ols,
+  title   = "Dyadic Regression (OLS) on $\\hat w_{ij}$.",
+  label   = "tab:dz-ols-2",
+  notes   = note_2,
+  fitstat = ~ n + r2 + ar2 + bic
+)
+
+render_2(m2_ppml,
+  title   = "Dyadic Regression (PPML) on $|\\hat w_{ij}|$.",
+  label   = "tab:dz-ppml-2",
+  notes   = paste(note_2, "Coefficients are elasticities."),
+  fitstat = ~ n + pr2 + bic
+)
+```
 
 ```{r}
-#| label: check-goveff-nans
-#| echo: true
-cat(sprintf(
-  "NaN in log1p(gov_eff): %d / %d — range gov_eff: [%.2f, %.2f]\n",
-  sum(is.nan(log1p(mon_all_h$gov_eff))),
-  length(mon_all_h$gov_eff),
-  min(mon_all_h$gov_eff, na.rm = TRUE),
-  max(mon_all_h$gov_eff, na.rm = TRUE)
-))
+#| label: dzemski-tables-simple-nofe
+#| echo: false
+#| results: asis
+#| warning: false
+#| message: false
+#| output: false
+# ----------------------------------------------------------------------------
+# Specifica semplice: differenze con segno X_i - X_j, no FE, no clustering
+# Tutti i dati riusati da dzemski-tables-2: mon_all_h, fdi_h, cs_h, N_h
+# ----------------------------------------------------------------------------
+
+build_dyad_simple <- function(rn) {
+  W <- as.matrix(rn$unpenalisedgmm$W)
+  diag(W) <- 0
+  g <- expand.grid(i = seq_len(N_h), j = seq_len(N_h), KEEP.OUT.ATTRS = FALSE)
+  g <- g[g$i != g$j, ]
+  ci <- cs_h[g$i]
+  cj <- cs_h[g$j]
+  wt <- as.numeric(W[cbind(g$i, g$j)])
+
+  diff_terms <- list()
+  for (v in mon_vars_h) {
+    x <- setNames(as.numeric(mon_all_h[[v]]), mon_all_h$country)
+    # SIGNED difference: X_i - X_j (no abs)
+    diff_terms[[paste0("diff_", v)]] <- as.numeric(x[ci] - x[cj])
+  }
+
+  k <- paste(ci, cj, sep = "||")
+  fdi_lk <- setNames(
+    as.numeric(fdi_h$fdi),
+    paste(fdi_h$country_i, fdi_h$country_j, sep = "||")
+  )
+  fv <- unname(as.numeric(fdi_lk[k]))
+  fv[is.na(fv) | fv < 0] <- 0
+
+  as.data.frame(c(
+    list(
+      country_i = ci, country_j = cj,
+      weight = wt, abs_w = abs(wt),
+      edge = as.integer(abs(wt) > 1e-5),
+      log_fdi = log1p(fv)
+    ),
+    diff_terms
+  ), stringsAsFactors = FALSE)
+}
+
+d9_s <- build_dyad_simple(best[["9001_eu"]]$rn)
+d14_s <- build_dyad_simple(best[["14001_eu"]]$rn)
+
+# Specifica senza FE
+rhs_s <- c(paste0("diff_", mon_vars_h), "log_fdi")
+make_fml_simple <- function(y) {
+  as.formula(paste(y, "~", paste(rhs_s, collapse = " + ")))
+}
+
+ms_logit <- list(
+  "Quality"     = feglm(make_fml_simple("edge"), d9_s, family = binomial("logit")),
+  "Environment" = feglm(make_fml_simple("edge"), d14_s, family = binomial("logit"))
+)
+ms_ols <- list(
+  "Quality"     = feols(make_fml_simple("weight"), d9_s),
+  "Environment" = feols(make_fml_simple("weight"), d14_s)
+)
+ms_ppml <- list(
+  "Quality"     = fepois(make_fml_simple("abs_w"), d9_s),
+  "Environment" = fepois(make_fml_simple("abs_w"), d14_s)
+)
+
+dict_s <- c(
+  diff_pop     = "$\\Delta$ Population",
+  diff_gdp_pc  = "$\\Delta$ GDP per capita",
+  diff_gov_eff = "$\\Delta$ Gov.\\ effectiveness",
+  diff_rd      = "$\\Delta$ R\\&D personnel",
+  diff_trade   = "$\\Delta$ Trade openness",
+  diff_ghg     = "$\\Delta$ GHG emissions",
+  diff_renew   = "$\\Delta$ Renewables share",
+  diff_etax    = "$\\Delta$ Env.\\ tax revenue",
+  log_fdi      = "$\\log(1+\\mathrm{FDI}_{ij})$"
+)
+
+render_s <- function(models, title, label, notes, fitstat) {
+  tex <- paste(capture.output(
+    etable(models,
+      tex = TRUE, title = title, label = label,
+      dict = dict_s, notes = notes,
+      headers = list("^_Network" = names(models)),
+      digits = 3, digits.stats = 3,
+      fitstat = fitstat,
+      style.tex = style.tex(
+        depvar.title = "", fixef.suffix = ":",
+        fixef.title  = "", var.title    = "",
+        model.title  = ""
+      )
+    )
+  ), collapse = "\n")
+  fn <- paste0("tab_", gsub("[-:]", "_", label), ".tex")
+  writeLines(tex, file.path(out_dir, fn))
+  cat(tex, sep = "\n")
+  cat("\n\n")
+}
+
+note_s <- paste(
+  "Signed pair-level differences $\\Delta X_{ij} = X_i - X_j$ on raw levels.",
+  "A positive coefficient means high-$X$ countries are more likely to influence low-$X$ countries.",
+  "No fixed effects, no clustering. Preliminary specification."
+)
+
+render_s(ms_logit,
+  title   = "Simple dyadic regression (logit) on edge indicator $g_{ij}$ — signed differences, no FE.",
+  label   = "tab:dz-logit-s",
+  notes   = note_s,
+  fitstat = ~ n + pr2 + bic
+)
+
+render_s(ms_ols,
+  title   = "Simple dyadic regression (OLS) on $\\hat w_{ij}$ — signed differences, no FE.",
+  label   = "tab:dz-ols-s",
+  notes   = note_s,
+  fitstat = ~ n + r2 + ar2 + bic
+)
+
+render_s(ms_ppml,
+  title   = "Simple dyadic regression (PPML) on $|\\hat w_{ij}|$ — signed differences, no FE.",
+  label   = "tab:dz-ppml-s",
+  notes   = paste(note_s, "Coefficients are elasticities."),
+  fitstat = ~ n + pr2 + bic
+)
 ```
