@@ -1,0 +1,29 @@
+\begin{table}[!h]
+\centering
+\caption{\label{tab:grid-summary}Grid search results: five lowest-BIC specifications per standard}
+\centering
+\fontsize{9}{11}\selectfont
+\begin{threeparttable}
+\begin{tabular}[t]{lrrrccccc}
+\toprule
+Panel & $\lambda_1$ & $\lambda_2$ & $\lambda_1^*$ & Edges & $\hat{\rho}_{EN}$ & $\hat{\rho}_{Ada}$ & $\hat{\rho}_{GMM}$ & BIC\\
+\midrule
+Environment & 0.05 & 0.05 & 0.10 & 30 & 0.950 & 0.285 & 0.286 & 14.57\\
+Environment & 0.05 & 0.05 & 0.15 & 30 & 0.950 & 0.285 & 0.287 & 14.57\\
+Environment & 0.05 & 0.05 & 0.20 & 30 & 0.950 & 0.285 & 0.288 & 14.57\\
+Environment & 0.05 & 0.15 & 0.05 & 31 & 0.950 & 0.277 & 0.276 & 14.62\\
+Environment & 0.05 & 0.10 & 0.10 & 31 & 0.950 & 0.276 & 0.277 & 14.62\\
+\addlinespace
+Quality & 0.10 & 0.15 & 0.20 & 28 & 0.521 & 0.203 & 0.203 & 13.96\\
+Quality & 0.15 & 0.10 & 0.15 & 29 & 0.691 & 0.264 & 0.276 & 14.25\\
+Quality & 0.15 & 0.10 & 0.20 & 29 & 0.691 & 0.262 & 0.280 & 14.26\\
+Quality & 0.15 & 0.15 & 0.20 & 30 & 0.718 & 0.256 & 0.255 & 14.30\\
+Quality & 0.10 & 0.15 & 0.15 & 31 & 0.521 & 0.158 & 0.181 & 14.31\\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}[para]
+\item \textit{Notes:} 
+\item Five specifications per standard with lowest BIC, sorted ascending within panel, out of $\{0.05, 0.10, 0.15, 0.20\}^3 = 64$ grid points. The penalty vector $\lambda = (\lambda_1, \lambda_2, \lambda_1^*)$ governs the elastic-net regularisation in the first stage and the adaptive elastic-net in the second, following De Paula, Rasul \& Souza (2025). $\hat{\rho}_{EN}$, $\hat{\rho}_{Ada}$, $\hat{\rho}_{GMM}$ are the elastic-net, adaptive elastic-net, and post-LASSO GMM estimates of the endogenous peer-effect parameter; the latter is the unpenalised re-estimation on the support recovered by the adaptive step (Caner \& Zhang, 2014). Edges count directed links with $|\hat w_{ij}| > 10^{-5}$. Full grid in Appendix.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}

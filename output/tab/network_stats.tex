@@ -1,0 +1,23 @@
+\begin{table}[H]\centering
+\caption{BIC-selected networks: Quality versus Environment (EU, $N = 27$)}
+\label{tab:network_eu}
+\begin{tabular}{lcc}\hline\hline
+& Quality & Environment \\\hline
+Number of edges & 28 & 30 \\
+Edges in both networks & 3 & 3 \\
+Edges in $W_{\text{Quality}}$ only & 25 & \\
+Edges in $W_{\text{Environment}}$ only & & 27 \\
+Clustering & 0.164 & 0.053 \\
+Reciprocated edges & 7.1\% & 0.0\% \\
+Degree distribution across nodes (countries) & & \\
+\quad Out-degree & 1.037 (0.338) & 1.111 (0.698) \\
+\quad In-degree & 1.037 (1.372) & 1.111 (1.219) \\
+\hline
+$\hat{\rho}$ (GMM) & 0.2025 & 0.2864 \\
+$\lambda$ & (0.100, 0.150, 0.200) & (0.050, 0.050, 0.100) \\
+BIC & 13.96 & 14.57 \\
+\hline\hline\end{tabular}
+\parbox{\textwidth}{\footnotesize \textit{Notes:}
+  Top-5 BIC selected networks estimated via grid search. Following de Paula et al. (2024) methodology, a sensitivity analysis of .05 was performed on the penalty vector $\lambda$ (1.0, 1.0, 1.0) to determine the final network structure
+  Reciprocated edges is the frequency of in-edges that are reciprocated by out-edges. The clustering coefficient is the frequency of fully connected triplets over the total number of triplets. The degree distribution counts the average number of connections (sd in parentheses). $\hat{\rho}$ (GMM) is the post-LASSO endogenous peer-effect estimate. $\lambda = (\lambda_1, \lambda_2, \lambda_1^*)$ are the elastic net penalty parameters selected by BIC.}
+\end{table}

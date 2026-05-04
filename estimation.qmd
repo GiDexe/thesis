@@ -1,0 +1,316 @@
+---
+title: "ISOs Diffusion in the EU: an endogenous network recovery for Environmental and Quality Management Systems"
+author: "Gianluigi De Rubertis"
+date: "`r Sys.Date()`"
+format:
+  pdf:
+    output-file: "estimation.pdf"
+    keep-tex: false
+    fig-pos: "H"
+    include-in-header:
+      text: |
+        \usepackage{longtable}
+        \usepackage{pdflscape}
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(kableExtra)
+library(dplyr)
+library(magrittr)
+library(readxl)
+library(stringr)
+library(tidyr)
+library(janitor)
+library(purrr)
+library(ggplot2)
+library(readr)
+library(igraph)
+library(remotes)
+library(recoverNetwork)
+
+set.seed(1861)
+setwd("/workspaces/thesis")
+options(readr.show_col_types = FALSE)
+
+out_dir <- "output"
+if (!dir.exists(out_dir)) dir.create(out_dir)
+```
+
+```{r}
+#| label: data-cleaning
+#| include: false
+#| cache: true
+data_dir <- "/workspaces/thesis/data"
+
+# === COUNTRY GROUPS ===
+oecd <- c(
+  "Australia", "Austria", "Belgium", "Canada", "Chile", "Colombia",
+  "Costa Rica", "Czech Republic", "Denmark", "Estonia", "Finland",
+  "France", "Germany", "Greece", "Hungary", "Iceland", "Ireland",
+  "Israel", "Italy", "Japan", "Korea", "Latvia", "Lithuania",
+  "Luxembourg", "Mexico", "Netherlands", "New Zealand", "Norway",
+  "Poland", "Portugal", "Slovak Republic", "Slovenia", "Spain",
+  "Sweden", "Switzerland", "Turkey", "United Kingdom", "United States"
+)
+
+eu <- c(
+  "Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus",
+  "Czech Republic", "Denmark", "Estonia", "Finland", "France",
+  "Germany", "Greece", "Hungary", "Ireland", "Italy", "Latvia",
+  "Lithuania", "Luxembourg", "Malta", "Netherlands", "Poland",
+  "Portugal", "Romania", "Slovak Republic", "Slovenia", "Spain",
+  "Sweden"
+)
+
+harmonise_names <- function(df) {
+  if (nrow(df) == 0) {
+    return(df)
+  }
+  df %>% dplyr::mutate(country = dplyr::case_match(country,
+    "Korea (Republic of)" ~ "Korea", "Korea, Republic of" ~ "Korea",
+    "Korea (the Republic of)" ~ "Korea",
+    "Czechia" ~ "Czech Republic", "Slovakia" ~ "Slovak Republic",
+    "United Kingdom of Great Britain and Northern Ireland" ~ "United Kingdom",
+    "United States of America" ~ "United States",
+    "Netherlands (Kingdom of the)" ~ "Netherlands",
+    .default = country
+  ))
+}
+
+read_iso_hist <- function(file_name, sheets_idx, my_names) {
+  f_path <- file.path(data_dir, file_name)
+  if (!file.exists(f_path)) stop(paste("File not found:", f_path))
+  sheets <- purrr::map(sheets_idx, ~ readxl::read_excel(f_path, sheet = .x))
+  expected_cols <- length(my_names)
+  purrr::map(1:5, ~ sheets[[.x]] %>%
+    dplyr::select(dplyr::all_of(1:expected_cols)) %>%
+    dplyr::slice(-(1:2)) %>%
+    purrr::set_names(my_names) %>%
+    tidyr::pivot_longer(-country, names_to = "year", values_to = "n_cert")) %>%
+    purrr::reduce(dplyr::bind_rows) %>%
+    harmonise_names() %>%
+    dplyr::mutate(n_cert = as.numeric(n_cert), year = as.integer(year)) %>%
+    dplyr::group_by(country, year) %>%
+    dplyr::summarise(n_cert = sum(n_cert, na.rm = TRUE), .groups = "drop")
+}
+
+extract_recent <- function(iso_code) {
+  files <- list.files(data_dir,
+    pattern = "ISO Survey 20(1[8-9]|2[0-9]).*\\.xlsx$",
+    full.names = TRUE
+  )
+  purrr::map_dfr(files, function(f) {
+    yr <- as.numeric(stringr::str_extract(basename(f), "20\\d{2}"))
+    sheets <- readxl::excel_sheets(f)
+    target <- sheets[grepl(iso_code, sheets)][1]
+    if (!is.na(target)) {
+      df <- readxl::read_excel(f, sheet = target)
+      start_row <- which(apply(df, 1, function(x) any(grepl("Afghanistan|Albania", x))))[1]
+      df_clean <- df %>%
+        dplyr::slice(start_row:dplyr::n()) %>%
+        dplyr::rename(country = 1) %>%
+        dplyr::mutate(dplyr::across(-1, ~ suppressWarnings(as.numeric(.)))) %>%
+        dplyr::select(country, tidyselect::where(is.numeric)) %>%
+        dplyr::mutate(n_cert = rowSums(dplyr::select(., -country), na.rm = TRUE)) %>%
+        dplyr::select(country, n_cert) %>%
+        dplyr::mutate(year = yr)
+      return(df_clean)
+    }
+    return(NULL)
+  }) %>%
+    harmonise_names() %>%
+    dplyr::group_by(country, year) %>%
+    dplyr::summarise(n_cert = sum(n_cert, na.rm = TRUE), .groups = "drop")
+}
+
+make_covs <- function(start_yr) {
+  load_w <- function(f, v) {
+    readr::read_csv(file.path(data_dir, f), skip = 4, show_col_types = FALSE) %>%
+      dplyr::select(country = 1, as.character(start_yr):"2024") %>%
+      tidyr::pivot_longer(-country, names_to = "year", values_to = v) %>%
+      dplyr::mutate(
+        year = as.integer(year),
+        !!v := as.numeric(as.character(.data[[v]]))
+      ) %>%
+      harmonise_names()
+  }
+  load_w("API_NY.GDP.PCAP.KD_DS2_en_csv_v2_234.csv", "gdp_pc") %>%
+    dplyr::full_join(load_w("API_NE.TRD.GNFS.ZS_DS2_en_csv_v2_334.csv", "trade"),
+      by = c("country", "year")
+    ) %>%
+    dplyr::full_join(load_w("API_RL.EST_DS2_en_csv_v2_1905.csv", "rol"),
+      by = c("country", "year")
+    ) %>%
+    dplyr::full_join(load_w("API_EG.FEC.RNEW.ZS_DS2_en_csv_v2_4948.csv", "renew"),
+      by = c("country", "year")
+    ) %>%
+    dplyr::full_join(load_w("API_NY.GDP.TOTL.RT.ZS_DS2_en_csv_v2_362.csv", "rent"),
+      by = c("country", "year")
+    )
+}
+
+load_sbs_2017 <- function() {
+  file_path <- file.path(data_dir, "enterprises_eu.xlsx")
+  raw <- readxl::read_excel(file_path, sheet = "Sheet 1", skip = 9, col_names = FALSE)
+  tibble::tibble(
+    country    = raw[[1]],
+    n_firms_17 = suppressWarnings(as.numeric(raw[[26]]))
+  ) %>%
+    dplyr::filter(!is.na(country), !is.na(n_firms_17)) %>%
+    harmonise_names() %>%
+    dplyr::distinct(country, .keep_all = TRUE)
+}
+sbs_firms <- load_sbs_2017()
+
+
+finalize_panel <- function(iso_full, filter_list, label) {
+  res <- iso_full %>%
+    dplyr::filter(country %in% filter_list) %>%
+    dplyr::left_join(sbs_firms, by = "country") %>%
+    dplyr::group_by(country) %>%
+    dplyr::arrange(year, .by_group = TRUE) %>%
+    dplyr::mutate(dplyr::across(c(gdp_pc, trade, rol, renew, rent), ~ {
+      v <- zoo::na.approx(., na.rm = FALSE)
+      v <- zoo::na.locf(zoo::na.locf(v, na.rm = FALSE), na.rm = FALSE, fromLast = TRUE)
+      log1p(v)
+    })) %>%
+    # standardisation with log differences
+    dplyr::mutate(y = log1p(n_cert) - log1p(dplyr::lag(n_cert))) %>%
+    dplyr::filter(!is.na(y)) %>%
+    dplyr::ungroup()
+
+  T_max <- max((res %>% dplyr::count(country))$n)
+  final <- res %>%
+    dplyr::group_by(country) %>%
+    dplyr::filter(dplyr::n() == T_max) %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(id = as.integer(factor(country))) %>%
+    dplyr::select(id,
+      time = year, y,
+      x1 = gdp_pc, x2 = trade, x3 = rol, x4 = renew, x5 = rent
+    ) %>%
+    tidyr::drop_na()
+
+  cat(sprintf("Dataset %s: N=%d, T=%d\n", label, length(unique(final$id)), T_max))
+  return(final)
+}
+
+# --- Build panels ---
+h9001 <- read_iso_hist(
+  "01. ISO 9001 - Number of certificates per country and industry sectors - 1993 to 2017.xlsm",
+  4:8, c("country", as.character(1993:2017))
+)
+r9001 <- extract_recent("9001")
+f9001 <- dplyr::bind_rows(h9001, r9001)
+
+h14001 <- read_iso_hist(
+  "02. ISO 14001 - Number of certificates per country and industry sectors - 1999 to 2017.xlsm",
+  4:8, c("country", as.character(1999:2017))
+)
+r14001 <- extract_recent("14001")
+f14001 <- dplyr::bind_rows(h14001, r14001)
+
+covs9001 <- make_covs(1993)
+covs14001 <- make_covs(1999)
+f9001 <- f9001 %>% dplyr::left_join(covs9001, by = c("country", "year"))
+f14001 <- f14001 %>% dplyr::left_join(covs14001, by = c("country", "year"))
+
+# Double check the truncation at 2017
+f9001 <- f9001 %>% dplyr::filter(year <= 2017)
+f14001 <- f14001 %>% dplyr::filter(year <= 2017)
+
+# Sync countries across standards
+sync_eu <- intersect(
+  (f9001 %>% filter(country %in% eu) %>% pull(country) %>% unique()),
+  (f14001 %>% filter(country %in% eu) %>% pull(country) %>% unique())
+)
+
+
+dp_9001_eu <- finalize_panel(f9001, sync_eu, "9001_EU (synced)")
+dp_14001_eu <- finalize_panel(f14001, sync_eu, "14001_EU (synced)")
+```
+ # Standardisation: log-difference of certifications.
+    
+```{r}
+#| label: grid-search
+#| include: false
+#| cache: true
+panels <- list(
+  "9001_eu"     = dp_9001_eu,
+  "14001_eu"    = dp_14001_eu
+)
+
+lambda_vals <- c(0.05, 0.10, 0.15)
+lambda_grid <- as.list(as.data.frame(t(expand.grid(
+  lambda_vals, lambda_vals, lambda_vals
+))))
+names(lambda_grid) <- NULL
+
+grid_results <- list()
+idx <- 0
+
+for (pname in names(panels)) {
+  df <- panels[[pname]]
+  Wder <- NULL
+
+  for (li in seq_along(lambda_grid)) {
+    lam <- lambda_grid[[li]]
+    idx <- idx + 1
+    run_label <- sprintf("%s_gridrun%02d", pname, li)
+    cat(sprintf(
+      "\n[%d] %s | lambda = (%.3f, %.3f, %.3f) ... ",
+      idx, pname, lam[1], lam[2], lam[3]
+    ))
+
+    row <- list(
+      panel = pname, lambda = lam, run_label = run_label,
+      edges = NA, rho_en = NA, rho_ada = NA, rho_gmm = NA, bic = NA, rn = NULL
+    )
+
+    tryCatch(
+      {
+        set.seed(1861)
+        rn <- if (is.null(Wder)) {
+          recoverNetwork(df, lambda = lam)
+        } else {
+          recoverNetwork(df, lambda = lam, Wder = Wder)
+        }
+        if (is.null(Wder)) Wder <- rn$Wder
+
+        W <- as.matrix(rn$unpenalisedgmm$W)
+        diag(W) <- 0
+
+        row$edges <- sum(abs(W) > 1e-5)
+        row$rho_en <- rn$en$rho
+        row$rho_ada <- rn$adaen$rho
+        row$rho_gmm <- rn$unpenalisedgmm$rho
+        row$bic <- rn$BIC
+        row$rn <- rn
+
+        cat(sprintf(
+          "OK | edges=%d | rho_gmm=%.3f | BIC=%.2f",
+          row$edges, row$rho_gmm, row$bic
+        ))
+        saveRDS(rn, file.path(out_dir, paste0(run_label, ".rds")))
+      },
+      error = function(e) {
+        cat("FAILED:", conditionMessage(e))
+      }
+    )
+
+    grid_results[[idx]] <- row
+  }
+
+  Wder <- NULL
+}
+
+# Save everything for later recomputation
+grid_meta <- lapply(grid_results, function(r) {
+  r$rn <- NULL
+  r
+})
+saveRDS(grid_meta, file.path(out_dir, "grid_search_meta.rds"))
+save(grid_results, file = file.path(out_dir, "grid_search_full.RData"))
+```

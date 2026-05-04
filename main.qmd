@@ -1,0 +1,535 @@
+---
+title: "ISOs Diffusion in the EU: an endogenous network recovery for Environmental and Quality Management Systems"
+author: "Gianluigi De Rubertis"
+date: "`r Sys.Date()`"
+format:
+  pdf:
+    output-file: "main.pdf"
+    keep-tex: false
+    fig-pos: "H"
+    include-in-header:
+      text: |
+        \usepackage{longtable}
+        \usepackage{pdflscape}
+---
+
+```{r}
+#| label: setup
+#| include: false
+data_dir <- "/workspaces/thesis/data"
+clean_dir <- "/workspaces/thesis/data/cleaned_data"
+
+library(kableExtra)
+library(dplyr)
+library(magrittr)
+library(readxl)
+library(stringr)
+library(tidyr)
+library(janitor)
+library(purrr)
+library(ggplot2)
+library(readr)
+library(igraph)
+library(remotes)
+library(recoverNetwork)
+
+set.seed(1861)
+setwd("/workspaces/thesis")
+options(readr.show_col_types = FALSE)
+
+out_dir <- "output"
+if (!dir.exists(out_dir)) dir.create(out_dir)
+fig_dir <- file.path(out_dir, "fig")
+tab_dir <- file.path(out_dir, "tab")
+for (d in c(fig_dir, tab_dir)) if (!dir.exists(d)) dir.create(d, recursive = TRUE)
+```
+
+```{r}
+#| label: load-best
+#| include: false
+best <- readRDS(file.path(out_dir, "best_per_panel.rds"))
+W_q <- as.matrix(best[["9001_eu"]]$rn$unpenalisedgmm$W)
+diag(W_q) <- 0
+W_e <- as.matrix(best[["14001_eu"]]$rn$unpenalisedgmm$W)
+diag(W_e) <- 0
+
+sync_eu <- readRDS(file.path(clean_dir, "sync_eu.rds"))
+country_labels <- sort(sync_eu)
+rownames(W_q) <- colnames(W_q) <- country_labels
+rownames(W_e) <- colnames(W_e) <- country_labels
+```
+
+# EU: Quality (ISO 9001) versus Environment (ISO 14001)
+
+## Descriptive Statistics, Network Recoverey and Grid Search
+
+```{r}
+#| label: descriptive-stats
+#| echo: false
+#| results: asis
+f9001 <- readRDS(file.path(clean_dir, "f9001.rds"))
+f14001 <- readRDS(file.path(clean_dir, "f14001.rds"))
+
+desc_years <- c(1993, 1999, 2017)
+
+desc_tab <- function(df, countries, years) {
+  df |>
+    dplyr::filter(country %in% countries, year %in% years) |>
+    dplyr::group_by(year) |>
+    dplyr::summarise(
+      total_cert     = sum(n_cert, na.rm = TRUE),
+      mean_cert      = mean(n_cert, na.rm = TRUE),
+      sd_cert        = sd(n_cert, na.rm = TRUE),
+      min_cert       = min(n_cert, na.rm = TRUE),
+      max_cert       = max(n_cert, na.rm = TRUE),
+      mean_intensity = mean(n_cert / gdp_pc * 1000, na.rm = TRUE),
+      n_countries    = dplyr::n(),
+      .groups        = "drop"
+    )
+}
+
+d9 <- desc_tab(f9001, country_labels, desc_years)
+d14 <- desc_tab(f14001, country_labels, desc_years)
+
+f0 <- function(x) formatC(x, format = "d", big.mark = ",")
+f1 <- function(x) formatC(x, format = "f", digits = 1, big.mark = ",")
+f2 <- function(x) formatC(x, format = "f", digits = 2)
+
+tex <- c(
+  "\\begin{table}[H]\\centering",
+  "\\caption{Descriptive statistics: certification counts and adoption intensity across EU countries}",
+  "\\label{tab:desc_stats}",
+  "\\begin{tabular}{lcccccc}\\hline\\hline",
+  "& \\multicolumn{3}{c}{Quality (ISO 9001)} & \\multicolumn{3}{c}{Environment (ISO 14001)} \\\\",
+  "\\cmidrule(lr){2-4} \\cmidrule(lr){5-7}",
+  "& 1993 & 1999 & 2017 & 1993 & 1999 & 2017 \\\\\\hline",
+  sprintf(
+    "N countries & %d & %d & %d & & %d & %d \\\\",
+    d9$n_countries[1], d9$n_countries[2], d9$n_countries[3],
+    d14$n_countries[1], d14$n_countries[2]
+  ),
+  sprintf(
+    "Total & %s & %s & %s & & %s & %s \\\\",
+    f0(d9$total_cert[1]), f0(d9$total_cert[2]), f0(d9$total_cert[3]),
+    f0(d14$total_cert[1]), f0(d14$total_cert[2])
+  ),
+  sprintf(
+    "Mean & %s & %s & %s & & %s & %s \\\\",
+    f1(d9$mean_cert[1]), f1(d9$mean_cert[2]), f1(d9$mean_cert[3]),
+    f1(d14$mean_cert[1]), f1(d14$mean_cert[2])
+  ),
+  sprintf(
+    "Std.\\ Dev. & %s & %s & %s & & %s & %s \\\\",
+    f1(d9$sd_cert[1]), f1(d9$sd_cert[2]), f1(d9$sd_cert[3]),
+    f1(d14$sd_cert[1]), f1(d14$sd_cert[2])
+  ),
+  sprintf(
+    "Min--Max & %s--%s & %s--%s & %s--%s & & %s--%s & %s--%s \\\\",
+    f0(d9$min_cert[1]), f0(d9$max_cert[1]),
+    f0(d9$min_cert[2]), f0(d9$max_cert[2]),
+    f0(d9$min_cert[3]), f0(d9$max_cert[3]),
+    f0(d14$min_cert[1]), f0(d14$max_cert[1]),
+    f0(d14$min_cert[2]), f0(d14$max_cert[2])
+  ),
+  sprintf(
+    "Cert./GDP p.c. & %s & %s & %s & & %s & %s \\\\",
+    f2(d9$mean_intensity[1]), f2(d9$mean_intensity[2]), f2(d9$mean_intensity[3]),
+    f2(d14$mean_intensity[1]), f2(d14$mean_intensity[2])
+  ),
+  "\\hline\\hline\\end{tabular}",
+  "\\parbox{\\textwidth}{\\footnotesize \\textit{Note:} Cert./GDP p.c.\\ is the mean across countries of certificates per 1{,}000 USD of GDP per capita (constant 2015 USD). Environment (ISO 14001) data begin in 1999.}",
+  "\\end{table}"
+)
+writeLines(tex, file.path(tab_dir, "desc_stats.tex"))
+cat(tex, sep = "\n")
+```
+
+```{r}
+#| label: grid-summary
+#| echo: false
+summary_df <- readRDS(file.path(out_dir, "grid_search_summary.rds"))
+
+summary_top5 <- summary_df |>
+  dplyr::mutate(
+    Panel = dplyr::case_match(Panel,
+      "Quality (9001) eu" ~ "Quality",
+      "Environment (14001) eu" ~ "Environment",
+      .default = Panel
+    ),
+    BIC_num = suppressWarnings(as.numeric(BIC))
+  ) |>
+  dplyr::group_by(Panel) |>
+  dplyr::slice_min(BIC_num, n = 5) |>
+  dplyr::arrange(Panel, BIC_num) |>
+  dplyr::ungroup() |>
+  dplyr::select(-BIC_num)
+
+tab_top5 <- kbl(summary_top5,
+  booktabs = TRUE,
+  caption = "Grid search results: five lowest-BIC specifications per standard",
+  col.names = c(
+    "Panel", "$\\lambda_1$", "$\\lambda_2$", "$\\lambda_1^*$",
+    "Edges", "$\\hat{\\rho}_{EN}$", "$\\hat{\\rho}_{Ada}$",
+    "$\\hat{\\rho}_{GMM}$", "BIC"
+  ),
+  escape = FALSE,
+  align = "lrrrccccc",
+  format = "latex"
+) |>
+  kable_styling(
+    latex_options = c("hold_position"),
+    font_size = 9
+  ) |>
+  footnote(
+    general = "Five specifications per standard with lowest BIC, sorted ascending within panel, out of $\\\\{0.05, 0.10, 0.15, 0.20\\\\}^3 = 64$ grid points. The penalty vector $\\\\lambda = (\\\\lambda_1, \\\\lambda_2, \\\\lambda_1^*)$ governs the elastic-net regularisation in the first stage and the adaptive elastic-net in the second, following De Paula, Rasul \\\\& Souza (2025). $\\\\hat{\\\\rho}_{EN}$, $\\\\hat{\\\\rho}_{Ada}$, $\\\\hat{\\\\rho}_{GMM}$ are the elastic-net, adaptive elastic-net, and post-LASSO GMM estimates of the endogenous peer-effect parameter; the latter is the unpenalised re-estimation on the support recovered by the adaptive step (Caner \\\\& Zhang, 2014). Edges count directed links with $|\\\\hat w_{ij}| > 10^{-5}$. Full grid in Appendix.",
+    general_title = "Notes:",
+    threeparttable = TRUE,
+    escape = FALSE,
+    footnote_as_chunk = TRUE
+  )
+
+writeLines(as.character(tab_top5), file.path(tab_dir, "grid_search_top5.tex"))
+tab_top5
+```
+
+## Network recovery
+
+```{r}
+#| label: network-stats-table
+#| echo: false
+#| results: asis
+net_stats <- function(W) {
+  B <- (abs(W) > 1e-5) * 1
+  diag(B) <- 0
+  g <- igraph::graph_from_adjacency_matrix(B, mode = "directed")
+  list(
+    edges       = sum(B),
+    clustering  = igraph::transitivity(g, "global"),
+    reciprocity = sum(B * t(B)) / max(sum(B), 1),
+    out_mean    = mean(igraph::degree(g, mode = "out")),
+    out_sd      = sd(igraph::degree(g, mode = "out")),
+    in_mean     = mean(igraph::degree(g, mode = "in")),
+    in_sd       = sd(igraph::degree(g, mode = "in"))
+  )
+}
+s_q <- net_stats(W_q)
+s_e <- net_stats(W_e)
+
+B_q <- (abs(W_q) > 1e-5) * 1
+B_e <- (abs(W_e) > 1e-5) * 1
+common <- sum(B_q & B_e)
+only_q <- sum(B_q & !B_e)
+only_e <- sum(!B_q & B_e)
+
+f3 <- function(x) formatC(x, format = "f", digits = 3)
+p1 <- function(x) paste0(formatC(100 * x, format = "f", digits = 1), "\\%")
+dg <- function(m, s) paste0(f3(m), " (", f3(s), ")")
+
+rho_q <- best[["9001_eu"]]$rn$unpenalisedgmm$rho
+rho_e <- best[["14001_eu"]]$rn$unpenalisedgmm$rho
+lam_q <- best[["9001_eu"]]$lambda
+lam_e <- best[["14001_eu"]]$lambda
+bic_q <- best[["9001_eu"]]$bic
+bic_e <- best[["14001_eu"]]$bic
+
+tex <- c(
+  "\\begin{table}[H]\\centering",
+  "\\caption{BIC-selected networks: Quality versus Environment (EU, $N = 27$)}",
+  "\\label{tab:network_eu}",
+  "\\begin{tabular}{lcc}\\hline\\hline",
+  "& Quality & Environment \\\\\\hline",
+  sprintf("Number of edges & %d & %d \\\\", s_q$edges, s_e$edges),
+  sprintf("Edges in both networks & %d & %d \\\\", common, common),
+  sprintf("Edges in $W_{\\text{Quality}}$ only & %d & \\\\", only_q),
+  sprintf("Edges in $W_{\\text{Environment}}$ only & & %d \\\\", only_e),
+  sprintf("Clustering & %s & %s \\\\", f3(s_q$clustering), f3(s_e$clustering)),
+  sprintf("Reciprocated edges & %s & %s \\\\", p1(s_q$reciprocity), p1(s_e$reciprocity)),
+  "Degree distribution across nodes (countries) & & \\\\",
+  sprintf(
+    "\\quad Out-degree & %s & %s \\\\",
+    dg(s_q$out_mean, s_q$out_sd), dg(s_e$out_mean, s_e$out_sd)
+  ),
+  sprintf(
+    "\\quad In-degree & %s & %s \\\\",
+    dg(s_q$in_mean, s_q$in_sd), dg(s_e$in_mean, s_e$in_sd)
+  ),
+  "\\hline",
+  sprintf(
+    "$\\hat{\\rho}$ (GMM) & %s & %s \\\\",
+    formatC(rho_q, format = "f", digits = 4),
+    formatC(rho_e, format = "f", digits = 4)
+  ),
+  sprintf(
+    "$\\lambda$ & (%s) & (%s) \\\\",
+    paste(formatC(lam_q, format = "f", digits = 3), collapse = ", "),
+    paste(formatC(lam_e, format = "f", digits = 3), collapse = ", ")
+  ),
+  sprintf(
+    "BIC & %s & %s \\\\",
+    formatC(bic_q, format = "f", digits = 2),
+    formatC(bic_e, format = "f", digits = 2)
+  ),
+  "\\hline\\hline\\end{tabular}",
+  "\\parbox{\\textwidth}{\\footnotesize \\textit{Notes:}
+  Top-5 BIC selected networks estimated via grid search. Following de Paula et al. (2024) methodology, a sensitivity analysis of .05 was performed on the penalty vector $\\lambda$ (1.0, 1.0, 1.0) to determine the final network structure
+  Reciprocated edges is the frequency of in-edges that are reciprocated by out-edges. The clustering coefficient is the frequency of fully connected triplets over the total number of triplets. The degree distribution counts the average number of connections (sd in parentheses). $\\hat{\\rho}$ (GMM) is the post-LASSO endogenous peer-effect estimate. $\\lambda = (\\lambda_1, \\lambda_2, \\lambda_1^*)$ are the elastic net penalty parameters selected by BIC.}",
+  "\\end{table}"
+)
+writeLines(tex, file.path(tab_dir, "network_stats.tex"))
+cat(tex, sep = "\n")
+```
+
+## Distribution of recovered edge weights
+
+```{r}
+#| label: fig-weights-density
+#| echo: false
+#| fig-width: 8
+#| fig-height: 3.5
+#| fig-cap: "Kernel-density estimates of nonzero recovered edge weights $|\\hat w_{ij}|$ for the BIC-selected networks. Quality (left) and Environment (right) plotted on a common horizontal scale."
+w_df <- dplyr::bind_rows(
+  data.frame(
+    standard = "Quality (ISO 9001)",
+    w = abs(W_q[abs(W_q) > 1e-5])
+  ),
+  data.frame(
+    standard = "Environment (ISO 14001)",
+    w = abs(W_e[abs(W_e) > 1e-5])
+  )
+)
+
+p <- ggplot(w_df, aes(x = w, fill = standard)) +
+  geom_density(alpha = 0.6, colour = NA) +
+  facet_wrap(~standard, scales = "fixed") +
+  scale_fill_manual(values = c(
+    "Quality (ISO 9001)" = "#3182bd",
+    "Environment (ISO 14001)" = "#31a354"
+  )) +
+  labs(x = expression("|" * hat(w)[ij] * "|"), y = "Density") +
+  theme_minimal(base_size = 10) +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(face = "bold")
+  )
+
+ggsave(file.path(fig_dir, "weights_density.pdf"), p,
+  width = 8, height = 3.5
+)
+print(p)
+```
+
+## Network similarity
+
+The two networks are recovered on the same set of nodes, so the
+estimated weight matrices $\hat W^Q, \hat W^E \in \mathbb R^{N\times N}$
+are directly comparable element-wise. Define the dyad-level discrepancy
+matrix
+
+\begin{equation}
+D_{ij} = \hat w^Q_{ij} - \hat w^E_{ij}, \qquad i \neq j,
+\label{eq:Dij}
+\end{equation}
+
+and summarise it through the **mean absolute discrepancy**
+
+\begin{equation}
+\mathrm{MAD}(\hat W^Q, \hat W^E) =
+\frac{1}{N(N-1)} \sum_{i\neq j} \bigl| \hat w^Q_{ij} - \hat w^E_{ij} \bigr|,
+\label{eq:mad}
+\end{equation}
+
+i.e.\ the entry-wise $\ell_1$ distance between the two off-diagonal
+weight matrices, normalised by the number of ordered dyads
+(Donnet and Robin, 2021). MAD is zero when the two recovered networks
+are identical and increases with the average per-dyad weight gap.
+A complementary scalar is the Pearson correlation
+$\rho(\mathrm{vec}(\hat W^Q), \mathrm{vec}(\hat W^E))$ across
+off-diagonal entries, which measures co-movement irrespective of scale.
+
+```{r}
+#| label: similarity-stats
+#| echo: false
+#| results: asis
+N <- nrow(W_q)
+off <- which(row(W_q) != col(W_q))
+D <- W_q - W_e
+mad <- mean(abs(D[off]))
+rmse <- sqrt(mean(D[off]^2))
+corr <- cor(W_q[off], W_e[off])
+mean_q <- mean(abs(W_q[off]))
+mean_e <- mean(abs(W_e[off]))
+
+tex <- c(
+  "\\begin{table}[H]\\centering",
+  "\\caption{Network similarity between $\\hat W^Q$ and $\\hat W^E$ (EU, $N = 27$)}",
+  "\\label{tab:similarity}",
+  "\\begin{tabular}{lc}\\hline\\hline",
+  "Statistic & Value \\\\\\hline",
+  sprintf("Mean absolute discrepancy, $\\mathrm{MAD}$ & %s \\\\", formatC(mad, format = "f", digits = 4)),
+  sprintf("Root mean squared discrepancy, $\\mathrm{RMSD}$ & %s \\\\", formatC(rmse, format = "f", digits = 4)),
+  sprintf("Pearson correlation, $\\rho(\\mathrm{vec}\\hat W^Q, \\mathrm{vec}\\hat W^E)$ & %s \\\\", formatC(corr, format = "f", digits = 4)),
+  "\\hline",
+  sprintf("Mean $|\\hat w^Q_{ij}|$ (off-diagonal) & %s \\\\", formatC(mean_q, format = "f", digits = 4)),
+  sprintf("Mean $|\\hat w^E_{ij}|$ (off-diagonal) & %s \\\\", formatC(mean_e, format = "f", digits = 4)),
+  "\\hline\\hline\\end{tabular}",
+  "\\parbox{\\textwidth}{\\footnotesize \\textit{Notes:} Discrepancy statistics computed on the $N(N-1) = 702$ off-diagonal entries of the BIC-selected weight matrices. MAD reported in equation \\eqref{eq:mad}; RMSD is the analogous $\\ell_2$ statistic. The last two rows give the average absolute weight in each network as a benchmark for interpreting MAD.}",
+  "\\end{table}"
+)
+writeLines(tex, file.path(tab_dir, "similarity.tex"))
+cat(tex, sep = "\n")
+```
+
+```{r}
+#| label: fig-discrepancy-heatmap
+#| echo: false
+#| fig-width: 7
+#| fig-height: 6
+#| fig-cap: "Dyad-level discrepancy matrix $D_{ij} = \\hat w^Q_{ij} - \\hat w^E_{ij}$. Red cells indicate dyads where the Quality peer-effect weight exceeds the Environment one; blue cells the opposite. Diagonal blanked out."
+D_long <- as.data.frame(as.table(D)) |>
+  setNames(c("from", "to", "diff")) |>
+  dplyr::filter(as.character(from) != as.character(to))
+
+p2 <- ggplot(D_long, aes(x = to, y = from, fill = diff)) +
+  geom_tile() +
+  scale_fill_gradient2(
+    low = "#2166ac", mid = "white", high = "#b2182b",
+    midpoint = 0,
+    name = expression(hat(w)[ij]^Q - hat(w)[ij]^E)
+  ) +
+  scale_y_discrete(limits = rev(country_labels)) +
+  labs(x = "Receiver j", y = "Sender i") +
+  theme_minimal(base_size = 8) +
+  theme(
+    axis.text.x = element_text(angle = 60, hjust = 1),
+    panel.grid = element_blank(),
+    legend.position = "right"
+  )
+
+ggsave(file.path(fig_dir, "discrepancy_heatmap.pdf"), p2,
+  width = 7, height = 6
+)
+print(p2)
+```
+
+## Network visualisation
+
+```{r}
+#| label: fig-networks-weighted-full
+#| echo: false
+#| fig-width: 13
+#| fig-height: 13
+#| fig-cap: "Full estimated peer-effect networks (BIC-selected $\\lambda$, EU, $N = 27$). All non-zero edges shown with width and colour intensity scaling continuously with $|\\hat w_{ij}|$. Darker/thicker edges indicate stronger peer-effect weights. Rows share a common layout: top row uses the Fruchterman--Reingold layout computed on the Quality network, bottom on Environment. Columns correspond to the network being plotted."
+make_full_weighted_graph <- function(W, labels, eps = 1e-5) {
+  W2 <- W
+  W2[abs(W2) < eps] <- 0
+  g <- igraph::graph_from_adjacency_matrix(W2, mode = "directed", weighted = TRUE)
+  igraph::V(g)$name <- labels
+  g
+}
+
+g_q_full <- make_full_weighted_graph(W_q, country_labels)
+g_e_full <- make_full_weighted_graph(W_e, country_labels)
+
+w_all <- c(abs(igraph::E(g_q_full)$weight), abs(igraph::E(g_e_full)$weight))
+w_max <- max(w_all, 1e-9)
+
+set.seed(1861)
+layout_q_full <- igraph::layout_with_fr(g_q_full)
+rownames(layout_q_full) <- igraph::V(g_q_full)$name
+set.seed(1861)
+layout_e_full <- igraph::layout_with_fr(g_e_full)
+rownames(layout_e_full) <- igraph::V(g_e_full)$name
+
+edge_palette <- colorRampPalette(c("#FEE0D2", "#FC9272", "#DE2D26", "#67000D"))(100)
+
+plot_full_weighted_net <- function(g, lo, title, w_max) {
+  lo_ordered <- lo[igraph::V(g)$name, , drop = FALSE]
+  if (igraph::ecount(g) > 0) {
+    w_abs <- abs(igraph::E(g)$weight)
+    w_norm <- pmin(w_abs / w_max, 1)
+    edge_wd <- 0.4 + 3.6 * w_norm
+    col_idx <- pmax(1, ceiling(w_norm * length(edge_palette)))
+    edge_col <- edge_palette[col_idx]
+    edge_alpha <- 0.35 + 0.55 * w_norm
+    edge_col <- mapply(adjustcolor, edge_col, alpha.f = edge_alpha)
+  } else {
+    edge_wd <- numeric(0)
+    edge_col <- character(0)
+  }
+  has_edge <- igraph::degree(g) > 0
+  plot(g,
+    layout = lo_ordered,
+    vertex.size = 10, vertex.label = igraph::V(g)$name,
+    vertex.label.cex = 0.55, vertex.label.dist = 1.8,
+    vertex.label.color = "grey20",
+    vertex.color = ifelse(has_edge, "steelblue", "grey85"),
+    vertex.frame.color = ifelse(has_edge, "steelblue4", "grey65"),
+    edge.arrow.size = 0.6, edge.arrow.width = 1.2,
+    edge.color = edge_col, edge.width = edge_wd,
+    main = title
+  )
+  leg_vals <- c(0.2, 0.5, 0.8, 1.0) * w_max
+  leg_vals <- leg_vals[leg_vals <= w_max]
+  leg_norm <- leg_vals / w_max
+  leg_wd <- 0.4 + 3.6 * leg_norm
+  leg_col_ix <- pmax(1, ceiling(leg_norm * length(edge_palette)))
+  leg_col <- edge_palette[leg_col_ix]
+  leg_alpha <- 0.35 + 0.55 * leg_norm
+  leg_col <- mapply(adjustcolor, leg_col, alpha.f = leg_alpha)
+  legend("bottomright",
+    title = expression("|" * hat(w)[ij] * "|"),
+    legend = formatC(leg_vals, format = "f", digits = 2),
+    lwd = leg_wd, col = leg_col, bty = "n", cex = 0.75, seg.len = 2.5
+  )
+}
+
+pdf(file.path(fig_dir, "networks_weighted_full.pdf"), width = 13, height = 13)
+par(mfrow = c(2, 2), mar = c(1, 1, 3, 1))
+plot_full_weighted_net(g_q_full, layout_q_full, "Quality — Quality layout", w_max)
+plot_full_weighted_net(g_e_full, layout_q_full, "Environment — Quality layout", w_max)
+plot_full_weighted_net(g_q_full, layout_e_full, "Quality — Environment layout", w_max)
+plot_full_weighted_net(g_e_full, layout_e_full, "Environment — Environment layout", w_max)
+dev.off()
+
+par(mfrow = c(2, 2), mar = c(1, 1, 3, 1))
+plot_full_weighted_net(g_q_full, layout_q_full, "Quality — Quality layout", w_max)
+plot_full_weighted_net(g_e_full, layout_q_full, "Environment — Quality layout", w_max)
+plot_full_weighted_net(g_q_full, layout_e_full, "Quality — Environment layout", w_max)
+plot_full_weighted_net(g_e_full, layout_e_full, "Environment — Environment layout", w_max)
+```
+
+## Appendix
+
+```{r}
+#| label: grid-summary-appendix
+#| echo: false
+summary_df <- readRDS(file.path(out_dir, "grid_search_summary.rds"))
+
+tab_full <- kbl(summary_df,
+  booktabs = TRUE,
+  longtable = TRUE,
+  caption = "Grid search results",
+  col.names = c(
+    "Panel", "$\\lambda_1$", "$\\lambda_2$", "$\\lambda_1^*$",
+    "Edges", "$\\hat{\\rho}_{EN}$", "$\\hat{\\rho}_{Ada}$",
+    "$\\hat{\\rho}_{GMM}$", "BIC"
+  ),
+  escape = FALSE,
+  align = "lrrrccccc",
+  format = "latex"
+) |>
+  kable_styling(
+    latex_options = c("hold_position", "repeat_header"),
+    font_size = 8
+  ) |>
+  footnote(
+    general = "Penalty triplet $(\\\\lambda_1, \\\\lambda_2, \\\\lambda_1^*)$ from De Paula, Rasul \\\\& Souza (2025). $\\\\hat{\\\\rho}_{EN}$, $\\\\hat{\\\\rho}_{Ada}$, $\\\\hat{\\\\rho}_{GMM}$ are the elastic-net, adaptive elastic-net, and post-LASSO GMM estimates of the peer-effect parameter. BIC selects the preferred specification per panel.",
+    general_title = "Notes:",
+    threeparttable = TRUE,
+    escape = FALSE,
+    footnote_as_chunk = TRUE
+  )
+
+writeLines(as.character(tab_full), file.path(tab_dir, "grid_search_full.tex"))
+tab_full
+```
