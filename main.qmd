@@ -19,6 +19,10 @@ format:
 data_dir <- "/workspaces/thesis/data"
 clean_dir <- "/workspaces/thesis/data/cleaned_data"
 
+# install.packages(
+#  c("maps", "countrycode")
+# )
+
 library(kableExtra)
 library(dplyr)
 library(magrittr)
@@ -293,35 +297,49 @@ cat(tex, sep = "\n")
 #| fig-height: 3.5
 #| fig-cap: "Distribution of nonzero recovered edge weights $|\\hat w_{ij}|$ for the BIC-selected networks. Bars show counts (binwidth = 0.05); rug ticks mark individual edges. Quality and Environment plotted on a common horizontal scale."
 w_df <- dplyr::bind_rows(
-  data.frame(standard = "Quality (ISO 9001)",
-             w = abs(W_q[abs(W_q) > 1e-5])),
-  data.frame(standard = "Environment (ISO 14001)",
-             w = abs(W_e[abs(W_e) > 1e-5]))
+  data.frame(
+    standard = "Quality (ISO 9001)",
+    w = abs(W_q[abs(W_q) > 1e-5])
+  ),
+  data.frame(
+    standard = "Environment (ISO 14001)",
+    w = abs(W_e[abs(W_e) > 1e-5])
+  )
 ) |>
   dplyr::mutate(standard = factor(standard,
-    levels = c("Quality (ISO 9001)", "Environment (ISO 14001)")))
+    levels = c("Quality (ISO 9001)", "Environment (ISO 14001)")
+  ))
 
 p <- ggplot(w_df, aes(x = w, fill = standard)) +
-  geom_histogram(binwidth = 0.05, boundary = 0,
-                 colour = "white", linewidth = 0.3) +
-  geom_rug(aes(colour = standard), sides = "b",
-           length = unit(0.04, "npc"), alpha = 0.7) +
-  facet_wrap(~ standard, scales = "free_y") +
+  geom_histogram(
+    binwidth = 0.05, boundary = 0,
+    colour = "white", linewidth = 0.3
+  ) +
+  geom_rug(aes(colour = standard),
+    sides = "b",
+    length = unit(0.04, "npc"), alpha = 0.7
+  ) +
+  facet_wrap(~standard, scales = "free_y") +
   scale_fill_manual(values = c(
     "Quality (ISO 9001)" = "#3182bd",
-    "Environment (ISO 14001)" = "#31a354")) +
+    "Environment (ISO 14001)" = "#31a354"
+  )) +
   scale_colour_manual(values = c(
     "Quality (ISO 9001)" = "#08519c",
-    "Environment (ISO 14001)" = "#006d2c")) +
+    "Environment (ISO 14001)" = "#006d2c"
+  )) +
   scale_x_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.02))) +
   labs(x = expression("|" * hat(w)[ij] * "|"), y = "Count") +
   theme_minimal(base_size = 10) +
-  theme(legend.position = "none",
-        strip.text = element_text(face = "bold"),
-        panel.grid.minor = element_blank())
+  theme(
+    legend.position = "none",
+    strip.text = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
 
 ggsave(file.path(fig_dir, "weights_density.pdf"), p,
-       width = 8, height = 3.5)
+  width = 8, height = 3.5
+)
 print(p)
 ```
 
@@ -394,7 +412,6 @@ cat(tex, sep = "\n")
 #| fig-width: 13
 #| fig-height: 13
 #| fig-cap: "..."
-
 make_full_weighted_graph <- function(W, labels, eps = 1e-5) {
   W2 <- W
   W2[abs(W2) < eps] <- 0
@@ -406,49 +423,67 @@ make_full_weighted_graph <- function(W, labels, eps = 1e-5) {
 g_q_full <- make_full_weighted_graph(W_q, country_labels)
 g_e_full <- make_full_weighted_graph(W_e, country_labels)
 
-w_max <- max(c(abs(igraph::E(g_q_full)$weight),
-               abs(igraph::E(g_e_full)$weight)), 1e-9)
+w_max <- max(c(
+  abs(igraph::E(g_q_full)$weight),
+  abs(igraph::E(g_e_full)$weight)
+), 1e-9)
 
-set.seed(1861); layout_q <- igraph::layout_with_fr(g_q_full)
-set.seed(1861); layout_e <- igraph::layout_with_fr(g_e_full)
+set.seed(1861)
+layout_q <- igraph::layout_with_fr(g_q_full)
+set.seed(1861)
+layout_e <- igraph::layout_with_fr(g_e_full)
 rownames(layout_q) <- rownames(layout_e) <- country_labels
 
 plot_net_gg <- function(g, lo, title, w_max) {
   lo_ordered <- lo[igraph::V(g)$name, , drop = FALSE]
 
   ggraph(g, layout = lo_ordered) +
-    geom_edge_arc(aes(alpha = abs(weight),
-                      colour = abs(weight) > 0.3),
-                  width = 0.5,                        # spessore costante e sottile
-                  arrow = arrow(length = unit(2, "mm"),
-                                type = "closed", angle = 22),
-                  end_cap = circle(5, "mm"),
-                  start_cap = circle(5, "mm"),
-                  strength = 0.12) +
+    geom_edge_arc(
+      aes(
+        alpha = abs(weight),
+        colour = abs(weight) > 0.3
+      ),
+      width = 0.5, # spessore costante e sottile
+      arrow = arrow(
+        length = unit(2, "mm"),
+        type = "closed", angle = 22
+      ),
+      end_cap = circle(5, "mm"),
+      start_cap = circle(5, "mm"),
+      strength = 0.12
+    ) +
     geom_node_point(aes(colour = igraph::degree(g) > 0),
-                    size = 4.5, show.legend = FALSE) +
+      size = 4.5, show.legend = FALSE
+    ) +
     geom_node_text(aes(label = name),
-                   repel = TRUE,
-                   size = 2.6,
-                   bg.colour = "white", bg.r = 0.18,
-                   segment.colour = "grey55",
-                   segment.size = 0.25,
-                   segment.alpha = 0.7,
-                   max.overlaps = Inf,
-                   force = 3, force_pull = 0.5,
-                   point.padding = unit(0.6, "lines"),
-                   box.padding = unit(0.45, "lines"),
-                   min.segment.length = 0) +
+      repel = TRUE,
+      size = 2.6,
+      bg.colour = "white", bg.r = 0.18,
+      segment.colour = "grey55",
+      segment.size = 0.25,
+      segment.alpha = 0.7,
+      max.overlaps = Inf,
+      force = 3, force_pull = 0.5,
+      point.padding = unit(0.6, "lines"),
+      box.padding = unit(0.45, "lines"),
+      min.segment.length = 0
+    ) +
     scale_edge_alpha(range = c(0.35, 0.9), limits = c(0, w_max), guide = "none") +
-    scale_edge_colour_manual(values = c(`TRUE` = "#67000D",     # dark red
-                                        `FALSE` = "grey60"),    # light grey
-                             guide = "none") +
+    scale_edge_colour_manual(
+      values = c(
+        `TRUE` = "#67000D", # dark red
+        `FALSE` = "grey60"
+      ), # light grey
+      guide = "none"
+    ) +
     scale_colour_manual(values = c(`TRUE` = "steelblue", `FALSE` = "grey85")) +
     ggtitle(title) +
     theme_void(base_size = 11) +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold"),
-          legend.position = "none",
-          plot.margin = margin(8, 8, 8, 8))
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      legend.position = "none",
+      plot.margin = margin(8, 8, 8, 8)
+    )
 }
 
 p_qq <- plot_net_gg(g_q_full, layout_q, "Quality — Quality layout", w_max)
@@ -459,7 +494,8 @@ p_ee <- plot_net_gg(g_e_full, layout_e, "Environment — Environment layout", w_
 panel <- (p_qq | p_eq) / (p_qe | p_ee)
 
 ggsave(file.path(fig_dir, "networks_weighted_full.pdf"), panel,
-       width = 13, height = 13)
+  width = 13, height = 13
+)
 print(panel)
 ```
 
@@ -470,22 +506,22 @@ print(panel)
 #| fig-width: 14
 #| fig-height: 14
 #| fig-cap: "Exogenous networks for the EU 27 sample, constructed following Albuquerque, Bronnenberg and Corbett (2007). For each country, the top-3 nearest neighbors are connected with uniform weight $1/3$. The neighbor-set size is reduced from 5 (used by Albuquerque on a sample of 56 countries) to 3, in light of the smaller sample size ($N = 27$). \\textbf{Geographic}: great-circle distance between capitals. \\textbf{Trade}: largest export shares from BACI 1996, total bilateral trade aggregated across all products. \\textbf{Cultural}: Euclidean distance on Hofstede's four cultural dimensions (PDI, IDV, MAS, UAI), with Cyprus assigned Greece's scores. The networks are directed: $i$'s neighbor set is not symmetric to $j$'s. The 3$\\times$3 grid fixes the Fruchterman--Reingold layout by row (computed on the network on the diagonal); columns then plot all three networks on that row's layout, allowing direct visual comparison of edge structure across networks."
-
 # ============================================================================
 # 0. PATHS
 # ============================================================================
 hofstede_path <- "/workspaces/thesis/data/6-dimensions-for-website-2015-08-16(1).csv"
-baci_path     <- "/workspaces/thesis/data/BACI_HS92_Y1996_V202601.csv"
-ccodes_path   <- "/workspaces/thesis/data/country_codes_V202601.csv"
+baci_path <- "/workspaces/thesis/data/BACI_HS92_Y1996_V202601.csv"
+ccodes_path <- "/workspaces/thesis/data/country_codes_V202601.csv"
 
-N     <- length(country_labels)
+N <- length(country_labels)
 TOP_N <- 3
 
 # ============================================================================
 # 0bis. ISO3 mapping (country_labels are full names)
 # ============================================================================
 cl_iso3 <- countrycode::countrycode(
-  country_labels, origin = "country.name", destination = "iso3c", warn = FALSE
+  country_labels,
+  origin = "country.name", destination = "iso3c", warn = FALSE
 )
 names(cl_iso3) <- country_labels
 iso_to_label <- setNames(names(cl_iso3), cl_iso3)
@@ -499,7 +535,9 @@ data("world.cities", package = "maps")
 capitals <- world.cities |>
   dplyr::filter(capital == 1) |>
   dplyr::mutate(iso3 = countrycode::countrycode(
-    country.etc, origin = "country.name", destination = "iso3c", warn = FALSE)) |>
+    country.etc,
+    origin = "country.name", destination = "iso3c", warn = FALSE
+  )) |>
   dplyr::filter(iso3 %in% cl_iso3) |>
   dplyr::group_by(iso3) |>
   dplyr::slice(1) |>
@@ -511,23 +549,28 @@ capitals <- world.cities |>
 stopifnot(nrow(capitals) == N)
 
 haversine_km <- function(lat1, lon1, lat2, lon2) {
-  R <- 6371; to_rad <- pi / 180
+  R <- 6371
+  to_rad <- pi / 180
   dlat <- (lat2 - lat1) * to_rad
   dlon <- (lon2 - lon1) * to_rad
-  a <- sin(dlat/2)^2 + cos(lat1*to_rad)*cos(lat2*to_rad)*sin(dlon/2)^2
+  a <- sin(dlat / 2)^2 + cos(lat1 * to_rad) * cos(lat2 * to_rad) * sin(dlon / 2)^2
   2 * R * asin(pmin(1, sqrt(a)))
 }
 
 D_geo <- matrix(0, N, N, dimnames = list(country_labels, country_labels))
-for (i in seq_len(N)) for (j in seq_len(N)) {
-  D_geo[i, j] <- haversine_km(capitals$lat[i], capitals$lon[i],
-                              capitals$lat[j], capitals$lon[j])
+for (i in seq_len(N)) {
+  for (j in seq_len(N)) {
+    D_geo[i, j] <- haversine_km(
+      capitals$lat[i], capitals$lon[i],
+      capitals$lat[j], capitals$lon[j]
+    )
+  }
 }
 
 # ============================================================================
 # 2. TRADE — BACI 1996
 # ============================================================================
-baci   <- readr::read_csv(baci_path,   show_col_types = FALSE)
+baci <- readr::read_csv(baci_path, show_col_types = FALSE)
 ccodes <- readr::read_csv(ccodes_path, show_col_types = FALSE)
 
 iso_map <- ccodes |>
@@ -540,8 +583,10 @@ trade <- baci |>
   dplyr::rename(exporter_iso = country_iso3) |>
   dplyr::inner_join(iso_map, by = c("j" = "country_code")) |>
   dplyr::rename(importer_iso = country_iso3) |>
-  dplyr::mutate(exporter = iso_to_label[exporter_iso],
-                importer = iso_to_label[importer_iso]) |>
+  dplyr::mutate(
+    exporter = iso_to_label[exporter_iso],
+    importer = iso_to_label[importer_iso]
+  ) |>
   dplyr::group_by(exporter, importer) |>
   dplyr::summarise(value = sum(v, na.rm = TRUE), .groups = "drop")
 
@@ -554,38 +599,50 @@ for (k in seq_len(nrow(trade))) {
 # 3. CULTURE — robust to format and missing countries
 # ============================================================================
 # Try semicolon delimiter first, fall back to comma
-hof_raw <- tryCatch({
-  x <- readr::read_csv2(hofstede_path, show_col_types = FALSE) |>
-    janitor::clean_names()
-  if (ncol(x) < 3) stop("too few columns")
-  x
-}, error = function(e) {
-  readr::read_csv(hofstede_path, show_col_types = FALSE) |>
-    janitor::clean_names()
-})
+hof_raw <- tryCatch(
+  {
+    x <- readr::read_csv2(hofstede_path, show_col_types = FALSE) |>
+      janitor::clean_names()
+    if (ncol(x) < 3) stop("too few columns")
+    x
+  },
+  error = function(e) {
+    readr::read_csv(hofstede_path, show_col_types = FALSE) |>
+      janitor::clean_names()
+  }
+)
 
 # Hofstede uses "#NULL!" for missing
 hof_raw <- hof_raw |>
-  dplyr::mutate(dplyr::across(dplyr::everything(),
-    \(x) ifelse(as.character(x) == "#NULL!", NA, x)))
+  dplyr::mutate(dplyr::across(
+    dplyr::everything(),
+    \(x) ifelse(as.character(x) == "#NULL!", NA, x)
+  ))
 
 # Find country identifier column (varies by release)
 candidates <- c("country", "ctr", "iso", "iso3")
 country_col <- candidates[candidates %in% names(hof_raw)][1]
-if (is.na(country_col))
-  stop("Hofstede CSV has no recognisable country column. Got: ",
-       paste(names(hof_raw), collapse = ", "))
+if (is.na(country_col)) {
+  stop(
+    "Hofstede CSV has no recognisable country column. Got: ",
+    paste(names(hof_raw), collapse = ", ")
+  )
+}
 
 # Convert identifier to ISO3 with progressive fallbacks
 to_iso3 <- function(x) {
   x <- as.character(x)
   out <- suppressWarnings(countrycode::countrycode(
-    x, origin = "country.name", destination = "iso3c", warn = FALSE))
+    x,
+    origin = "country.name", destination = "iso3c", warn = FALSE
+  ))
   if (mean(is.na(out)) > 0.5) {
     out <- suppressWarnings(countrycode::countrycode(
-      x, origin = "iso2c", destination = "iso3c", warn = FALSE))
+      x,
+      origin = "iso2c", destination = "iso3c", warn = FALSE
+    ))
   }
-  if (mean(is.na(out)) > 0.5) out <- toupper(x)  # assume already ISO3
+  if (mean(is.na(out)) > 0.5) out <- toupper(x) # assume already ISO3
   out
 }
 
@@ -604,23 +661,33 @@ hof <- hof_raw |>
 
 # Cyprus = Greece (standard practice; absent from Hofstede)
 if (!"CYP" %in% hof$iso3 && "GRC" %in% hof$iso3 && "CYP" %in% cl_iso3) {
-  hof <- dplyr::bind_rows(hof,
-    hof |> dplyr::filter(iso3 == "GRC") |> dplyr::mutate(iso3 = "CYP"))
+  hof <- dplyr::bind_rows(
+    hof,
+    hof |> dplyr::filter(iso3 == "GRC") |> dplyr::mutate(iso3 = "CYP")
+  )
 }
 
 # Any remaining gaps → EU sample mean (with explicit message)
 missing_hof <- setdiff(cl_iso3, hof$iso3)
 if (length(missing_hof) > 0) {
-  message("Hofstede missing for: ",
-          paste(iso_to_label[missing_hof], collapse = ", "),
-          " -- imputed with EU sample mean.")
+  message(
+    "Hofstede missing for: ",
+    paste(iso_to_label[missing_hof], collapse = ", "),
+    " -- imputed with EU sample mean."
+  )
   hof_mean <- hof |>
-    dplyr::summarise(dplyr::across(c(pdi, idv, mas, uai),
-                                   \(x) mean(x, na.rm = TRUE)))
+    dplyr::summarise(dplyr::across(
+      c(pdi, idv, mas, uai),
+      \(x) mean(x, na.rm = TRUE)
+    ))
   for (iso in missing_hof) {
-    hof <- dplyr::bind_rows(hof,
-      tibble::tibble(iso3 = iso, pdi = hof_mean$pdi, idv = hof_mean$idv,
-                     mas = hof_mean$mas, uai = hof_mean$uai))
+    hof <- dplyr::bind_rows(
+      hof,
+      tibble::tibble(
+        iso3 = iso, pdi = hof_mean$pdi, idv = hof_mean$idv,
+        mas = hof_mean$mas, uai = hof_mean$uai
+      )
+    )
   }
 }
 
@@ -644,19 +711,24 @@ top_n_network <- function(M, top_n = TOP_N, similarity = FALSE) {
   for (i in seq_len(nrow(M))) {
     v <- M[i, ]
     v[i] <- if (similarity) -Inf else Inf
-    idx <- if (similarity) order(v, decreasing = TRUE)[seq_len(top_n)]
-           else            order(v, decreasing = FALSE)[seq_len(top_n)]
+    idx <- if (similarity) {
+      order(v, decreasing = TRUE)[seq_len(top_n)]
+    } else {
+      order(v, decreasing = FALSE)[seq_len(top_n)]
+    }
     W[i, idx] <- 1 / top_n
   }
   W
 }
 
-W_geo   <- top_n_network(D_geo,   similarity = FALSE)
+W_geo <- top_n_network(D_geo, similarity = FALSE)
 W_trade <- top_n_network(T_trade, similarity = TRUE)
-W_cul   <- top_n_network(D_cul,   similarity = FALSE)
+W_cul <- top_n_network(D_cul, similarity = FALSE)
 
-saveRDS(list(geo = W_geo, trade = W_trade, culture = W_cul),
-        file.path(out_dir, "exogenous_networks.rds"))
+saveRDS(
+  list(geo = W_geo, trade = W_trade, culture = W_cul),
+  file.path(out_dir, "exogenous_networks.rds")
+)
 
 # ============================================================================
 # 5. 3x3 GRID PLOT, ROW-FIXED FR LAYOUTS
@@ -666,58 +738,215 @@ to_graph <- function(W) {
   igraph::V(g)$name <- rownames(W)
   g
 }
-g_geo   <- to_graph(W_geo)
+g_geo <- to_graph(W_geo)
 g_trade <- to_graph(W_trade)
-g_cul   <- to_graph(W_cul)
+g_cul <- to_graph(W_cul)
 
-set.seed(1861); lo_geo   <- igraph::layout_with_fr(g_geo)
-set.seed(1861); lo_trade <- igraph::layout_with_fr(g_trade)
-set.seed(1861); lo_cul   <- igraph::layout_with_fr(g_cul)
+set.seed(1861)
+lo_geo <- igraph::layout_with_fr(g_geo)
+set.seed(1861)
+lo_trade <- igraph::layout_with_fr(g_trade)
+set.seed(1861)
+lo_cul <- igraph::layout_with_fr(g_cul)
 rownames(lo_geo) <- rownames(lo_trade) <- rownames(lo_cul) <- country_labels
 
 plot_one <- function(g, lo, title) {
   lo_ord <- lo[igraph::V(g)$name, , drop = FALSE]
   ggraph(g, layout = lo_ord) +
-    geom_edge_arc(width = 0.4, alpha = 0.55, colour = "grey40",
-                  arrow = arrow(length = unit(1.8, "mm"), type = "closed", angle = 22),
-                  end_cap   = circle(4, "mm"),
-                  start_cap = circle(4, "mm"),
-                  strength  = 0.12) +
+    geom_edge_arc(
+      width = 0.4, alpha = 0.55, colour = "grey40",
+      arrow = arrow(length = unit(1.8, "mm"), type = "closed", angle = 22),
+      end_cap = circle(4, "mm"),
+      start_cap = circle(4, "mm"),
+      strength = 0.12
+    ) +
     geom_node_point(size = 3.5, colour = "steelblue") +
-    geom_node_text(aes(label = name), size = 2.4, repel = TRUE,
-                   bg.colour = "white", bg.r = 0.18,
-                   segment.colour = "grey55", segment.size = 0.25,
-                   max.overlaps = Inf, force = 3, force_pull = 0.5,
-                   point.padding = unit(0.5, "lines"),
-                   box.padding   = unit(0.35, "lines"),
-                   min.segment.length = 0) +
+    geom_node_text(aes(label = name),
+      size = 2.4, repel = TRUE,
+      bg.colour = "white", bg.r = 0.18,
+      segment.colour = "grey55", segment.size = 0.25,
+      max.overlaps = Inf, force = 3, force_pull = 0.5,
+      point.padding = unit(0.5, "lines"),
+      box.padding = unit(0.35, "lines"),
+      min.segment.length = 0
+    ) +
     ggtitle(title) +
     theme_void(base_size = 10) +
-    theme(plot.title = element_text(hjust = 0.5, face = "bold"),
-          plot.margin = margin(6, 6, 6, 6))
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      plot.margin = margin(6, 6, 6, 6)
+    )
 }
 
-p11 <- plot_one(g_geo,   lo_geo,   "Geography -- geo layout")
-p12 <- plot_one(g_trade, lo_geo,   "Trade -- geo layout")
-p13 <- plot_one(g_cul,   lo_geo,   "Culture -- geo layout")
-p21 <- plot_one(g_geo,   lo_trade, "Geography -- trade layout")
+p11 <- plot_one(g_geo, lo_geo, "Geography -- geo layout")
+p12 <- plot_one(g_trade, lo_geo, "Trade -- geo layout")
+p13 <- plot_one(g_cul, lo_geo, "Culture -- geo layout")
+p21 <- plot_one(g_geo, lo_trade, "Geography -- trade layout")
 p22 <- plot_one(g_trade, lo_trade, "Trade -- trade layout")
-p23 <- plot_one(g_cul,   lo_trade, "Culture -- trade layout")
-p31 <- plot_one(g_geo,   lo_cul,   "Geography -- culture layout")
-p32 <- plot_one(g_trade, lo_cul,   "Trade -- culture layout")
-p33 <- plot_one(g_cul,   lo_cul,   "Culture -- culture layout")
+p23 <- plot_one(g_cul, lo_trade, "Culture -- trade layout")
+p31 <- plot_one(g_geo, lo_cul, "Geography -- culture layout")
+p32 <- plot_one(g_trade, lo_cul, "Trade -- culture layout")
+p33 <- plot_one(g_cul, lo_cul, "Culture -- culture layout")
 
 panel_exo <- (p11 | p12 | p13) /
-             (p21 | p22 | p23) /
-             (p31 | p32 | p33)
+  (p21 | p22 | p23) /
+  (p31 | p32 | p33)
 
 ggsave(file.path(fig_dir, "exogenous_networks_grid.pdf"), panel_exo,
-       width = 14, height = 14, device = cairo_pdf)
+  width = 14, height = 14, device = cairo_pdf
+)
 print(panel_exo)
 ```
 
 
-## Appendix
+```{r}
+#| label: bdf-cross-section
+#| echo: false
+#| results: asis
+library(AER)
+library(sandwich)
+library(lmtest)
+
+# ---- 1. Load panels and build LEVEL outcome y = log(1 + n_cert) -------------
+dp_q_raw <- readRDS(file.path(clean_dir, "panel_9001_eu.rds"))
+dp_e_raw <- readRDS(file.path(clean_dir, "panel_14001_eu.rds"))
+
+id_to_country <- setNames(country_labels, seq_along(country_labels))
+
+# strip the differenced y, attach the level y from f9001 / f14001
+attach_level_y <- function(dp_raw, certs) {
+  dp_raw |>
+    dplyr::mutate(country = id_to_country[as.character(id)], year = time) |>
+    dplyr::select(country, year, x1, x2, x3, x4, x5) |>
+    dplyr::inner_join(
+      certs |> dplyr::transmute(country, year, y = log1p(n_cert)),
+      by = c("country", "year")
+    ) |>
+    tidyr::drop_na() |>
+    dplyr::filter(country %in% country_labels)
+}
+
+dp_q_lvl <- attach_level_y(dp_q_raw, f9001)
+dp_e_lvl <- attach_level_y(dp_e_raw, f14001)
+
+# keep only years with the full N=27 panel (BDF needs each cross-section square)
+keep_full_years <- function(d) {
+  full_yrs <- d |>
+    dplyr::count(year) |>
+    dplyr::filter(n == length(country_labels)) |>
+    dplyr::pull(year)
+  dplyr::filter(d, year %in% full_yrs)
+}
+dp_q_lvl <- keep_full_years(dp_q_lvl)
+dp_e_lvl <- keep_full_years(dp_e_lvl)
+
+# ---- 2. BDF (2009) cross-sectional 2SLS, stacked over years -----------------
+bdf <- function(panel, W, x_vars = c("x1", "x2", "x3", "x4", "x5")) {
+  d <- panel[order(panel$year, match(panel$country, country_labels)), ]
+  IG <- diag(nrow(W)) - W
+  Tn <- length(unique(d$year))
+  M <- function(A) kronecker(diag(Tn), A)
+
+  y <- as.numeric(M(IG) %*% d$y)
+  X <- as.matrix(d[, x_vars])
+  Wy <- as.numeric(M(IG %*% W) %*% d$y)
+  WX <- M(IG %*% W) %*% X
+  W2X <- M(IG %*% W %*% W) %*% X
+  IGX <- M(IG) %*% X
+
+  list(
+    fit     = ivreg(y ~ Wy + IGX + WX | IGX + WX + W2X),
+    cluster = d$country
+  )
+}
+
+report <- function(b) {
+  ct <- coeftest(b$fit, vcov = vcovCL(b$fit, cluster = b$cluster))
+  c(
+    delta = ct["Wy", "Estimate"],
+    se = ct["Wy", "Std. Error"],
+    p = ct["Wy", "Pr(>|t|)"]
+  )
+}
+
+# ---- 3. Run on four networks per outcome ------------------------------------
+nets_q <- list(
+  Geography = W_geo, Trade = W_trade, Culture = W_cul,
+  `DePaula recovered` = W_q
+)
+nets_e <- list(
+  Geography = W_geo, Trade = W_trade, Culture = W_cul,
+  `DePaula recovered` = W_e
+)
+
+fits_q <- lapply(nets_q, function(W) bdf(dp_q_lvl, W))
+fits_e <- lapply(nets_e, function(W) bdf(dp_e_lvl, W))
+
+# ---- 4. Side-by-side table --------------------------------------------------
+fmt <- function(r) {
+  star <- if (r["p"] < .01) {
+    "$^{***}$"
+  } else if (r["p"] < .05) {
+    "$^{**}$"
+  } else if (r["p"] < .10) "$^{*}$" else ""
+  c(sprintf("%.3f%s", r["delta"], star), sprintf("(%.3f)", r["se"]))
+}
+
+rows <- lapply(names(fits_q), function(nm) {
+  q <- fmt(report(fits_q[[nm]]))
+  e <- fmt(report(fits_e[[nm]]))
+  data.frame(
+    Network = nm, dQ = q[1], seQ = q[2],
+    dE = e[1], seE = e[2], stringsAsFactors = FALSE
+  )
+})
+tab <- do.call(rbind, rows)
+colnames(tab) <- c(
+  "Network",
+  "$\\hat\\delta$ Quality", "SE",
+  "$\\hat\\delta$ Environment", "SE"
+)
+
+kbl(tab,
+  booktabs = TRUE, format = "latex", escape = FALSE,
+  align = "lrlrl", row.names = FALSE,
+  caption = "Endogenous peer effect $\\hat\\delta$ from Bramoull\\'e, Djebbari \\& Fortin (2009) cross-sectional 2SLS, stacked over years with $(I-W)$ applied per year. Outcome $y_{it} = \\log(1+n_{\\text{cert},it})$. Instruments: $(I-W)X, (I-W)WX, (I-W)W^2X$. Country-clustered standard errors in parentheses."
+) |>
+  kable_styling(latex_options = "hold_position", font_size = 9) |>
+  footnote(
+    general = "All four networks are row-stochastic. Albuquerque, Bronnenberg \\\\& Corbett (2007) networks: top-3 nearest neighbours, uniform $1/3$ weights. Recovered networks from De Paula, Rasul \\\\& Souza (2025). BDF (2009) is cross-sectional; here we treat each year as an independent cross-section sharing $W$ (BDF footnote 11) and pool. $(I-W)$ absorbs the year-level intercept; country fixed effects are not absorbed, so this is a cross-sectional benchmark, not a panel estimator. Compare with $\\\\hat\\\\rho_{\\\\text{GMM}}$ from the De Paula et al.\\\\ recovery on first-differenced outcomes ($\\\\hat\\\\rho_Q = 0.151$, $\\\\hat\\\\rho_E = 0.236$). Country-clustered SE (Cameron \\\\& Miller, 2015). $^{*}p<.10$, $^{**}p<.05$, $^{***}p<.01$.",
+    general_title = "Notes:", threeparttable = TRUE,
+    escape = FALSE, footnote_as_chunk = TRUE
+  )
+```
+
+```{r}
+#| label: bdf-summaries
+#| echo: false
+cat("\n\n## Quality (ISO 9001) — full coefficient tables\n\n")
+for (nm in names(fits_q)) {
+  cat("\n###", nm, "\n\n")
+  print(coeftest(fits_q[[nm]]$fit,
+    vcov = vcovCL(fits_q[[nm]]$fit,
+      cluster = fits_q[[nm]]$cluster
+    )
+  ))
+}
+
+cat("\n\n## Environment (ISO 14001) — full coefficient tables\n\n")
+for (nm in names(fits_e)) {
+  cat("\n###", nm, "\n\n")
+  print(coeftest(fits_e[[nm]]$fit,
+    vcov = vcovCL(fits_e[[nm]]$fit,
+      cluster = fits_e[[nm]]$cluster
+    )
+  ))
+}
+```
+
+
+
+# Appendix
 
 ```{r}
 #| label: grid-summary-appendix
@@ -751,4 +980,208 @@ tab_full <- kbl(summary_df,
 
 writeLines(as.character(tab_full), file.path(tab_dir, "grid_search_full.tex"))
 tab_full
+```
+
+```{r}
+#| label: bdf-2004-raw
+#| echo: false
+#| results: asis
+library(AER)
+library(sandwich)
+library(lmtest)
+
+FOCAL_YEAR <- 2004
+
+# raw n_cert as y, no log, no difference
+build_raw <- function(dp_raw, certs) {
+  dp_raw |>
+    dplyr::mutate(country = id_to_country[as.character(id)], year = time) |>
+    dplyr::select(country, year, x1, x2, x3, x4, x5) |>
+    dplyr::inner_join(
+      certs |> dplyr::transmute(country, year, y = n_cert),
+      by = c("country", "year")
+    ) |>
+    tidyr::drop_na() |>
+    dplyr::filter(country %in% country_labels, year == FOCAL_YEAR)
+}
+
+id_to_country <- setNames(country_labels, seq_along(country_labels))
+dp_q_raw <- readRDS(file.path(clean_dir, "panel_9001_eu.rds"))
+dp_e_raw <- readRDS(file.path(clean_dir, "panel_14001_eu.rds"))
+d_q <- build_raw(dp_q_raw, f9001)
+d_e <- build_raw(dp_e_raw, f14001)
+
+# BDF 2SLS on a single cross-section, N=27, no (I-W) transform
+bdf_xs <- function(d, W, x_vars = c("x1", "x2", "x3", "x4", "x5")) {
+  d <- d[order(match(d$country, country_labels)), ]
+  stopifnot(nrow(d) == nrow(W))
+  X <- as.matrix(d[, x_vars])
+  Wy <- as.numeric(W %*% d$y)
+  WX <- W %*% X
+  W2X <- W %*% W %*% X
+  ivreg(d$y ~ Wy + X + WX | X + WX + W2X)
+}
+
+report_xs <- function(fit) {
+  ct <- coeftest(fit, vcov = vcovHC(fit, type = "HC0"))
+  c(
+    delta = ct["Wy", "Estimate"],
+    se = ct["Wy", "Std. Error"],
+    p = ct["Wy", "Pr(>|t|)"]
+  )
+}
+
+nets_q <- list(
+  Geography = W_geo, Trade = W_trade, Culture = W_cul,
+  `DePaula recovered` = W_q
+)
+nets_e <- list(
+  Geography = W_geo, Trade = W_trade, Culture = W_cul,
+  `DePaula recovered` = W_e
+)
+
+fits_q <- lapply(nets_q, bdf_xs, d = d_q)
+fits_e <- lapply(nets_e, bdf_xs, d = d_e)
+
+fmt <- function(r) {
+  star <- if (r["p"] < .01) {
+    "$^{***}$"
+  } else if (r["p"] < .05) {
+    "$^{**}$"
+  } else if (r["p"] < .10) "$^{*}$" else ""
+  c(sprintf("%.3f%s", r["delta"], star), sprintf("(%.3f)", r["se"]))
+}
+rows <- lapply(names(fits_q), function(nm) {
+  q <- fmt(report_xs(fits_q[[nm]]))
+  e <- fmt(report_xs(fits_e[[nm]]))
+  data.frame(
+    Network = nm, dQ = q[1], seQ = q[2],
+    dE = e[1], seE = e[2], stringsAsFactors = FALSE
+  )
+})
+tab <- do.call(rbind, rows)
+colnames(tab) <- c(
+  "Network",
+  "$\\hat\\delta$ Quality", "SE",
+  "$\\hat\\delta$ Environment", "SE"
+)
+
+kbl(tab,
+  booktabs = TRUE, format = "latex", escape = FALSE,
+  align = "lrlrl", row.names = FALSE,
+  caption = sprintf("Endogenous peer effect $\\hat\\delta$, Bramoull\\'e--Djebbari--Fortin (2009) cross-sectional 2SLS at $t = %d$, $N = 27$. Outcome $y_i = n_{\\text{cert},i}$ (raw count, no transformation). Instruments: $X, WX, W^2X$. Heteroskedasticity-robust standard errors.", FOCAL_YEAR)
+) |>
+  kable_styling(latex_options = "hold_position", font_size = 9) |>
+  footnote(
+    general = sprintf("Single cross-section at year %d. All four networks row-stochastic. Albuquerque, Bronnenberg \\\\& Corbett (2007) networks; recovered networks from De Paula, Rasul \\\\& Souza (2025). Identification of $\\\\delta$ requires $I, W, W^2$ linearly independent (BDF Prop. 5). At $N = 27$ the 2SLS asymptotics are indicative; SEs reported under HC0. $^{*}p<.10$, $^{**}p<.05$, $^{***}p<.01$.", FOCAL_YEAR),
+    general_title = "Notes:", threeparttable = TRUE,
+    escape = FALSE, footnote_as_chunk = TRUE
+  )
+```
+
+```{r}
+#| label: bdf-2004-intensity
+#| #| echo: false
+#| results: asis
+library(AER)
+library(sandwich)
+library(lmtest)
+
+FOCAL_YEAR <- 2017
+
+# y_i = certs / firms (intensity per impresa, scalato x1000 come in Albuquerque 2007)
+build_intensity_lagged <- function(dp_raw, certs) {
+  dp_raw |>
+    dplyr::mutate(country = id_to_country[as.character(id)], year = time) |>
+    dplyr::select(country, year, x1, x2, x3, x4, x5) |>
+    dplyr::inner_join(
+      certs |> dplyr::select(country, year, n_cert),
+      by = c("country", "year")
+    ) |>
+    dplyr::inner_join(sbs_firms, by = "country") |>
+    dplyr::mutate(y = 1000 * n_cert / n_firms_17) |>
+    dplyr::filter(
+      country %in% country_labels,
+      year %in% c(FOCAL_YEAR - 1, FOCAL_YEAR)
+    ) |>
+    tidyr::drop_na()
+}
+
+id_to_country <- setNames(country_labels, seq_along(country_labels))
+dp_q_raw <- readRDS(file.path(clean_dir, "panel_9001_eu.rds"))
+dp_e_raw <- readRDS(file.path(clean_dir, "panel_14001_eu.rds"))
+panel_q <- build_intensity_lagged(dp_q_raw, f9001)
+panel_e <- build_intensity_lagged(dp_e_raw, f14001)
+
+bdf_lagged <- function(panel, W, x_vars = c("x1", "x2", "x3", "x4", "x5")) {
+  d_t <- panel[panel$year == FOCAL_YEAR, ]
+  d_t <- d_t[order(match(d_t$country, country_labels)), ]
+  d_l <- panel[panel$year == FOCAL_YEAR - 1, ]
+  d_l <- d_l[order(match(d_l$country, country_labels)), ]
+  stopifnot(nrow(d_t) == nrow(W), nrow(d_l) == nrow(W))
+
+  y <- d_t$y
+  X <- as.matrix(d_t[, x_vars])
+  Wy_l <- as.numeric(W %*% d_l$y)
+  WX <- W %*% X
+  W2X <- W %*% W %*% X
+
+  ivreg(y ~ Wy_l + X + WX | X + WX + W2X)
+}
+
+report_xs <- function(fit) {
+  ct <- coeftest(fit, vcov = vcovHC(fit, type = "HC0"))
+  c(
+    delta = ct["Wy_l", "Estimate"],
+    se = ct["Wy_l", "Std. Error"],
+    p = ct["Wy_l", "Pr(>|t|)"]
+  )
+}
+
+nets_q <- list(
+  Geography = W_geo, Trade = W_trade, Culture = W_cul,
+  `DePaula recovered` = W_q
+)
+nets_e <- list(
+  Geography = W_geo, Trade = W_trade, Culture = W_cul,
+  `DePaula recovered` = W_e
+)
+
+fits_q <- lapply(nets_q, bdf_lagged, panel = panel_q)
+fits_e <- lapply(nets_e, bdf_lagged, panel = panel_e)
+
+fmt <- function(r) {
+  star <- if (r["p"] < .01) {
+    "$^{***}$"
+  } else if (r["p"] < .05) {
+    "$^{**}$"
+  } else if (r["p"] < .10) "$^{*}$" else ""
+  c(sprintf("%.3f%s", r["delta"], star), sprintf("(%.3f)", r["se"]))
+}
+rows <- lapply(names(fits_q), function(nm) {
+  q <- fmt(report_xs(fits_q[[nm]]))
+  e <- fmt(report_xs(fits_e[[nm]]))
+  data.frame(
+    Network = nm, dQ = q[1], seQ = q[2],
+    dE = e[1], seE = e[2], stringsAsFactors = FALSE
+  )
+})
+tab <- do.call(rbind, rows)
+colnames(tab) <- c(
+  "Network",
+  "$\\hat\\delta$ Quality", "SE",
+  "$\\hat\\delta$ Environment", "SE"
+)
+
+kbl(tab,
+  booktabs = TRUE, format = "latex", escape = FALSE,
+  align = "lrlrl", row.names = FALSE,
+  caption = sprintf("Endogenous peer effect $\\hat\\delta$ from a Bramoull\\'e--Djebbari--Fortin (2009) cross-sectional specification with \\emph{lagged} spatial lag (Albuquerque, Bronnenberg \\& Corbett, 2007, eq.~1). $t = %d$, $N = 27$. Outcome $y_{i,t} = 1000 \\cdot n_{\\text{cert},i,t} / n_{\\text{firms},i,2017}$ (certificates per 1{,}000 active firms). Spatial lag $\\sum_j w_{ij} y_{j,t-1}$. Instruments: $X_t, WX_t, W^2X_t$. Heteroskedasticity-robust SE.", FOCAL_YEAR)
+) |>
+  kable_styling(latex_options = "hold_position", font_size = 9) |>
+  footnote(
+    general = sprintf("Outcome standardised by the 2017 count of active enterprises (Eurostat SBS, NACE Rev.\\\\ 2 B--S excluding K), following the per-firm normalisation in Albuquerque, Bronnenberg \\\\& Corbett (2007). Cross-section at year %d, $N = 27$. Spatial lag in $t-1$ rather than $t$ (Albuquerque et al.\\\\ 2007, eq.\\\\ 1; Yu, de Jong \\\\& Lee, 2008). All four networks row-stochastic. Recovered networks from De Paula, Rasul \\\\& Souza (2025). HC0 robust SE. $^{*}p<.10$, $^{**}p<.05$, $^{***}p<.01$.", FOCAL_YEAR),
+    general_title = "Notes:", threeparttable = TRUE,
+    escape = FALSE, footnote_as_chunk = TRUE
+  )
 ```
