@@ -346,39 +346,46 @@ ggsave(file.path(fig_dir, "weights_density.pdf"), p,
 print(p)
 ```
 
+
 ## Network similarity
 
-The two networks are recovered on the same set of nodes, so the
-estimated weight matrices $\hat W^Q, \hat W^E \in \mathbb R^{N\times N}$
-are directly comparable element-wise. Define the dyad-level discrepancy
-matrix
+```{r}
+#| label: jaccard-compute
+#| include: false
+eps <- 1e-5
+B_q <- (abs(W_q) > eps) * 1
+B_e <- (abs(W_e) > eps) * 1
+diag(B_q) <- diag(B_e) <- 0
+
+n_q <- sum(B_q)
+n_e <- sum(B_e)
+n_inter <- sum(B_q & B_e)
+n_union <- sum(B_q | B_e)
+jaccard <- n_inter / n_union
+
+# Pre-formatted strings to insert inline in the text
+jaccard_pct <- formatC(100 * jaccard, format = "f", digits = 1)
+jaccard_val <- formatC(jaccard, format = "f", digits = 3)
+```
+## Network similarity
+
+To assess how closely the two recovered networks $\hat W^Q$ and $\hat W^E$ overlap, we summarise their structural similarity through the **Jaccard index** (Jaccard 1901; Wasserman \& Faust 1994, Sec.\ 11.4), the share of directed edges shared by both networks relative to the union of their edge sets:
 
 \begin{equation}
-D_{ij} = \hat w^Q_{ij} - \hat w^E_{ij}, \qquad i \neq j,
-\label{eq:Dij}
+J(\hat W^Q, \hat W^E) = \frac{|E_Q \cap E_E|}{|E_Q \cup E_E|},
+\label{eq:jaccard}
 \end{equation}
 
-and summarise it through the **mean absolute discrepancy**
+where $E_Q = \{(i, j) : |\hat w^Q_{ij}| > 10^{-5}\}$ and $E_E$ is defined analogously. Edges are treated as directed, so that a link $i \to j$ and the reciprocal $j \to i$ count as distinct elements of the edge sets. The index ranges in $[0, 1]$, with $J = 0$ for disjoint networks (no edges in common) and $J = 1$ for identical edge sets.
 
-\begin{equation}
-\mathrm{MAD}(\hat W^Q, \hat W^E) =
-\frac{1}{N(N-1)} \sum_{i\neq j} \bigl| \hat w^Q_{ij} - \hat w^E_{ij} \bigr|,
-\label{eq:mad}
-\end{equation}
-
-i.e.\ the entry-wise $\ell_1$ distance between the two off-diagonal
-weight matrices, normalised by the number of ordered dyads
-(Donnet and Robin, 2021). MAD is zero when the two recovered networks
-are identical and increases with the average per-dyad weight gap.
-A complementary scalar is the Pearson correlation
-$\rho(\mathrm{vec}(\hat W^Q), \mathrm{vec}(\hat W^E))$ across
-off-diagonal entries, which measures co-movement irrespective of scale.
+For the BIC-selected recovered networks, $|E_Q| = `r n_q`$, $|E_E| = `r n_e`$, $|E_Q \cap E_E| = `r n_inter`$, and $|E_Q \cup E_E| = `r n_union`$, yielding $J = `r jaccard_val`$ — that is, only $`r jaccard_pct`\%$ of the directed edges in the union of the two networks are shared. This low overlap is consistent with the visual sparsity of the dyad-level overlap matrix in Figure X and supports the substantive interpretation that ISO 9001 and ISO 14001 diffuse along distinct cross-country channels, in line with the conclusion of Albuquerque, Bronnenberg \& Corbett (2007) that the two standards follow different contagion mechanisms.
 
 ```{r}
-#| label: similarity-stats
+#| label: fig-network-adjacency-overlap
 #| echo: false
-#| results: asis
-#| cache: true 
+#| fig-width: 10
+#| fig-height: 9
+#| fig-cap: "Adjacency-matrix comparison between the BIC-selected recovered networks $\\hat W^Q$ (Quality, ISO 9001) and $\\hat W^E$ (Environment, ISO 14001). Each cell $(i, j)$ represents the directed link from country $i$ (row, sender) to country $j$ (column, receiver). Colour coding: white = no link in either network; blue = link present in both networks (concordance); red = link present in only one network. Asymmetry of red cells around the diagonal reflects discordance in link direction across the two networks. The diagonal is empty (self-loops not estimated)."
 N <- nrow(W_q)
 off <- which(row(W_q) != col(W_q))
 D <- W_q - W_e
@@ -387,35 +394,6 @@ rmse <- sqrt(mean(D[off]^2))
 corr <- cor(W_q[off], W_e[off])
 mean_q <- mean(abs(W_q[off]))
 mean_e <- mean(abs(W_e[off]))
-
-tex <- c(
-  "\\begin{table}[H]\\centering",
-  "\\caption{Network similarity between $\\hat W^Q$ and $\\hat W^E$ (EU, $N = 27$)}",
-  "\\label{tab:similarity}",
-  "\\begin{tabular}{lc}\\hline\\hline",
-  "Statistic & Value \\\\\\hline",
-  sprintf("Mean absolute discrepancy, $\\mathrm{MAD}$ & %s \\\\", formatC(mad, format = "f", digits = 4)),
-  sprintf("Root mean squared discrepancy, $\\mathrm{RMSD}$ & %s \\\\", formatC(rmse, format = "f", digits = 4)),
-  sprintf("Pearson correlation, $\\rho(\\mathrm{vec}\\hat W^Q, \\mathrm{vec}\\hat W^E)$ & %s \\\\", formatC(corr, format = "f", digits = 4)),
-  "\\hline",
-  sprintf("Mean $|\\hat w^Q_{ij}|$ (off-diagonal) & %s \\\\", formatC(mean_q, format = "f", digits = 4)),
-  sprintf("Mean $|\\hat w^E_{ij}|$ (off-diagonal) & %s \\\\", formatC(mean_e, format = "f", digits = 4)),
-  "\\hline\\hline\\end{tabular}",
-  "\\parbox{\\textwidth}{\\footnotesize \\textit{Notes:} Discrepancy statistics computed on the $N(N-1) = 702$ off-diagonal entries of the BIC-selected weight matrices. MAD reported in equation \\eqref{eq:mad}; RMSD is the analogous $\\ell_2$ statistic. The last two rows give the average absolute weight in each network as a benchmark for interpreting MAD.}",
-  "\\end{table}"
-)
-writeLines(tex, file.path(tab_dir, "similarity.tex"))
-cat(tex, sep = "\n")
-```
-
-
-
-```{r}
-#| label: fig-network-adjacency-overlap
-#| echo: false
-#| fig-width: 10
-#| fig-height: 9
-#| fig-cap: "Adjacency-matrix comparison between the BIC-selected recovered networks $\\hat W^Q$ (Quality, ISO 9001) and $\\hat W^E$ (Environment, ISO 14001). Each cell $(i, j)$ represents the directed link from country $i$ (row, sender) to country $j$ (column, receiver). Colour coding: white = no link in either network; blue = link present in both networks (concordance); red = link present in only one network. Asymmetry of red cells around the diagonal reflects discordance in link direction across the two networks. The diagonal is empty (self-loops not estimated)."
 eps <- 1e-5
 B_q <- (abs(W_q) > eps) * 1
 B_e <- (abs(W_e) > eps) * 1
