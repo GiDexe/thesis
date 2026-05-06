@@ -408,6 +408,75 @@ writeLines(tex, file.path(tab_dir, "similarity.tex"))
 cat(tex, sep = "\n")
 ```
 
+
+
+```{r}
+#| label: fig-network-adjacency-overlap
+#| echo: false
+#| fig-width: 10
+#| fig-height: 9
+#| fig-cap: "Adjacency-matrix comparison between the BIC-selected recovered networks $\\hat W^Q$ (Quality, ISO 9001) and $\\hat W^E$ (Environment, ISO 14001). Each cell $(i, j)$ represents the directed link from country $i$ (row, sender) to country $j$ (column, receiver). Colour coding: white = no link in either network; blue = link present in both networks (concordance); red = link present in only one network. Asymmetry of red cells around the diagonal reflects discordance in link direction across the two networks. The diagonal is empty (self-loops not estimated)."
+eps <- 1e-5
+B_q <- (abs(W_q) > eps) * 1
+B_e <- (abs(W_e) > eps) * 1
+diag(B_q) <- diag(B_e) <- 0
+
+# Classify each directed cell
+status_mat <- matrix("none", N, N, dimnames = list(country_labels, country_labels))
+status_mat[B_q == 1 & B_e == 1] <- "both"
+status_mat[B_q == 1 & B_e == 0] <- "quality_only"
+status_mat[B_q == 0 & B_e == 1] <- "environment_only"
+diag(status_mat) <- NA_character_
+
+# Long format for ggplot
+df_adj <- expand.grid(
+  sender = country_labels,
+  receiver = country_labels,
+  stringsAsFactors = FALSE
+) |>
+  dplyr::mutate(
+    status = as.character(status_mat[cbind(sender, receiver)]),
+    sender = factor(sender, levels = country_labels),
+    receiver = factor(receiver, levels = rev(country_labels))
+  ) |>
+  dplyr::filter(!is.na(status))
+
+p <- ggplot(df_adj, aes(x = sender, y = receiver, fill = status)) +
+  geom_tile(colour = "grey85", linewidth = 0.2) +
+  scale_fill_manual(
+    values = c(
+      "none"             = "white",
+      "both"             = "#08306B",
+      "quality_only"     = "#3182BD",
+      "environment_only" = "#A50026"
+    ),
+    labels = c(
+      "none"             = "No link",
+      "both"             = "Link in both",
+      "quality_only"     = "Link only in Quality",
+      "environment_only" = "Link only in Environment"
+    ),
+    breaks = c("both", "quality_only", "environment_only", "none"),
+    name = NULL
+  ) +
+  coord_fixed() +
+  scale_x_discrete(position = "top") +
+  labs(x = "Sender (i)", y = "Receiver (j)") +
+  theme_minimal(base_size = 9) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 0, vjust = 0, size = 7),
+    axis.text.y = element_text(size = 7),
+    panel.grid = element_blank(),
+    legend.position = "right",
+    legend.text = element_text(size = 9)
+  )
+
+ggsave(file.path(fig_dir, "adjacency_overlap.pdf"), p,
+  width = 10, height = 9
+)
+print(p)
+```
+
 ## Network visualisation
 
 ```{r}
@@ -803,15 +872,17 @@ print(panel_exo)
 ```
 
 ```{r}
-#| label: bdf-final-summary
+#| label: bdf-final-summary-combined
 #| echo: false
 #| results: asis
 #| cache: true
-# Self-contained chunk: BDF (2009) G2SLS with one-year lag on the peer outcome,
+# Self-contained: BDF (2009) G2SLS with one-year lag on the peer outcome,
 # applied to the De Paula, Rasul & Souza (2025) recovered networks and the
 # Albuquerque, Bronnenberg & Corbett (2007, Eq. 9) combined exogenous network.
-# Two specifications: (i) no FE, asymptotic country-clustered SE;
-# (ii) country FE, pairs cluster bootstrap SE (Cameron & Miller 2015).
+# Three specifications:
+# (i)   no FE, asymptotic country-clustered SE
+# (ii)  country FE, pairs cluster bootstrap on country (B = 999)
+# (iii) country + year FE, pairs cluster bootstrap on country (B = 999)
 
 library(fixest)
 library(dplyr)
@@ -921,6 +992,18 @@ sig_stars <- function(p) {
   } else if (p < 0.10) "$^{*}$" else ""
 }
 
+extract_nofe <- function(fit) {
+  s <- summary(fit, cluster = ~country)
+  ct <- s$coeftable
+  i <- which(rownames(ct) == "fit_Gy_lag")
+  list(b = ct[i, "Estimate"], se = ct[i, "Std. Error"], p = ct[i, "Pr(>|t|)"])
+}
+
+extract_cfe <- function(b) {
+  i <- which(names(b$estimate) == "fit_Gy_lag")
+  list(b = b$estimate[i], se = b$se[i], p = b$p_val[i])
+}
+
 # ---- Build data ------------------------------------------------------------
 id_to_country <- setNames(country_labels, seq_along(country_labels))
 N <- length(country_labels)
@@ -956,131 +1039,29 @@ f_cfe <- as.formula(sprintf(
   "y ~ %s + %s | country | Gy_lag ~ %s + %s",
   rhs, exo, inst2_lag, inst3_lag
 ))
-
-# ---- (i) No FE: asymptotic country-clustered SE ----------------------------
-extract_nofe <- function(fit) {
-  s <- summary(fit, cluster = ~country)
-  ct <- s$coeftable
-  i <- which(rownames(ct) == "fit_Gy_lag")
-  list(b = ct[i, "Estimate"], se = ct[i, "Std. Error"], p = ct[i, "Pr(>|t|)"])
-}
-
-nofe_q_rec <- extract_nofe(feols(f_nofe, data = bdf_q_lag, cluster = ~country))
-nofe_q_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_q_lag, cluster = ~country))
-nofe_e_rec <- extract_nofe(feols(f_nofe, data = bdf_e_lag, cluster = ~country))
-nofe_e_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_e_lag, cluster = ~country))
-
-# ---- (ii) Country FE: pairs cluster bootstrap ------------------------------
-boot_q_rec <- cluster_boot(bdf_q_lag, f_cfe, "country", B = B)
-boot_q_abc <- cluster_boot(bdf_comb_q_lag, f_cfe, "country", B = B)
-boot_e_rec <- cluster_boot(bdf_e_lag, f_cfe, "country", B = B)
-boot_e_abc <- cluster_boot(bdf_comb_e_lag, f_cfe, "country", B = B)
-
-extract_cfe <- function(b) {
-  i <- which(names(b$estimate) == "fit_Gy_lag")
-  list(b = b$estimate[i], se = b$se[i], p = b$p_val[i])
-}
-
-cfe_q_rec <- extract_cfe(boot_q_rec)
-cfe_q_abc <- extract_cfe(boot_q_abc)
-cfe_e_rec <- extract_cfe(boot_e_rec)
-cfe_e_abc <- extract_cfe(boot_e_abc)
-
-# ---- Build table -----------------------------------------------------------
-fmt_cell <- function(b, se, p) {
-  c(sprintf("%.3f%s", b, sig_stars(p)), sprintf("(%.3f)", se))
-}
-
-# ---- Build table (estimate above, SE below) --------------------------------
-tab <- rbind(
-  c(
-    "Quality", "Endogenous",
-    sprintf("%.3f%s", nofe_q_rec$b, sig_stars(nofe_q_rec$p)),
-    sprintf("%.3f%s", cfe_q_rec$b, sig_stars(cfe_q_rec$p))
-  ),
-  c(
-    "", "",
-    sprintf("(%.3f)", nofe_q_rec$se),
-    sprintf("(%.3f)", cfe_q_rec$se)
-  ),
-  c(
-    "Quality", "Combined Exogenous",
-    sprintf("%.3f%s", nofe_q_abc$b, sig_stars(nofe_q_abc$p)),
-    sprintf("%.3f%s", cfe_q_abc$b, sig_stars(cfe_q_abc$p))
-  ),
-  c(
-    "", "",
-    sprintf("(%.3f)", nofe_q_abc$se),
-    sprintf("(%.3f)", cfe_q_abc$se)
-  ),
-  c(
-    "Environment", "Endogenous",
-    sprintf("%.3f%s", nofe_e_rec$b, sig_stars(nofe_e_rec$p)),
-    sprintf("%.3f%s", cfe_e_rec$b, sig_stars(cfe_e_rec$p))
-  ),
-  c(
-    "", "",
-    sprintf("(%.3f)", nofe_e_rec$se),
-    sprintf("(%.3f)", cfe_e_rec$se)
-  ),
-  c(
-    "Environment", "Combined Exogenous",
-    sprintf("%.3f%s", nofe_e_abc$b, sig_stars(nofe_e_abc$p)),
-    sprintf("%.3f%s", cfe_e_abc$b, sig_stars(cfe_e_abc$p))
-  ),
-  c(
-    "", "",
-    sprintf("(%.3f)", nofe_e_abc$se),
-    sprintf("(%.3f)", cfe_e_abc$se)
-  )
-)
-tab <- as.data.frame(tab, stringsAsFactors = FALSE)
-colnames(tab) <- c(
-  "Panel", "Network",
-  "$\\hat\\beta$ (no FE)",
-  "$\\hat\\beta$ (country FE)"
-)
-
-kbl(tab,
-  booktabs = TRUE, format = "latex", escape = FALSE,
-  align = "llrr", row.names = FALSE,
-  caption = sprintf("Endogenous peer effect $\\hat\\beta$ from Bramoull\\'e, Djebbari \\& Fortin (2009) G2SLS with one-year lag on the peer outcome. Comparison between the De Paula, Rasul \\& Souza (2025) recovered networks and the combined exogenous network of Albuquerque, Bronnenberg \\& Corbett (2007, Eq. 9). The no-FE specification uses asymptotic country-clustered standard errors; the country-FE specification uses pairs cluster bootstrap on country, $B = %d$ replications (Cameron \\& Miller 2015, J. Human Resources). Standard errors in parentheses below estimates.", B),
-  label = "tab:bdf_final_summary"
-) |>
-  kable_styling(latex_options = "hold_position", font_size = 10) |>
-  kableExtra::footnote(
-    general = "Diffusion timing follows Albuquerque, Bronnenberg \\\\& Corbett (2007, Eq. 1) and Bass (1969). The combined exogenous network is the union of top-3 nearest neighbours from geography, bilateral trade, and Hofstede cultural distance, with uniform row-stochastic weights. Stability of $\\\\hat\\\\beta$ across the two specifications is diagnostic of correlated-effect contamination. $^{*}p<0.10$, $^{**}p<0.05$, $^{***}p<0.01$.",
-    general_title = "Notes:", threeparttable = TRUE,
-    escape = FALSE, footnote_as_chunk = TRUE
-  )
-```
-
-```{r}
-#| label: bdf-final-summary-twfe-countrycluster
-#| echo: false
-#| results: asis
-# BDF (2009) G2SLS with one-year lag, country + year FE.
-# Cluster on country (Cameron & Miller 2015): even with country FE,
-# residual within-country serial correlation may persist (idiosyncratic
-# national cycles, sectoral waves, regulatory transitions). Country
-# clustering is the standard adjustment for this residual dependence.
-# On N = 27 clusters, the bootstrap is at the lower end of the recommended
-# regime but more reliable than year clustering on T = 18-24 clusters
-# (MacKinnon, Nielsen & Webb 2023, J. Econometrics).
-#
-# Reuses bdf_q_lag, bdf_e_lag, bdf_comb_q_lag, bdf_comb_e_lag,
-# rhs, exo, inst2_lag, inst3_lag, cluster_boot, sig_stars, extract_cfe
-# from previous chunks.
-
-set.seed(1861)
-B <- 999
-
 f_twfe <- as.formula(sprintf(
   "y ~ %s + %s | country + year | Gy_lag ~ %s + %s",
   rhs, exo, inst2_lag, inst3_lag
 ))
 
-# Pairs cluster bootstrap on country
+# ---- (i) No FE -------------------------------------------------------------
+nofe_q_rec <- extract_nofe(feols(f_nofe, data = bdf_q_lag, cluster = ~country))
+nofe_q_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_q_lag, cluster = ~country))
+nofe_e_rec <- extract_nofe(feols(f_nofe, data = bdf_e_lag, cluster = ~country))
+nofe_e_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_e_lag, cluster = ~country))
+
+# ---- (ii) Country FE -------------------------------------------------------
+boot_q_rec_cfe <- cluster_boot(bdf_q_lag, f_cfe, "country", B = B)
+boot_q_abc_cfe <- cluster_boot(bdf_comb_q_lag, f_cfe, "country", B = B)
+boot_e_rec_cfe <- cluster_boot(bdf_e_lag, f_cfe, "country", B = B)
+boot_e_abc_cfe <- cluster_boot(bdf_comb_e_lag, f_cfe, "country", B = B)
+
+cfe_q_rec <- extract_cfe(boot_q_rec_cfe)
+cfe_q_abc <- extract_cfe(boot_q_abc_cfe)
+cfe_e_rec <- extract_cfe(boot_e_rec_cfe)
+cfe_e_abc <- extract_cfe(boot_e_abc_cfe)
+
+# ---- (iii) Two-way FE ------------------------------------------------------
 boot_q_rec_tw <- cluster_boot(bdf_q_lag, f_twfe, "country", B = B)
 boot_q_abc_tw <- cluster_boot(bdf_comb_q_lag, f_twfe, "country", B = B)
 boot_e_rec_tw <- cluster_boot(bdf_e_lag, f_twfe, "country", B = B)
@@ -1091,66 +1072,78 @@ tw_q_abc <- extract_cfe(boot_q_abc_tw)
 tw_e_rec <- extract_cfe(boot_e_rec_tw)
 tw_e_abc <- extract_cfe(boot_e_abc_tw)
 
-fmt_cell <- function(b, se, p) {
-  c(sprintf("%.3f%s", b, sig_stars(p)), sprintf("(%.3f)", se))
-}
-
+# ---- Build table (estimates above, SE below) -------------------------------
 tab <- rbind(
   c(
     "Quality", "Endogenous",
+    sprintf("%.3f%s", nofe_q_rec$b, sig_stars(nofe_q_rec$p)),
+    sprintf("%.3f%s", cfe_q_rec$b, sig_stars(cfe_q_rec$p)),
     sprintf("%.3f%s", tw_q_rec$b, sig_stars(tw_q_rec$p))
   ),
   c(
     "", "",
+    sprintf("(%.3f)", nofe_q_rec$se),
+    sprintf("(%.3f)", cfe_q_rec$se),
     sprintf("(%.3f)", tw_q_rec$se)
   ),
   c(
     "Quality", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_q_abc$b, sig_stars(nofe_q_abc$p)),
+    sprintf("%.3f%s", cfe_q_abc$b, sig_stars(cfe_q_abc$p)),
     sprintf("%.3f%s", tw_q_abc$b, sig_stars(tw_q_abc$p))
   ),
   c(
     "", "",
+    sprintf("(%.3f)", nofe_q_abc$se),
+    sprintf("(%.3f)", cfe_q_abc$se),
     sprintf("(%.3f)", tw_q_abc$se)
   ),
   c(
     "Environment", "Endogenous",
+    sprintf("%.3f%s", nofe_e_rec$b, sig_stars(nofe_e_rec$p)),
+    sprintf("%.3f%s", cfe_e_rec$b, sig_stars(cfe_e_rec$p)),
     sprintf("%.3f%s", tw_e_rec$b, sig_stars(tw_e_rec$p))
   ),
   c(
     "", "",
+    sprintf("(%.3f)", nofe_e_rec$se),
+    sprintf("(%.3f)", cfe_e_rec$se),
     sprintf("(%.3f)", tw_e_rec$se)
   ),
   c(
     "Environment", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_e_abc$b, sig_stars(nofe_e_abc$p)),
+    sprintf("%.3f%s", cfe_e_abc$b, sig_stars(cfe_e_abc$p)),
     sprintf("%.3f%s", tw_e_abc$b, sig_stars(tw_e_abc$p))
   ),
   c(
     "", "",
+    sprintf("(%.3f)", nofe_e_abc$se),
+    sprintf("(%.3f)", cfe_e_abc$se),
     sprintf("(%.3f)", tw_e_abc$se)
   )
 )
 tab <- as.data.frame(tab, stringsAsFactors = FALSE)
 colnames(tab) <- c(
   "Panel", "Network",
+  "$\\hat\\beta$ (no FE)",
+  "$\\hat\\beta$ (country FE)",
   "$\\hat\\beta$ (country + year FE)"
 )
 
 kbl(tab,
   booktabs = TRUE, format = "latex", escape = FALSE,
-  align = "llr", row.names = FALSE,
-  caption = sprintf("Endogenous peer effect $\\hat\\beta$ from Bramoull\\'e, Djebbari \\& Fortin (2009) G2SLS with one-year lag on the peer outcome and country + year fixed effects. Inference based on pairs cluster bootstrap on country, $B = %d$ replications (Cameron \\& Miller 2015, J. Human Resources). Standard errors in parentheses below estimates.", B),
-  label = "tab:bdf_twfe_countrycluster"
+  align = "llrrr", row.names = FALSE,
+  caption = sprintf("Endogenous peer effect $\\hat\\beta$ from Bramoull\\'e, Djebbari \\& Fortin (2009) G2SLS with one-year lag on the peer outcome, across three fixed-effects specifications. Comparison between the De Paula, Rasul \\& Souza (2025) recovered networks (Endogenous) and the combined exogenous network of Albuquerque, Bronnenberg \\& Corbett (2007, Eq. 9). The no-FE specification uses asymptotic country-clustered standard errors; the country-FE and country + year FE specifications use pairs cluster bootstrap on country, $B = %d$ replications (Cameron \\& Miller 2015, J. Human Resources). Standard errors in parentheses below estimates.", B),
+  label = "tab:bdf_combined_summary"
 ) |>
   kable_styling(latex_options = "hold_position", font_size = 10) |>
   kableExtra::footnote(
-    general = "Diffusion timing follows Albuquerque, Bronnenberg \\\\& Corbett (2007, Eq. 1) and Bass (1969). Country fixed effects absorb persistent national heterogeneity; year fixed effects absorb common EU-wide temporal shocks. For ISO 14001, observed predominantly in its take-off phase, year FE may absorb part of the diffusion-driven temporal commonality alongside common shocks (Bertrand, Duflo \\\\& Mullainathan 2004, QJE; Neumayer \\\\& Perkins 2004, Environment and Planning A). $^{*}p<0.10$, $^{**}p<0.05$, $^{***}p<0.01$.",
+    general = "Diffusion timing follows Albuquerque, Bronnenberg \\\\& Corbett (2007, Eq. 1) and Bass (1969). The combined exogenous network is the union of top-3 nearest neighbours from geography, bilateral trade, and Hofstede cultural distance, with uniform row-stochastic weights. Country FE absorb time-invariant national heterogeneity; year FE absorb common EU-wide shocks. Stability of $\\\\hat\\\\beta$ across specifications is diagnostic of correlated-effect contamination: the recovered networks display stable estimates, whereas the combined exogenous network estimates are inflated and exceed the stability boundary $|\\\\beta| < 1$ required for SAR equilibrium (Lee 2007). For ISO 14001, observed predominantly in its take-off phase, year FE may absorb part of the diffusion-driven temporal commonality alongside common shocks (Bertrand, Duflo \\\\& Mullainathan 2004; Neumayer \\\\& Perkins 2004). $^{*}p<0.10$, $^{**}p<0.05$, $^{***}p<0.01$.",
     general_title = "Notes:", threeparttable = TRUE,
     escape = FALSE, footnote_as_chunk = TRUE
   )
 ```
-
-
-
 
 
 
@@ -1161,6 +1154,7 @@ kbl(tab,
 #| echo: false
 #| results: asis
 #| cache: true
+#| output: false
 # BDF (2009) G2SLS with one-year lag, applied to Albuquerque, Bronnenberg
 # & Corbett (2007, Table 3, Model 5) preferred two-channel networks:
 # - Quality (ISO 9001):     geography + bilateral trade
