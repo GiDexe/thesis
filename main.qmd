@@ -56,6 +56,7 @@ for (d in c(fig_dir, tab_dir)) if (!dir.exists(d)) dir.create(d, recursive = TRU
 ```{r}
 #| label: load-best
 #| include: false
+#| cache: true
 best <- readRDS(file.path(out_dir, "best_per_panel.rds"))
 W_q <- as.matrix(best[["9001_eu"]]$rn$unpenalisedgmm$W)
 diag(W_q) <- 0
@@ -76,6 +77,7 @@ rownames(W_e) <- colnames(W_e) <- country_labels
 #| label: descriptive-stats
 #| echo: false
 #| results: asis
+#| cache: true 
 f9001 <- readRDS(file.path(clean_dir, "f9001.rds"))
 f14001 <- readRDS(file.path(clean_dir, "f14001.rds"))
 
@@ -207,6 +209,7 @@ tab_top5
 #| label: network-stats-table
 #| echo: false
 #| results: asis
+#| cache: true 
 net_stats <- function(W) {
   B <- (abs(W) > 1e-5) * 1
   diag(B) <- 0
@@ -375,6 +378,7 @@ off-diagonal entries, which measures co-movement irrespective of scale.
 #| label: similarity-stats
 #| echo: false
 #| results: asis
+#| cache: true 
 N <- nrow(W_q)
 off <- which(row(W_q) != col(W_q))
 D <- W_q - W_e
@@ -798,23 +802,35 @@ ggsave(file.path(fig_dir, "exogenous_networks_grid.pdf"), panel_exo,
 print(panel_exo)
 ```
 
-
 ```{r}
-#| label: bdf-cross-section
+#| label: bdf-final-summary
 #| echo: false
 #| results: asis
-library(AER)
-library(sandwich)
-library(lmtest)
+#| cache: true
+# Self-contained chunk: BDF (2009) G2SLS with one-year lag on the peer outcome,
+# applied to the De Paula, Rasul & Souza (2025) recovered networks and the
+# Albuquerque, Bronnenberg & Corbett (2007, Eq. 9) combined exogenous network.
+# Two specifications: (i) no FE, asymptotic country-clustered SE;
+# (ii) country FE, pairs cluster bootstrap SE (Cameron & Miller 2015).
 
-# ---- 1. Load panels and build LEVEL outcome y = log(1 + n_cert) -------------
-dp_q_raw <- readRDS(file.path(clean_dir, "panel_9001_eu.rds"))
-dp_e_raw <- readRDS(file.path(clean_dir, "panel_14001_eu.rds"))
+library(fixest)
+library(dplyr)
+library(tidyr)
+library(kableExtra)
 
-id_to_country <- setNames(country_labels, seq_along(country_labels))
+set.seed(1861)
+B <- 999
 
-# strip the differenced y, attach the level y from f9001 / f14001
-attach_level_y <- function(dp_raw, certs) {
+# ---- Helpers ---------------------------------------------------------------
+row_normalise <- function(W, eps = 1e-5) {
+  W[abs(W) < eps] <- 0
+  diag(W) <- 0
+  rs <- rowSums(W)
+  rs[rs == 0] <- 1
+  W / rs
+}
+
+attach_y <- function(dp_raw, certs) {
   dp_raw |>
     dplyr::mutate(country = id_to_country[as.character(id)], year = time) |>
     dplyr::select(country, year, x1, x2, x3, x4, x5) |>
@@ -826,131 +842,458 @@ attach_level_y <- function(dp_raw, certs) {
     dplyr::filter(country %in% country_labels)
 }
 
-dp_q_lvl <- attach_level_y(dp_q_raw, f9001)
-dp_e_lvl <- attach_level_y(dp_e_raw, f14001)
-
-# keep only years with the full N=27 panel (BDF needs each cross-section square)
-keep_full_years <- function(d) {
-  full_yrs <- d |>
+keep_full <- function(d) {
+  full <- d |>
     dplyr::count(year) |>
     dplyr::filter(n == length(country_labels)) |>
     dplyr::pull(year)
-  dplyr::filter(d, year %in% full_yrs)
+  dplyr::filter(d, year %in% full)
 }
-dp_q_lvl <- keep_full_years(dp_q_lvl)
-dp_e_lvl <- keep_full_years(dp_e_lvl)
 
-# ---- 2. BDF (2009) cross-sectional 2SLS, stacked over years -----------------
-bdf <- function(panel, W, x_vars = c("x1", "x2", "x3", "x4", "x5")) {
-  d <- panel[order(panel$year, match(panel$country, country_labels)), ]
-  IG <- diag(nrow(W)) - W
-  Tn <- length(unique(d$year))
-  M <- function(A) kronecker(diag(Tn), A)
+build_bdf_panel_lag <- function(panel, W, x_vars) {
+  G <- row_normalise(W)
+  G2 <- G %*% G
+  G3 <- G2 %*% G
+  d <- panel[order(panel$year, match(panel$country, rownames(G))), ]
+  yrs <- sort(unique(d$year))
+  d$Gy <- unlist(lapply(yrs, function(t) {
+    yt <- d$y[d$year == t]
+    as.numeric(G %*% yt)
+  }))
+  for (v in x_vars) {
+    Xt <- matrix(d[[v]], ncol = length(yrs))
+    d[[paste0("G_", v)]] <- as.numeric(G %*% Xt)
+    d[[paste0("G2_", v)]] <- as.numeric(G2 %*% Xt)
+    d[[paste0("G3_", v)]] <- as.numeric(G3 %*% Xt)
+  }
+  d <- d[order(d$country, d$year), ]
+  d <- d |>
+    dplyr::group_by(country) |>
+    dplyr::mutate(
+      Gy_lag = dplyr::lag(Gy, n = 1, order_by = year),
+      dplyr::across(
+        dplyr::all_of(c(paste0("G2_", x_vars), paste0("G3_", x_vars))),
+        \(z) dplyr::lag(z, n = 1, order_by = year),
+        .names = "{.col}_lag"
+      )
+    ) |>
+    dplyr::ungroup() |>
+    tidyr::drop_na(Gy_lag)
+  d
+}
 
-  y <- as.numeric(M(IG) %*% d$y)
-  X <- as.matrix(d[, x_vars])
-  Wy <- as.numeric(M(IG %*% W) %*% d$y)
-  WX <- M(IG %*% W) %*% X
-  W2X <- M(IG %*% W %*% W) %*% X
-  IGX <- M(IG) %*% X
-
+cluster_boot <- function(data, fit_formula, cluster_var = "country", B = 999) {
+  clusters <- unique(data[[cluster_var]])
+  G <- length(clusters)
+  est0 <- coef(fixest::feols(fit_formula, data = data, warn = FALSE, notes = FALSE))
+  k <- length(est0)
+  boot_mat <- matrix(NA_real_, nrow = B, ncol = k, dimnames = list(NULL, names(est0)))
+  for (b in seq_len(B)) {
+    idx <- sample(clusters, G, replace = TRUE)
+    boot_df <- do.call(rbind, lapply(seq_along(idx), function(j) {
+      d <- data[data[[cluster_var]] == idx[j], ]
+      d[[cluster_var]] <- paste0(idx[j], "_", j)
+      d
+    }))
+    fit_b <- tryCatch(
+      fixest::feols(fit_formula, data = boot_df, warn = FALSE, notes = FALSE),
+      error = function(e) NULL
+    )
+    if (!is.null(fit_b)) boot_mat[b, ] <- coef(fit_b)
+  }
   list(
-    fit     = ivreg(y ~ Wy + IGX + WX | IGX + WX + W2X),
-    cluster = d$country
+    estimate = est0,
+    se = apply(boot_mat, 2, sd, na.rm = TRUE),
+    p_val = sapply(seq_len(k), function(j) {
+      mean(abs(boot_mat[, j] - est0[j]) >= abs(est0[j]), na.rm = TRUE)
+    })
   )
 }
 
-report <- function(b) {
-  ct <- coeftest(b$fit, vcov = vcovCL(b$fit, cluster = b$cluster))
-  c(
-    delta = ct["Wy", "Estimate"],
-    se = ct["Wy", "Std. Error"],
-    p = ct["Wy", "Pr(>|t|)"]
-  )
-}
-
-# ---- 3. Run on four networks per outcome ------------------------------------
-nets_q <- list(
-  Geography = W_geo, Trade = W_trade, Culture = W_cul,
-  `DePaula recovered` = W_q
-)
-nets_e <- list(
-  Geography = W_geo, Trade = W_trade, Culture = W_cul,
-  `DePaula recovered` = W_e
-)
-
-fits_q <- lapply(nets_q, function(W) bdf(dp_q_lvl, W))
-fits_e <- lapply(nets_e, function(W) bdf(dp_e_lvl, W))
-
-# ---- 4. Side-by-side table --------------------------------------------------
-fmt <- function(r) {
-  star <- if (r["p"] < .01) {
+sig_stars <- function(p) {
+  if (is.na(p)) {
+    return("")
+  }
+  if (p < 0.01) {
     "$^{***}$"
-  } else if (r["p"] < .05) {
+  } else if (p < 0.05) {
     "$^{**}$"
-  } else if (r["p"] < .10) "$^{*}$" else ""
-  c(sprintf("%.3f%s", r["delta"], star), sprintf("(%.3f)", r["se"]))
+  } else if (p < 0.10) "$^{*}$" else ""
 }
 
-rows <- lapply(names(fits_q), function(nm) {
-  q <- fmt(report(fits_q[[nm]]))
-  e <- fmt(report(fits_e[[nm]]))
-  data.frame(
-    Network = nm, dQ = q[1], seQ = q[2],
-    dE = e[1], seE = e[2], stringsAsFactors = FALSE
+# ---- Build data ------------------------------------------------------------
+id_to_country <- setNames(country_labels, seq_along(country_labels))
+N <- length(country_labels)
+x_vars <- c("x1", "x2", "x3", "x4", "x5")
+
+panel_q <- keep_full(attach_y(readRDS(file.path(clean_dir, "panel_9001_eu.rds")), f9001))
+panel_e <- keep_full(attach_y(readRDS(file.path(clean_dir, "panel_14001_eu.rds")), f14001))
+
+# Combined ABC network
+W_combined <- matrix(0, N, N, dimnames = list(country_labels, country_labels))
+for (i in seq_len(N)) {
+  nbrs_i <- unique(c(which(W_geo[i, ] > 0), which(W_trade[i, ] > 0), which(W_cul[i, ] > 0)))
+  W_combined[i, nbrs_i] <- 1 / length(nbrs_i)
+}
+
+# BDF panels with one-year lag
+bdf_q_lag <- build_bdf_panel_lag(panel_q, W_q, x_vars)
+bdf_e_lag <- build_bdf_panel_lag(panel_e, W_e, x_vars)
+bdf_comb_q_lag <- build_bdf_panel_lag(panel_q, W_combined, x_vars)
+bdf_comb_e_lag <- build_bdf_panel_lag(panel_e, W_combined, x_vars)
+
+# ---- Formulas --------------------------------------------------------------
+rhs <- paste(x_vars, collapse = " + ")
+exo <- paste(paste0("G_", x_vars), collapse = " + ")
+inst2_lag <- paste(paste0("G2_", x_vars, "_lag"), collapse = " + ")
+inst3_lag <- paste(paste0("G3_", x_vars, "_lag"), collapse = " + ")
+
+f_nofe <- as.formula(sprintf(
+  "y ~ %s + %s | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+f_cfe <- as.formula(sprintf(
+  "y ~ %s + %s | country | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+
+# ---- (i) No FE: asymptotic country-clustered SE ----------------------------
+extract_nofe <- function(fit) {
+  s <- summary(fit, cluster = ~country)
+  ct <- s$coeftable
+  i <- which(rownames(ct) == "fit_Gy_lag")
+  list(b = ct[i, "Estimate"], se = ct[i, "Std. Error"], p = ct[i, "Pr(>|t|)"])
+}
+
+nofe_q_rec <- extract_nofe(feols(f_nofe, data = bdf_q_lag, cluster = ~country))
+nofe_q_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_q_lag, cluster = ~country))
+nofe_e_rec <- extract_nofe(feols(f_nofe, data = bdf_e_lag, cluster = ~country))
+nofe_e_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_e_lag, cluster = ~country))
+
+# ---- (ii) Country FE: pairs cluster bootstrap ------------------------------
+boot_q_rec <- cluster_boot(bdf_q_lag, f_cfe, "country", B = B)
+boot_q_abc <- cluster_boot(bdf_comb_q_lag, f_cfe, "country", B = B)
+boot_e_rec <- cluster_boot(bdf_e_lag, f_cfe, "country", B = B)
+boot_e_abc <- cluster_boot(bdf_comb_e_lag, f_cfe, "country", B = B)
+
+extract_cfe <- function(b) {
+  i <- which(names(b$estimate) == "fit_Gy_lag")
+  list(b = b$estimate[i], se = b$se[i], p = b$p_val[i])
+}
+
+cfe_q_rec <- extract_cfe(boot_q_rec)
+cfe_q_abc <- extract_cfe(boot_q_abc)
+cfe_e_rec <- extract_cfe(boot_e_rec)
+cfe_e_abc <- extract_cfe(boot_e_abc)
+
+# ---- Build table -----------------------------------------------------------
+fmt_cell <- function(b, se, p) {
+  c(sprintf("%.3f%s", b, sig_stars(p)), sprintf("(%.3f)", se))
+}
+
+tab <- rbind(
+  c(
+    "Quality", "Endogenous",
+    fmt_cell(nofe_q_rec$b, nofe_q_rec$se, nofe_q_rec$p),
+    fmt_cell(cfe_q_rec$b, cfe_q_rec$se, cfe_q_rec$p)
+  ),
+  c(
+    "Quality", "Combined Exogenous",
+    fmt_cell(nofe_q_abc$b, nofe_q_abc$se, nofe_q_abc$p),
+    fmt_cell(cfe_q_abc$b, cfe_q_abc$se, cfe_q_abc$p)
+  ),
+  c(
+    "Environment", "Endogenous",
+    fmt_cell(nofe_e_rec$b, nofe_e_rec$se, nofe_e_rec$p),
+    fmt_cell(cfe_e_rec$b, cfe_e_rec$se, cfe_e_rec$p)
+  ),
+  c(
+    "Environment", "Combined Exogenous",
+    fmt_cell(nofe_e_abc$b, nofe_e_abc$se, nofe_e_abc$p),
+    fmt_cell(cfe_e_abc$b, cfe_e_abc$se, cfe_e_abc$p)
   )
-})
-tab <- do.call(rbind, rows)
+)
+tab <- as.data.frame(tab, stringsAsFactors = FALSE)
 colnames(tab) <- c(
-  "Network",
-  "$\\hat\\delta$ Quality", "SE",
-  "$\\hat\\delta$ Environment", "SE"
+  "Panel", "Network",
+  "$\\hat\\beta$ (no FE)", "SE",
+  "$\\hat\\beta$ (country FE)", "SE"
 )
 
 kbl(tab,
   booktabs = TRUE, format = "latex", escape = FALSE,
-  align = "lrlrl", row.names = FALSE,
-  caption = "Endogenous peer effect $\\hat\\delta$ from Bramoull\\'e, Djebbari \\& Fortin (2009) cross-sectional 2SLS, stacked over years with $(I-W)$ applied per year. Outcome $y_{it} = \\log(1+n_{\\text{cert},it})$. Instruments: $(I-W)X, (I-W)WX, (I-W)W^2X$. Country-clustered standard errors in parentheses."
+  align = "llrrrr", row.names = FALSE,
+  caption = sprintf("Endogenous peer effect $\\hat\\beta$ from Bramoull\\'e, Djebbari \\& Fortin (2009) G2SLS with one-year lag on the peer outcome. Comparison between the De Paula, Rasul \\& Souza (2025) recovered networks and the combined exogenous network of Albuquerque, Bronnenberg \\& Corbett (2007, Eq. 9). The no-FE specification uses asymptotic country-clustered standard errors; the country-FE specification uses pairs cluster bootstrap on country, $B = %d$ replications (Cameron \\& Miller 2015, J. Human Resources).", B),
+  label = "tab:bdf_final_summary"
 ) |>
-  kable_styling(latex_options = "hold_position", font_size = 9) |>
-  footnote(
-    general = "All four networks are row-stochastic. Albuquerque, Bronnenberg \\\\& Corbett (2007) networks: top-3 nearest neighbours, uniform $1/3$ weights. Recovered networks from De Paula, Rasul \\\\& Souza (2025). BDF (2009) is cross-sectional; here we treat each year as an independent cross-section sharing $W$ (BDF footnote 11) and pool. $(I-W)$ absorbs the year-level intercept; country fixed effects are not absorbed, so this is a cross-sectional benchmark, not a panel estimator. Compare with $\\\\hat\\\\rho_{\\\\text{GMM}}$ from the De Paula et al.\\\\ recovery on first-differenced outcomes ($\\\\hat\\\\rho_Q = 0.151$, $\\\\hat\\\\rho_E = 0.236$). Country-clustered SE (Cameron \\\\& Miller, 2015). $^{*}p<.10$, $^{**}p<.05$, $^{***}p<.01$.",
+  kable_styling(latex_options = "hold_position", font_size = 10) |>
+  collapse_rows(columns = 1, valign = "top") |>
+  kableExtra::footnote(
+    general = "Diffusion timing follows Albuquerque, Bronnenberg \\\\& Corbett (2007, Eq. 1) and Bass (1969). The combined exogenous network is the union of top-3 nearest neighbours from geography, bilateral trade, and Hofstede cultural distance, with uniform row-stochastic weights. Stability of $\\\\hat\\\\beta$ across the two specifications is diagnostic of correlated-effect contamination: the recovered networks display stable estimates across no-FE and country-FE specifications, whereas the combined exogenous network estimates are inflated and, for ISO 14001 with country FE, exceed the stability boundary $|\\\\beta| < 1$ required for SAR equilibrium (Lee 2007). $^{*}p<0.10$, $^{**}p<0.05$, $^{***}p<0.01$.",
     general_title = "Notes:", threeparttable = TRUE,
     escape = FALSE, footnote_as_chunk = TRUE
   )
 ```
 
 ```{r}
-#| label: bdf-summaries
+#| label: bdf-final-summary-twfe-countrycluster
 #| echo: false
-cat("\n\n## Quality (ISO 9001) — full coefficient tables\n\n")
-for (nm in names(fits_q)) {
-  cat("\n###", nm, "\n\n")
-  print(coeftest(fits_q[[nm]]$fit,
-    vcov = vcovCL(fits_q[[nm]]$fit,
-      cluster = fits_q[[nm]]$cluster
-    )
-  ))
+#| results: asis
+# BDF (2009) G2SLS with one-year lag, country + year FE.
+# Cluster on country (Cameron & Miller 2015): even with country FE,
+# residual within-country serial correlation may persist (idiosyncratic
+# national cycles, sectoral waves, regulatory transitions). Country
+# clustering is the standard adjustment for this residual dependence.
+# On N = 27 clusters, the bootstrap is at the lower end of the recommended
+# regime but more reliable than year clustering on T = 18-24 clusters
+# (MacKinnon, Nielsen & Webb 2023, J. Econometrics).
+#
+# Reuses bdf_q_lag, bdf_e_lag, bdf_comb_q_lag, bdf_comb_e_lag,
+# rhs, exo, inst2_lag, inst3_lag, cluster_boot, sig_stars, extract_cfe
+# from previous chunks.
+
+set.seed(1861)
+B <- 999
+
+f_twfe <- as.formula(sprintf(
+  "y ~ %s + %s | country + year | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+
+# Pairs cluster bootstrap on country
+boot_q_rec_tw <- cluster_boot(bdf_q_lag, f_twfe, "country", B = B)
+boot_q_abc_tw <- cluster_boot(bdf_comb_q_lag, f_twfe, "country", B = B)
+boot_e_rec_tw <- cluster_boot(bdf_e_lag, f_twfe, "country", B = B)
+boot_e_abc_tw <- cluster_boot(bdf_comb_e_lag, f_twfe, "country", B = B)
+
+tw_q_rec <- extract_cfe(boot_q_rec_tw)
+tw_q_abc <- extract_cfe(boot_q_abc_tw)
+tw_e_rec <- extract_cfe(boot_e_rec_tw)
+tw_e_abc <- extract_cfe(boot_e_abc_tw)
+
+fmt_cell <- function(b, se, p) {
+  c(sprintf("%.3f%s", b, sig_stars(p)), sprintf("(%.3f)", se))
 }
 
-cat("\n\n## Environment (ISO 14001) — full coefficient tables\n\n")
-for (nm in names(fits_e)) {
-  cat("\n###", nm, "\n\n")
-  print(coeftest(fits_e[[nm]]$fit,
-    vcov = vcovCL(fits_e[[nm]]$fit,
-      cluster = fits_e[[nm]]$cluster
-    )
-  ))
-}
+tab <- rbind(
+  c(
+    "Quality", "Endogenous",
+    fmt_cell(tw_q_rec$b, tw_q_rec$se, tw_q_rec$p)
+  ),
+  c(
+    "Quality", "Combined Exogenous",
+    fmt_cell(tw_q_abc$b, tw_q_abc$se, tw_q_abc$p)
+  ),
+  c(
+    "Environment", "Endogenous",
+    fmt_cell(tw_e_rec$b, tw_e_rec$se, tw_e_rec$p)
+  ),
+  c(
+    "Environment", "Combined Exogenous",
+    fmt_cell(tw_e_abc$b, tw_e_abc$se, tw_e_abc$p)
+  )
+)
+tab <- as.data.frame(tab, stringsAsFactors = FALSE)
+colnames(tab) <- c(
+  "Panel", "Network",
+  "$\\hat\\beta$ (country + year FE)", "SE"
+)
+
+kbl(tab,
+  booktabs = TRUE, format = "latex", escape = FALSE,
+  align = "llrr", row.names = FALSE,
+  caption = sprintf("Endogenous peer effect $\\hat\\beta$ from Bramoull\\'e, Djebbari \\& Fortin (2009) G2SLS with one-year lag on the peer outcome and country + year fixed effects. Country FE absorb time-invariant national heterogeneity (institutions, sectoral structure, cultural attitudes towards certification); year FE absorb common EU-wide shocks (financial crisis, ISO standard revisions, EU enlargement, regulatory changes). Inference based on pairs cluster bootstrap on country, $B = %d$ replications (Cameron \\& Miller 2015, J. Human Resources). Comparison between the De Paula, Rasul \\& Souza (2025) recovered networks and the combined exogenous network of Albuquerque, Bronnenberg \\& Corbett (2007, Eq. 9).", B),
+  label = "tab:bdf_twfe_countrycluster"
+) |>
+  kable_styling(latex_options = "hold_position", font_size = 10) |>
+  collapse_rows(columns = 1, valign = "top") |>
+  kableExtra::footnote(
+    general = "Diffusion timing follows Albuquerque, Bronnenberg \\\\& Corbett (2007, Eq. 1) and Bass (1969). Country fixed effects absorb persistent national heterogeneity; year fixed effects absorb common EU-wide temporal shocks. Cluster on country addresses residual within-country serial correlation. The combined exogenous network is the union of top-3 nearest neighbours from geography, bilateral trade, and Hofstede cultural distance, with uniform row-stochastic weights. For ISO 14001, observed predominantly in its take-off phase, year FE may absorb part of the diffusion-driven temporal commonality alongside common shocks (Bertrand, Duflo \\\\& Mullainathan 2004, QJE; Neumayer \\\\& Perkins 2004, Environment and Planning A). $^{*}p<0.10$, $^{**}p<0.05$, $^{***}p<0.01$.",
+    general_title = "Notes:", threeparttable = TRUE,
+    escape = FALSE, footnote_as_chunk = TRUE
+  )
 ```
 
 
 
-# Appendix
+
+
+
+
+
+```{r}
+#| label: bdf-final-summary-abc-model5
+#| echo: false
+#| results: asis
+#| cache: true
+# BDF (2009) G2SLS with one-year lag, applied to Albuquerque, Bronnenberg
+# & Corbett (2007, Table 3, Model 5) preferred two-channel networks:
+# - Quality (ISO 9001):     geography + bilateral trade
+# - Environment (ISO 14001): geography + cultural similarity
+#
+# Two specifications:
+# (i)  no FE, asymptotic country-clustered SE
+# (ii) country + year FE, pairs cluster bootstrap on country (B = 999)
+#
+# Reuses panel_q, panel_e, x_vars, rhs, exo, inst2_lag, inst3_lag,
+# build_bdf_panel_lag, cluster_boot, sig_stars, extract_cfe, extract_nofe,
+# W_geo, W_trade, W_cul from previous chunks.
+
+set.seed(1861)
+B <- 999
+N <- length(country_labels)
+
+# ---- Build ABC Model 5 networks --------------------------------------------
+# Quality: union of top-3 from geography + bilateral trade
+W_geotrade <- matrix(0, N, N, dimnames = list(country_labels, country_labels))
+for (i in seq_len(N)) {
+  nbrs_i <- unique(c(which(W_geo[i, ] > 0), which(W_trade[i, ] > 0)))
+  W_geotrade[i, nbrs_i] <- 1 / length(nbrs_i)
+}
+
+# Environment: union of top-3 from geography + Hofstede culture
+W_geoculture <- matrix(0, N, N, dimnames = list(country_labels, country_labels))
+for (i in seq_len(N)) {
+  nbrs_i <- unique(c(which(W_geo[i, ] > 0), which(W_cul[i, ] > 0)))
+  W_geoculture[i, nbrs_i] <- 1 / length(nbrs_i)
+}
+
+# ---- Build BDF panels with one-year lag ------------------------------------
+bdf_geotrade_q_lag <- build_bdf_panel_lag(panel_q, W_geotrade, x_vars)
+bdf_geoculture_e_lag <- build_bdf_panel_lag(panel_e, W_geoculture, x_vars)
+
+# ---- Formulas --------------------------------------------------------------
+f_nofe <- as.formula(sprintf(
+  "y ~ %s + %s | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+f_twfe <- as.formula(sprintf(
+  "y ~ %s + %s | country + year | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+
+# ---- (i) No FE: asymptotic country-clustered SE ----------------------------
+nofe_q_abc5 <- extract_nofe(feols(f_nofe, data = bdf_geotrade_q_lag, cluster = ~country))
+nofe_e_abc5 <- extract_nofe(feols(f_nofe, data = bdf_geoculture_e_lag, cluster = ~country))
+
+# ---- (ii) Two-way FE: pairs cluster bootstrap on country -------------------
+boot_q_abc5_tw <- cluster_boot(bdf_geotrade_q_lag, f_twfe, "country", B = B)
+boot_e_abc5_tw <- cluster_boot(bdf_geoculture_e_lag, f_twfe, "country", B = B)
+
+twfe_q_abc5 <- extract_cfe(boot_q_abc5_tw)
+twfe_e_abc5 <- extract_cfe(boot_e_abc5_tw)
+
+# ---- Build table -----------------------------------------------------------
+fmt_cell <- function(b, se, p) {
+  c(sprintf("%.3f%s", b, sig_stars(p)), sprintf("(%.3f)", se))
+}
+
+tab <- rbind(
+  c(
+    "Quality", "Exogenous: Geo + Trade",
+    fmt_cell(nofe_q_abc5$b, nofe_q_abc5$se, nofe_q_abc5$p),
+    fmt_cell(twfe_q_abc5$b, twfe_q_abc5$se, twfe_q_abc5$p)
+  ),
+  c(
+    "Environment", "Exogenous: Geo + Culture",
+    fmt_cell(nofe_e_abc5$b, nofe_e_abc5$se, nofe_e_abc5$p),
+    fmt_cell(twfe_e_abc5$b, twfe_e_abc5$se, twfe_e_abc5$p)
+  )
+)
+tab <- as.data.frame(tab, stringsAsFactors = FALSE)
+colnames(tab) <- c(
+  "Panel", "Network",
+  "$\\hat\\beta$ (no FE)", "SE",
+  "$\\hat\\beta$ (country + year FE)", "SE"
+)
+
+kbl(tab,
+  booktabs = TRUE, format = "latex", escape = FALSE,
+  align = "llrrrr", row.names = FALSE,
+  caption = sprintf("Endogenous peer effect $\\hat\\beta$ from Bramoull\\'e, Djebbari \\& Fortin (2009) G2SLS with one-year lag on the peer outcome, applied to the preferred two-channel exogenous networks of Albuquerque, Bronnenberg \\& Corbett (2007, Table 3, Model 5): geography + bilateral trade for ISO 9001, geography + Hofstede cultural similarity for ISO 14001. ABC identify these as the most predictive channel combinations for each standard. The no-FE specification uses asymptotic country-clustered standard errors; the country + year FE specification uses pairs cluster bootstrap on country, $B = %d$ replications (Cameron \\& Miller 2015, J. Human Resources).", B),
+  label = "tab:bdf_abc_model5"
+) |>
+  kable_styling(latex_options = "hold_position", font_size = 10) |>
+  kableExtra::footnote(
+    general = "Each network is the union of two top-3 nearest neighbour sets, with uniform row-stochastic weights. Diffusion timing follows Albuquerque et al.\\\\ (2007, Eq. 1) and Bass (1969). Country FE absorb time-invariant national heterogeneity; year FE absorb common EU-wide shocks. $|\\\\beta| < 1$ is required for SAR equilibrium (Lee 2007). $^{*}p<0.10$, $^{**}p<0.05$, $^{***}p<0.01$.",
+    general_title = "Notes:", threeparttable = TRUE,
+    escape = FALSE, footnote_as_chunk = TRUE
+  )
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ```{r}
 #| label: grid-summary-appendix
 #| echo: false
+#| output: false
 summary_df <- readRDS(file.path(out_dir, "grid_search_summary.rds"))
 
 tab_full <- kbl(summary_df,
@@ -980,102 +1323,5 @@ tab_full <- kbl(summary_df,
 
 writeLines(as.character(tab_full), file.path(tab_dir, "grid_search_full.tex"))
 tab_full
-```
-
-```{r}
-#| label: bdf-2004-raw
-#| echo: false
-#| results: asis
-library(AER)
-library(sandwich)
-library(lmtest)
-
-FOCAL_YEAR <- 2004
-
-# raw n_cert as y, no log, no difference
-build_raw <- function(dp_raw, certs) {
-  dp_raw |>
-    dplyr::mutate(country = id_to_country[as.character(id)], year = time) |>
-    dplyr::select(country, year, x1, x2, x3, x4, x5) |>
-    dplyr::inner_join(
-      certs |> dplyr::transmute(country, year, y = n_cert),
-      by = c("country", "year")
-    ) |>
-    tidyr::drop_na() |>
-    dplyr::filter(country %in% country_labels, year == FOCAL_YEAR)
-}
-
-id_to_country <- setNames(country_labels, seq_along(country_labels))
-dp_q_raw <- readRDS(file.path(clean_dir, "panel_9001_eu.rds"))
-dp_e_raw <- readRDS(file.path(clean_dir, "panel_14001_eu.rds"))
-d_q <- build_raw(dp_q_raw, f9001)
-d_e <- build_raw(dp_e_raw, f14001)
-
-# BDF 2SLS on a single cross-section, N=27, no (I-W) transform
-bdf_xs <- function(d, W, x_vars = c("x1", "x2", "x3", "x4", "x5")) {
-  d <- d[order(match(d$country, country_labels)), ]
-  stopifnot(nrow(d) == nrow(W))
-  X <- as.matrix(d[, x_vars])
-  Wy <- as.numeric(W %*% d$y)
-  WX <- W %*% X
-  W2X <- W %*% W %*% X
-  ivreg(d$y ~ Wy + X + WX | X + WX + W2X)
-}
-
-report_xs <- function(fit) {
-  ct <- coeftest(fit, vcov = vcovHC(fit, type = "HC0"))
-  c(
-    delta = ct["Wy", "Estimate"],
-    se = ct["Wy", "Std. Error"],
-    p = ct["Wy", "Pr(>|t|)"]
-  )
-}
-
-nets_q <- list(
-  Geography = W_geo, Trade = W_trade, Culture = W_cul,
-  `DePaula recovered` = W_q
-)
-nets_e <- list(
-  Geography = W_geo, Trade = W_trade, Culture = W_cul,
-  `DePaula recovered` = W_e
-)
-
-fits_q <- lapply(nets_q, bdf_xs, d = d_q)
-fits_e <- lapply(nets_e, bdf_xs, d = d_e)
-
-fmt <- function(r) {
-  star <- if (r["p"] < .01) {
-    "$^{***}$"
-  } else if (r["p"] < .05) {
-    "$^{**}$"
-  } else if (r["p"] < .10) "$^{*}$" else ""
-  c(sprintf("%.3f%s", r["delta"], star), sprintf("(%.3f)", r["se"]))
-}
-rows <- lapply(names(fits_q), function(nm) {
-  q <- fmt(report_xs(fits_q[[nm]]))
-  e <- fmt(report_xs(fits_e[[nm]]))
-  data.frame(
-    Network = nm, dQ = q[1], seQ = q[2],
-    dE = e[1], seE = e[2], stringsAsFactors = FALSE
-  )
-})
-tab <- do.call(rbind, rows)
-colnames(tab) <- c(
-  "Network",
-  "$\\hat\\delta$ Quality", "SE",
-  "$\\hat\\delta$ Environment", "SE"
-)
-
-kbl(tab,
-  booktabs = TRUE, format = "latex", escape = FALSE,
-  align = "lrlrl", row.names = FALSE,
-  caption = sprintf("Endogenous peer effect $\\hat\\delta$, Bramoull\\'e--Djebbari--Fortin (2009) cross-sectional 2SLS at $t = %d$, $N = 27$. Outcome $y_i = n_{\\text{cert},i}$ (raw count, no transformation). Instruments: $X, WX, W^2X$. Heteroskedasticity-robust standard errors.", FOCAL_YEAR)
-) |>
-  kable_styling(latex_options = "hold_position", font_size = 9) |>
-  footnote(
-    general = sprintf("Single cross-section at year %d. All four networks row-stochastic. Albuquerque, Bronnenberg \\\\& Corbett (2007) networks; recovered networks from De Paula, Rasul \\\\& Souza (2025). Identification of $\\\\delta$ requires $I, W, W^2$ linearly independent (BDF Prop. 5). At $N = 27$ the 2SLS asymptotics are indicative; SEs reported under HC0. $^{*}p<.10$, $^{**}p<.05$, $^{***}p<.01$.", FOCAL_YEAR),
-    general_title = "Notes:", threeparttable = TRUE,
-    escape = FALSE, footnote_as_chunk = TRUE
-  )
 ```
 
