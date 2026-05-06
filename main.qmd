@@ -991,45 +991,65 @@ fmt_cell <- function(b, se, p) {
   c(sprintf("%.3f%s", b, sig_stars(p)), sprintf("(%.3f)", se))
 }
 
+# ---- Build table (estimate above, SE below) --------------------------------
 tab <- rbind(
   c(
     "Quality", "Endogenous",
-    fmt_cell(nofe_q_rec$b, nofe_q_rec$se, nofe_q_rec$p),
-    fmt_cell(cfe_q_rec$b, cfe_q_rec$se, cfe_q_rec$p)
+    sprintf("%.3f%s", nofe_q_rec$b, sig_stars(nofe_q_rec$p)),
+    sprintf("%.3f%s", cfe_q_rec$b, sig_stars(cfe_q_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_rec$se),
+    sprintf("(%.3f)", cfe_q_rec$se)
   ),
   c(
     "Quality", "Combined Exogenous",
-    fmt_cell(nofe_q_abc$b, nofe_q_abc$se, nofe_q_abc$p),
-    fmt_cell(cfe_q_abc$b, cfe_q_abc$se, cfe_q_abc$p)
+    sprintf("%.3f%s", nofe_q_abc$b, sig_stars(nofe_q_abc$p)),
+    sprintf("%.3f%s", cfe_q_abc$b, sig_stars(cfe_q_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_abc$se),
+    sprintf("(%.3f)", cfe_q_abc$se)
   ),
   c(
     "Environment", "Endogenous",
-    fmt_cell(nofe_e_rec$b, nofe_e_rec$se, nofe_e_rec$p),
-    fmt_cell(cfe_e_rec$b, cfe_e_rec$se, cfe_e_rec$p)
+    sprintf("%.3f%s", nofe_e_rec$b, sig_stars(nofe_e_rec$p)),
+    sprintf("%.3f%s", cfe_e_rec$b, sig_stars(cfe_e_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_rec$se),
+    sprintf("(%.3f)", cfe_e_rec$se)
   ),
   c(
     "Environment", "Combined Exogenous",
-    fmt_cell(nofe_e_abc$b, nofe_e_abc$se, nofe_e_abc$p),
-    fmt_cell(cfe_e_abc$b, cfe_e_abc$se, cfe_e_abc$p)
+    sprintf("%.3f%s", nofe_e_abc$b, sig_stars(nofe_e_abc$p)),
+    sprintf("%.3f%s", cfe_e_abc$b, sig_stars(cfe_e_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_abc$se),
+    sprintf("(%.3f)", cfe_e_abc$se)
   )
 )
 tab <- as.data.frame(tab, stringsAsFactors = FALSE)
 colnames(tab) <- c(
   "Panel", "Network",
-  "$\\hat\\beta$ (no FE)", "SE",
-  "$\\hat\\beta$ (country FE)", "SE"
+  "$\\hat\\beta$ (no FE)",
+  "$\\hat\\beta$ (country FE)"
 )
 
 kbl(tab,
   booktabs = TRUE, format = "latex", escape = FALSE,
-  align = "llrrrr", row.names = FALSE,
-  caption = sprintf("Endogenous peer effect $\\hat\\beta$ from Bramoull\\'e, Djebbari \\& Fortin (2009) G2SLS with one-year lag on the peer outcome. Comparison between the De Paula, Rasul \\& Souza (2025) recovered networks and the combined exogenous network of Albuquerque, Bronnenberg \\& Corbett (2007, Eq. 9). The no-FE specification uses asymptotic country-clustered standard errors; the country-FE specification uses pairs cluster bootstrap on country, $B = %d$ replications (Cameron \\& Miller 2015, J. Human Resources).", B),
+  align = "llrr", row.names = FALSE,
+  caption = sprintf("Endogenous peer effect $\\hat\\beta$ from Bramoull\\'e, Djebbari \\& Fortin (2009) G2SLS with one-year lag on the peer outcome. Comparison between the De Paula, Rasul \\& Souza (2025) recovered networks and the combined exogenous network of Albuquerque, Bronnenberg \\& Corbett (2007, Eq. 9). The no-FE specification uses asymptotic country-clustered standard errors; the country-FE specification uses pairs cluster bootstrap on country, $B = %d$ replications (Cameron \\& Miller 2015, J. Human Resources). Standard errors in parentheses below estimates.", B),
   label = "tab:bdf_final_summary"
 ) |>
   kable_styling(latex_options = "hold_position", font_size = 10) |>
-  collapse_rows(columns = 1, valign = "top") |>
   kableExtra::footnote(
-    general = "Diffusion timing follows Albuquerque, Bronnenberg \\\\& Corbett (2007, Eq. 1) and Bass (1969). The combined exogenous network is the union of top-3 nearest neighbours from geography, bilateral trade, and Hofstede cultural distance, with uniform row-stochastic weights. Stability of $\\\\hat\\\\beta$ across the two specifications is diagnostic of correlated-effect contamination: the recovered networks display stable estimates across no-FE and country-FE specifications, whereas the combined exogenous network estimates are inflated and, for ISO 14001 with country FE, exceed the stability boundary $|\\\\beta| < 1$ required for SAR equilibrium (Lee 2007). $^{*}p<0.10$, $^{**}p<0.05$, $^{***}p<0.01$.",
+    general = "Diffusion timing follows Albuquerque, Bronnenberg \\\\& Corbett (2007, Eq. 1) and Bass (1969). The combined exogenous network is the union of top-3 nearest neighbours from geography, bilateral trade, and Hofstede cultural distance, with uniform row-stochastic weights. Stability of $\\\\hat\\\\beta$ across the two specifications is diagnostic of correlated-effect contamination. $^{*}p<0.10$, $^{**}p<0.05$, $^{***}p<0.01$.",
     general_title = "Notes:", threeparttable = TRUE,
     escape = FALSE, footnote_as_chunk = TRUE
   )
@@ -1078,37 +1098,52 @@ fmt_cell <- function(b, se, p) {
 tab <- rbind(
   c(
     "Quality", "Endogenous",
-    fmt_cell(tw_q_rec$b, tw_q_rec$se, tw_q_rec$p)
+    sprintf("%.3f%s", tw_q_rec$b, sig_stars(tw_q_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", tw_q_rec$se)
   ),
   c(
     "Quality", "Combined Exogenous",
-    fmt_cell(tw_q_abc$b, tw_q_abc$se, tw_q_abc$p)
+    sprintf("%.3f%s", tw_q_abc$b, sig_stars(tw_q_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", tw_q_abc$se)
   ),
   c(
     "Environment", "Endogenous",
-    fmt_cell(tw_e_rec$b, tw_e_rec$se, tw_e_rec$p)
+    sprintf("%.3f%s", tw_e_rec$b, sig_stars(tw_e_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", tw_e_rec$se)
   ),
   c(
     "Environment", "Combined Exogenous",
-    fmt_cell(tw_e_abc$b, tw_e_abc$se, tw_e_abc$p)
+    sprintf("%.3f%s", tw_e_abc$b, sig_stars(tw_e_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", tw_e_abc$se)
   )
 )
 tab <- as.data.frame(tab, stringsAsFactors = FALSE)
 colnames(tab) <- c(
   "Panel", "Network",
-  "$\\hat\\beta$ (country + year FE)", "SE"
+  "$\\hat\\beta$ (country + year FE)"
 )
 
 kbl(tab,
   booktabs = TRUE, format = "latex", escape = FALSE,
-  align = "llrr", row.names = FALSE,
-  caption = sprintf("Endogenous peer effect $\\hat\\beta$ from Bramoull\\'e, Djebbari \\& Fortin (2009) G2SLS with one-year lag on the peer outcome and country + year fixed effects. Country FE absorb time-invariant national heterogeneity (institutions, sectoral structure, cultural attitudes towards certification); year FE absorb common EU-wide shocks (financial crisis, ISO standard revisions, EU enlargement, regulatory changes). Inference based on pairs cluster bootstrap on country, $B = %d$ replications (Cameron \\& Miller 2015, J. Human Resources). Comparison between the De Paula, Rasul \\& Souza (2025) recovered networks and the combined exogenous network of Albuquerque, Bronnenberg \\& Corbett (2007, Eq. 9).", B),
+  align = "llr", row.names = FALSE,
+  caption = sprintf("Endogenous peer effect $\\hat\\beta$ from Bramoull\\'e, Djebbari \\& Fortin (2009) G2SLS with one-year lag on the peer outcome and country + year fixed effects. Inference based on pairs cluster bootstrap on country, $B = %d$ replications (Cameron \\& Miller 2015, J. Human Resources). Standard errors in parentheses below estimates.", B),
   label = "tab:bdf_twfe_countrycluster"
 ) |>
   kable_styling(latex_options = "hold_position", font_size = 10) |>
-  collapse_rows(columns = 1, valign = "top") |>
   kableExtra::footnote(
-    general = "Diffusion timing follows Albuquerque, Bronnenberg \\\\& Corbett (2007, Eq. 1) and Bass (1969). Country fixed effects absorb persistent national heterogeneity; year fixed effects absorb common EU-wide temporal shocks. Cluster on country addresses residual within-country serial correlation. The combined exogenous network is the union of top-3 nearest neighbours from geography, bilateral trade, and Hofstede cultural distance, with uniform row-stochastic weights. For ISO 14001, observed predominantly in its take-off phase, year FE may absorb part of the diffusion-driven temporal commonality alongside common shocks (Bertrand, Duflo \\\\& Mullainathan 2004, QJE; Neumayer \\\\& Perkins 2004, Environment and Planning A). $^{*}p<0.10$, $^{**}p<0.05$, $^{***}p<0.01$.",
+    general = "Diffusion timing follows Albuquerque, Bronnenberg \\\\& Corbett (2007, Eq. 1) and Bass (1969). Country fixed effects absorb persistent national heterogeneity; year fixed effects absorb common EU-wide temporal shocks. For ISO 14001, observed predominantly in its take-off phase, year FE may absorb part of the diffusion-driven temporal commonality alongside common shocks (Bertrand, Duflo \\\\& Mullainathan 2004, QJE; Neumayer \\\\& Perkins 2004, Environment and Planning A). $^{*}p<0.10$, $^{**}p<0.05$, $^{***}p<0.01$.",
     general_title = "Notes:", threeparttable = TRUE,
     escape = FALSE, footnote_as_chunk = TRUE
   )
@@ -1188,29 +1223,40 @@ fmt_cell <- function(b, se, p) {
   c(sprintf("%.3f%s", b, sig_stars(p)), sprintf("(%.3f)", se))
 }
 
+# ---- Build table (estimate above, SE below) --------------------------------
 tab <- rbind(
   c(
     "Quality", "Exogenous: Geo + Trade",
-    fmt_cell(nofe_q_abc5$b, nofe_q_abc5$se, nofe_q_abc5$p),
-    fmt_cell(twfe_q_abc5$b, twfe_q_abc5$se, twfe_q_abc5$p)
+    sprintf("%.3f%s", nofe_q_abc5$b, sig_stars(nofe_q_abc5$p)),
+    sprintf("%.3f%s", twfe_q_abc5$b, sig_stars(twfe_q_abc5$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_abc5$se),
+    sprintf("(%.3f)", twfe_q_abc5$se)
   ),
   c(
     "Environment", "Exogenous: Geo + Culture",
-    fmt_cell(nofe_e_abc5$b, nofe_e_abc5$se, nofe_e_abc5$p),
-    fmt_cell(twfe_e_abc5$b, twfe_e_abc5$se, twfe_e_abc5$p)
+    sprintf("%.3f%s", nofe_e_abc5$b, sig_stars(nofe_e_abc5$p)),
+    sprintf("%.3f%s", twfe_e_abc5$b, sig_stars(twfe_e_abc5$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_abc5$se),
+    sprintf("(%.3f)", twfe_e_abc5$se)
   )
 )
 tab <- as.data.frame(tab, stringsAsFactors = FALSE)
 colnames(tab) <- c(
   "Panel", "Network",
-  "$\\hat\\beta$ (no FE)", "SE",
-  "$\\hat\\beta$ (country + year FE)", "SE"
+  "$\\hat\\beta$ (no FE)",
+  "$\\hat\\beta$ (country + year FE)"
 )
 
 kbl(tab,
   booktabs = TRUE, format = "latex", escape = FALSE,
-  align = "llrrrr", row.names = FALSE,
-  caption = sprintf("Endogenous peer effect $\\hat\\beta$ from Bramoull\\'e, Djebbari \\& Fortin (2009) G2SLS with one-year lag on the peer outcome, applied to the preferred two-channel exogenous networks of Albuquerque, Bronnenberg \\& Corbett (2007, Table 3, Model 5): geography + bilateral trade for ISO 9001, geography + Hofstede cultural similarity for ISO 14001. ABC identify these as the most predictive channel combinations for each standard. The no-FE specification uses asymptotic country-clustered standard errors; the country + year FE specification uses pairs cluster bootstrap on country, $B = %d$ replications (Cameron \\& Miller 2015, J. Human Resources).", B),
+  align = "llrr", row.names = FALSE,
+  caption = sprintf("Endogenous peer effect $\\hat\\beta$ from Bramoull\\'e, Djebbari \\& Fortin (2009) G2SLS with one-year lag on the peer outcome, applied to the preferred two-channel exogenous networks of Albuquerque, Bronnenberg \\& Corbett (2007, Table 3, Model 5). The no-FE specification uses asymptotic country-clustered standard errors; the country + year FE specification uses pairs cluster bootstrap on country, $B = %d$ replications (Cameron \\& Miller 2015, J. Human Resources). Standard errors in parentheses below estimates.", B),
   label = "tab:bdf_abc_model5"
 ) |>
   kable_styling(latex_options = "hold_position", font_size = 10) |>
