@@ -1,10 +1,10 @@
 ---
-title: "ISOs Diffusion in the EU: an endogenous network recovery for Environmental and Quality Management Systems"
+title: "Thesis Results"
 author: "Gianluigi De Rubertis"
 date: "`r Sys.Date()`"
 format:
   pdf:
-    output-file: "main.pdf"
+    output-file: "results.pdf"
     keep-tex: false
     fig-pos: "H"
     include-in-header:
@@ -42,6 +42,10 @@ library(ggrepel)
 library(tidygraph)
 library(maps)
 library(countrycode)
+library(fixest)
+
+
+
 set.seed(1861)
 setwd("/workspaces/thesis")
 options(readr.show_col_types = FALSE)
@@ -71,7 +75,7 @@ rownames(W_e) <- colnames(W_e) <- country_labels
 
 # EU: Quality (ISO 9001) versus Environment (ISO 14001)
 
-## Descriptive Statistics, Network Recoverey and Grid Search
+## Descriptive Statistics
 
 ```{r}
 #| label: descriptive-stats
@@ -108,7 +112,7 @@ f2 <- function(x) formatC(x, format = "f", digits = 2)
 
 tex <- c(
   "\\begin{table}[H]\\centering",
-  "\\caption{Descriptive statistics: certification counts and adoption intensity across EU countries}",
+  "\\caption{Descriptive statistics}",
   "\\label{tab:desc_stats}",
   "\\begin{tabular}{lcccccc}\\hline\\hline",
   "& \\multicolumn{3}{c}{Quality (ISO 9001)} & \\multicolumn{3}{c}{Environment (ISO 14001)} \\\\",
@@ -148,12 +152,38 @@ tex <- c(
     f2(d14$mean_intensity[1]), f2(d14$mean_intensity[2])
   ),
   "\\hline\\hline\\end{tabular}",
-  "\\parbox{\\textwidth}{\\footnotesize \\textit{Note:} Cert./GDP p.c.\\ is the mean across countries of certificates per 1{,}000 USD of GDP per capita (constant 2015 USD). Environment (ISO 14001) data begin in 1999.}",
   "\\end{table}"
 )
 writeLines(tex, file.path(tab_dir, "desc_stats.tex"))
 cat(tex, sep = "\n")
 ```
+
+## Network Recovery and Dyadic Analysis
+
+\subsection*{Methodology}
+
+The canonical structural model of social interactions is
+
+\begin{equation}
+y_{it} = \rho_0 \sum_{j} W_{0,ij}\, y_{jt} + \beta_0\, x_{it} + \gamma_0 \sum_{j} W_{0,ij}\, x_{jt} + \alpha_i + \varepsilon_{it},
+\label{eq:depaula_structural}
+\end{equation}
+
+which is defined by the fact that the outcome variable $y$ appears on both sides of the equation. This simultaneity represents the endogenous peer effect, where an individual's behaviour ($y_{it}$) is directly influenced by the weighted outcomes of their peers ($\rho_0 \sum_{j} W_{0,ij}\, y_{jt}$). Because every agent in the network is potentially influenced by every other agent, this creates a system of simultaneous linear equations where outcomes are determined at a network equilibrium.
+
+This simultaneity triggers a process of reverberation, often described as a ``ripple effect'' throughout the network architecture. When an agent's characteristic ($x_{it}$) changes, it first impacts their own outcome and their direct neighbours' outcomes via exogenous effects. Because outcomes are endogenous, these changes trigger an infinite series of feedback loops as the effect travels to neighbours-of-neighbours ($W^2$), neighbours-of-neighbours-of-neighbours ($W^3$), and so on. Mathematically, this is captured in the Neumann series expansion of the reduced-form coefficient matrix:
+
+\begin{equation}
+\Pi_0 = \beta_0\, I + (\rho_0 \beta_0 + \gamma_0) \sum_{k=1}^{\infty} \rho_0^{\,k-1}\, W_0^{\,k}.
+\label{eq:neumann}
+\end{equation}
+
+For the system to be stable, Assumption A2 requires that these shocks ``die out'' as they reverberate, meaning the endogenous effect $|\rho_0|$ must be less than one.
+
+The methodology developed by de Paula et al.\ (2024) leverages these ripples to solve for an entirely unknown network structure ($W_0$). In a network with $N$ individuals, there are $N(N-1) + 3$ structural unknowns, which include the individual ties (excluding self-influence, $W_{ii} = 0$) plus the endogenous ($\rho_0$), exogenous ($\gamma_0$), and individual effect ($\beta_0$) parameters. To identify these, the researcher utilises the $N^2$ parameters available in the reduced-form coefficient matrix $\Pi_0$, which maps individual covariates ($x$) to outcomes ($y$). Since there are more equations than unknowns even for small $N$, the specific architecture of the ties can be ``backed out'' from the observed statistical relationships between agents.
+
+
+
 
 ```{r}
 #| label: grid-summary
@@ -177,7 +207,7 @@ summary_top5 <- summary_df |>
 
 tab_top5 <- kbl(summary_top5,
   booktabs = TRUE,
-  caption = "Grid search results: five lowest-BIC specifications per standard",
+  caption = "Grid search: lowest-BIC specifications",
   col.names = c(
     "Panel", "$\\lambda_1$", "$\\lambda_2$", "$\\lambda_1^*$",
     "Edges", "$\\hat{\\rho}_{EN}$", "$\\hat{\\rho}_{Ada}$",
@@ -190,20 +220,11 @@ tab_top5 <- kbl(summary_top5,
   kable_styling(
     latex_options = c("hold_position"),
     font_size = 9
-  ) |>
-  footnote(
-    general = "Five specifications per standard with lowest BIC, sorted ascending within panel, out of $\\\\{0.05, 0.10, 0.15, 0.20\\\\}^3 = 64$ grid points. The penalty vector $\\\\lambda = (\\\\lambda_1, \\\\lambda_2, \\\\lambda_1^*)$ governs the elastic-net regularisation in the first stage and the adaptive elastic-net in the second, following De Paula, Rasul \\\\& Souza (2025). $\\\\hat{\\\\rho}_{EN}$, $\\\\hat{\\\\rho}_{Ada}$, $\\\\hat{\\\\rho}_{GMM}$ are the elastic-net, adaptive elastic-net, and post-LASSO GMM estimates of the endogenous peer-effect parameter; the latter is the unpenalised re-estimation on the support recovered by the adaptive step (Caner \\\\& Zhang, 2014). Edges count directed links with $|\\\\hat w_{ij}| > 10^{-5}$. Full grid in Appendix.",
-    general_title = "Notes:",
-    threeparttable = TRUE,
-    escape = FALSE,
-    footnote_as_chunk = TRUE
   )
 
 writeLines(as.character(tab_top5), file.path(tab_dir, "grid_search_top5.tex"))
 tab_top5
 ```
-
-## Network recovery
 
 ```{r}
 #| label: network-stats-table
@@ -246,7 +267,7 @@ bic_e <- best[["14001_eu"]]$bic
 
 tex <- c(
   "\\begin{table}[H]\\centering",
-  "\\caption{BIC-selected networks: Quality versus Environment (EU, $N = 27$)}",
+  "\\caption{BIC-selected networks}",
   "\\label{tab:network_eu}",
   "\\begin{tabular}{lcc}\\hline\\hline",
   "& Quality & Environment \\\\\\hline",
@@ -282,23 +303,18 @@ tex <- c(
     formatC(bic_e, format = "f", digits = 2)
   ),
   "\\hline\\hline\\end{tabular}",
-  "\\parbox{\\textwidth}{\\footnotesize \\textit{Notes:}
-  Top-5 BIC selected networks estimated via grid search. Following de Paula et al. (2024) methodology, a sensitivity analysis of .05 was performed on the penalty vector $\\lambda$ (1.0, 1.0, 1.0) to determine the final network structure
-  Reciprocated edges is the frequency of in-edges that are reciprocated by out-edges. The clustering coefficient is the frequency of fully connected triplets over the total number of triplets. The degree distribution counts the average number of connections (sd in parentheses). $\\hat{\\rho}$ (GMM) is the post-LASSO endogenous peer-effect estimate. $\\lambda = (\\lambda_1, \\lambda_2, \\lambda_1^*)$ are the elastic net penalty parameters selected by BIC.}",
   "\\end{table}"
 )
 writeLines(tex, file.path(tab_dir, "network_stats.tex"))
 cat(tex, sep = "\n")
 ```
 
-## Distribution of recovered edge weights
-
 ```{r}
 #| label: fig-weights-density
 #| echo: false
 #| fig-width: 8
 #| fig-height: 3.5
-#| fig-cap: "Distribution of nonzero recovered edge weights $|\\hat w_{ij}|$ for the BIC-selected networks. Bars show counts (binwidth = 0.05); rug ticks mark individual edges. Quality and Environment plotted on a common horizontal scale."
+#| fig-cap: "Distribution of recovered edge weights"
 w_df <- dplyr::bind_rows(
   data.frame(
     standard = "Quality (ISO 9001)",
@@ -322,7 +338,7 @@ p <- ggplot(w_df, aes(x = w, fill = standard)) +
     sides = "b",
     length = unit(0.04, "npc"), alpha = 0.7
   ) +
-  facet_wrap(~standard, scales = "free_y") +
+  facet_wrap(~standard) +
   scale_fill_manual(values = c(
     "Quality (ISO 9001)" = "#3182bd",
     "Environment (ISO 14001)" = "#31a354"
@@ -332,7 +348,7 @@ p <- ggplot(w_df, aes(x = w, fill = standard)) +
     "Environment (ISO 14001)" = "#006d2c"
   )) +
   scale_x_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.02))) +
-  labs(x = expression("|" * hat(w)[ij] * "|"), y = "Count") +
+  labs(x = expression(hat(w)[ij]), y = "Count") +
   theme_minimal(base_size = 10) +
   theme(
     legend.position = "none",
@@ -345,9 +361,6 @@ ggsave(file.path(fig_dir, "weights_density.pdf"), p,
 )
 print(p)
 ```
-
-
-## Network similarity
 
 ```{r}
 #| label: jaccard-compute
@@ -367,7 +380,8 @@ jaccard <- n_inter / n_union
 jaccard_pct <- formatC(100 * jaccard, format = "f", digits = 1)
 jaccard_val <- formatC(jaccard, format = "f", digits = 3)
 ```
-## Network similarity
+
+### Network similarity
 
 To assess how closely the two recovered networks $\hat W^Q$ and $\hat W^E$ overlap, we summarise their structural similarity through the **Jaccard index** (Jaccard 1901; Wasserman \& Faust 1994, Sec.\ 11.4), the share of directed edges shared by both networks relative to the union of their edge sets:
 
@@ -378,14 +392,14 @@ J(\hat W^Q, \hat W^E) = \frac{|E_Q \cap E_E|}{|E_Q \cup E_E|},
 
 where $E_Q = \{(i, j) : |\hat w^Q_{ij}| > 10^{-5}\}$ and $E_E$ is defined analogously. Edges are treated as directed, so that a link $i \to j$ and the reciprocal $j \to i$ count as distinct elements of the edge sets. The index ranges in $[0, 1]$, with $J = 0$ for disjoint networks (no edges in common) and $J = 1$ for identical edge sets.
 
-For the BIC-selected recovered networks, $|E_Q| = `r n_q`$, $|E_E| = `r n_e`$, $|E_Q \cap E_E| = `r n_inter`$, and $|E_Q \cup E_E| = `r n_union`$, yielding $J = `r jaccard_val`$ — that is, only $`r jaccard_pct`\%$ of the directed edges in the union of the two networks are shared. This low overlap is consistent with the visual sparsity of the dyad-level overlap matrix in Figure X and supports the substantive interpretation that ISO 9001 and ISO 14001 diffuse along distinct cross-country channels, in line with the conclusion of Albuquerque, Bronnenberg \& Corbett (2007) that the two standards follow different contagion mechanisms.
+For the BIC-selected recovered networks, $|E_Q| = `r n_q`$, $|E_E| = `r n_e`$, $|E_Q \cap E_E| = `r n_inter`$, and $|E_Q \cup E_E| = `r n_union`$, yielding $J = `r jaccard_val`$.
 
 ```{r}
 #| label: fig-network-adjacency-overlap
 #| echo: false
 #| fig-width: 10
 #| fig-height: 9
-#| fig-cap: "Adjacency-matrix comparison between the BIC-selected recovered networks $\\hat W^Q$ (Quality, ISO 9001) and $\\hat W^E$ (Environment, ISO 14001). Each cell $(i, j)$ represents the directed link from country $i$ (row, sender) to country $j$ (column, receiver). Colour coding: white = no link in either network; blue = link present in both networks (concordance); red = link present in only one network. Asymmetry of red cells around the diagonal reflects discordance in link direction across the two networks. The diagonal is empty (self-loops not estimated)."
+#| fig-cap: "Adjacency-matrix overlap"
 N <- nrow(W_q)
 off <- which(row(W_q) != col(W_q))
 D <- W_q - W_e
@@ -455,14 +469,14 @@ ggsave(file.path(fig_dir, "adjacency_overlap.pdf"), p,
 print(p)
 ```
 
-## Network visualisation
+### Network visualisation
 
 ```{r}
 #| label: fig-networks-weighted-full
 #| echo: false
 #| fig-width: 13
 #| fig-height: 13
-#| fig-cap: "..."
+#| fig-cap: "Recovered networks"
 make_full_weighted_graph <- function(W, labels, eps = 1e-5) {
   W2 <- W
   W2[abs(W2) < eps] <- 0
@@ -550,13 +564,583 @@ ggsave(file.path(fig_dir, "networks_weighted_full.pdf"), panel,
 print(panel)
 ```
 
+### Dyadic regression
+
+```{r}
+#| label: dyadic-correlation-check
+#| echo: false
+#| results: asis
+#| cache: true
+#| include: false
+# Pairwise correlation matrix among candidate dyadic homophily covariates,
+# computed on the N(N-1) = 702 ordered dyads.
+
+# Helper: ISO2 -> ISO3 with Eurostat quirks
+iso2_to_iso3 <- function(x) {
+  x <- as.character(x)
+  x <- dplyr::case_match(x, "EL" ~ "GR", "UK" ~ "GB", .default = x)
+  countrycode::countrycode(x,
+    origin = "iso2c",
+    destination = "iso3c", warn = FALSE
+  )
+}
+
+# We need cl_iso3 / iso_to_label / N / D_geo / D_cul which are built later in
+# the application chunk. To keep ordering, we replicate the minimal mapping
+# needed here (same code as in the exogenous-networks-grid chunk).
+N <- length(country_labels)
+cl_iso3 <- countrycode::countrycode(
+  country_labels,
+  origin = "country.name", destination = "iso3c", warn = FALSE
+)
+names(cl_iso3) <- country_labels
+iso_to_label <- setNames(names(cl_iso3), cl_iso3)
+
+# Build D_geo (capitals + haversine) — same logic as later chunk
+data("world.cities", package = "maps")
+capitals <- world.cities |>
+  dplyr::filter(capital == 1) |>
+  dplyr::mutate(iso3 = countrycode::countrycode(
+    country.etc,
+    origin = "country.name", destination = "iso3c", warn = FALSE
+  )) |>
+  dplyr::filter(iso3 %in% cl_iso3) |>
+  dplyr::group_by(iso3) |>
+  dplyr::slice(1) |>
+  dplyr::ungroup() |>
+  dplyr::mutate(country = iso_to_label[iso3]) |>
+  dplyr::transmute(country, iso3, lat, lon = long) |>
+  dplyr::arrange(match(country, country_labels))
+
+haversine_km <- function(lat1, lon1, lat2, lon2) {
+  R <- 6371
+  to_rad <- pi / 180
+  dlat <- (lat2 - lat1) * to_rad
+  dlon <- (lon2 - lon1) * to_rad
+  a <- sin(dlat / 2)^2 + cos(lat1 * to_rad) * cos(lat2 * to_rad) * sin(dlon / 2)^2
+  2 * R * asin(pmin(1, sqrt(a)))
+}
+D_geo <- matrix(0, N, N, dimnames = list(country_labels, country_labels))
+for (i in seq_len(N)) {
+  for (j in seq_len(N)) {
+    D_geo[i, j] <- haversine_km(
+      capitals$lat[i], capitals$lon[i],
+      capitals$lat[j], capitals$lon[j]
+    )
+  }
+}
+
+# Build D_cul (Hofstede)
+hofstede_path <- "/workspaces/thesis/data/6-dimensions-for-website-2015-08-16(1).csv"
+hof_raw <- tryCatch(
+  {
+    x <- readr::read_csv2(hofstede_path, show_col_types = FALSE) |>
+      janitor::clean_names()
+    if (ncol(x) < 3) stop("too few columns")
+    x
+  },
+  error = function(e) {
+    readr::read_csv(hofstede_path, show_col_types = FALSE) |>
+      janitor::clean_names()
+  }
+)
+hof_raw <- hof_raw |>
+  dplyr::mutate(dplyr::across(
+    dplyr::everything(),
+    \(x) ifelse(as.character(x) == "#NULL!", NA, x)
+  ))
+candidates <- c("country", "ctr", "iso", "iso3")
+country_col <- candidates[candidates %in% names(hof_raw)][1]
+to_iso3 <- function(x) {
+  x <- as.character(x)
+  out <- suppressWarnings(countrycode::countrycode(
+    x,
+    origin = "country.name", destination = "iso3c", warn = FALSE
+  ))
+  if (mean(is.na(out)) > 0.5) {
+    out <- suppressWarnings(countrycode::countrycode(
+      x,
+      origin = "iso2c", destination = "iso3c", warn = FALSE
+    ))
+  }
+  if (mean(is.na(out)) > 0.5) out <- toupper(x)
+  out
+}
+hof <- hof_raw |>
+  dplyr::mutate(iso3 = to_iso3(.data[[country_col]])) |>
+  dplyr::filter(iso3 %in% cl_iso3) |>
+  dplyr::transmute(
+    iso3,
+    pdi = suppressWarnings(as.numeric(pdi)),
+    idv = suppressWarnings(as.numeric(idv)),
+    mas = suppressWarnings(as.numeric(mas)),
+    uai = suppressWarnings(as.numeric(uai))
+  ) |>
+  dplyr::filter(!is.na(pdi) & !is.na(idv) & !is.na(mas) & !is.na(uai)) |>
+  dplyr::distinct(iso3, .keep_all = TRUE)
+if (!"CYP" %in% hof$iso3 && "GRC" %in% hof$iso3 && "CYP" %in% cl_iso3) {
+  hof <- dplyr::bind_rows(
+    hof,
+    hof |> dplyr::filter(iso3 == "GRC") |> dplyr::mutate(iso3 = "CYP")
+  )
+}
+missing_hof <- setdiff(cl_iso3, hof$iso3)
+if (length(missing_hof) > 0) {
+  hof_mean <- hof |>
+    dplyr::summarise(dplyr::across(
+      c(pdi, idv, mas, uai),
+      \(x) mean(x, na.rm = TRUE)
+    ))
+  for (iso in missing_hof) {
+    hof <- dplyr::bind_rows(
+      hof,
+      tibble::tibble(
+        iso3 = iso, pdi = hof_mean$pdi, idv = hof_mean$idv,
+        mas = hof_mean$mas, uai = hof_mean$uai
+      )
+    )
+  }
+}
+hof <- hof |>
+  dplyr::mutate(country = iso_to_label[iso3]) |>
+  dplyr::filter(!is.na(country) & country %in% country_labels) |>
+  dplyr::arrange(match(country, country_labels))
+H_mat <- as.matrix(hof[, c("pdi", "idv", "mas", "uai")])
+rownames(H_mat) <- hof$country
+D_cul <- as.matrix(dist(H_mat, method = "euclidean"))
+D_cul <- D_cul[country_labels, country_labels]
+
+# Generic builder: WDI-style country-year wide CSV -> distance matrix in logs
+build_dist_wdi <- function(path, year_cols, take_log = TRUE) {
+  raw <- readr::read_csv(path, skip = 4, show_col_types = FALSE) |>
+    janitor::clean_names()
+  available <- intersect(year_cols, names(raw))
+  if (length(available) == 0) {
+    available <- grep("^x[0-9]{4}$", names(raw), value = TRUE)[1:5]
+  }
+  d <- raw |>
+    dplyr::transmute(
+      iso3 = country_code,
+      val = rowMeans(
+        dplyr::across(
+          dplyr::all_of(available),
+          \(z) suppressWarnings(as.numeric(z))
+        ),
+        na.rm = TRUE
+      )
+    ) |>
+    dplyr::filter(iso3 %in% cl_iso3, !is.na(val), is.finite(val)) |>
+    dplyr::mutate(country = iso_to_label[iso3]) |>
+    dplyr::arrange(match(country, country_labels))
+  if (nrow(d) < N) {
+    miss <- setdiff(country_labels, d$country)
+    d <- dplyr::bind_rows(
+      d,
+      data.frame(
+        iso3 = NA, val = mean(d$val, na.rm = TRUE),
+        country = miss, stringsAsFactors = FALSE
+      )
+    ) |>
+      dplyr::arrange(match(country, country_labels))
+  }
+  v <- if (take_log) log(d$val + 1) else d$val
+  names(v) <- d$country
+  M <- abs(outer(v, v, FUN = "-"))
+  dimnames(M) <- list(country_labels, country_labels)
+  M
+}
+
+# ---- Build all candidate distance / dyadic matrices -----------------------
+
+# 1) GDP per capita
+D_gdppc <- build_dist_wdi(
+  file.path(data_dir, "API_NY.GDP.PCAP.KD_DS2_en_csv_v2_234.csv"),
+  c("x1996", "x1997", "x1998", "x1999", "x2000")
+)
+
+# 2) Population (proxy: labour force total)
+D_pop <- build_dist_wdi(
+  file.path(data_dir, "API_SL.TLF.TOTL.IN_DS2_en_csv_v2_196.csv"),
+  c("x1996", "x1997", "x1998", "x1999", "x2000")
+)
+
+# 3) Government effectiveness (WDI GE.EST)
+D_gov <- build_dist_wdi(
+  file.path(data_dir, "API_GE.EST_DS2_en_csv_v2_213352.csv"),
+  c("x1996", "x1998", "x2000"),
+  take_log = FALSE
+)
+
+# 4) R&D / patents (proxy)
+D_rd <- build_dist_wdi(
+  file.path(data_dir, "API_IP.PAT.RESD_DS2_en_csv_v2_213364.csv"),
+  c("x1996", "x1997", "x1998", "x1999", "x2000")
+)
+
+# 5) Trade openness (% GDP)
+D_trade_open <- build_dist_wdi(
+  file.path(data_dir, "API_NE.TRD.GNFS.ZS_DS2_en_csv_v2_334.csv"),
+  c("x1996", "x1997", "x1998", "x1999", "x2000"),
+  take_log = FALSE
+)
+
+# 6) Renewables share
+D_renew <- build_dist_wdi(
+  file.path(data_dir, "API_EG.FEC.RNEW.ZS_DS2_en_csv_v2_4948.csv"),
+  c("x1996", "x1997", "x1998", "x1999", "x2000"),
+  take_log = FALSE
+)
+
+# 7) PM2.5
+D_pm25 <- build_dist_wdi(
+  file.path(data_dir, "API_EN.ATM.PM25.MC.M3_DS2_en_csv_v2_316.csv"),
+  c("x1998", "x1999", "x2000", "x2001", "x2002")
+)
+
+# 8) Environmental tax revenue (Eurostat)
+envtax_raw <- readr::read_csv(
+  file.path(data_dir, "estat_env_ac_taxind2_en.csv.gz"),
+  show_col_types = FALSE
+)
+envtax <- envtax_raw |>
+  dplyr::filter(
+    tax == "ENV", unit == "MIO_EUR", nace_r2 == "TOTAL",
+    TIME_PERIOD %in% 1996:2000
+  ) |>
+  dplyr::mutate(OBS_VALUE = suppressWarnings(as.numeric(OBS_VALUE))) |>
+  dplyr::filter(!is.na(OBS_VALUE)) |>
+  dplyr::group_by(geo) |>
+  dplyr::summarise(envtax = mean(OBS_VALUE, na.rm = TRUE), .groups = "drop") |>
+  dplyr::mutate(
+    iso3 = iso2_to_iso3(geo),
+    country = iso_to_label[iso3]
+  ) |>
+  dplyr::filter(iso3 %in% cl_iso3, !is.na(country))
+if (nrow(envtax) < N) {
+  miss <- setdiff(country_labels, envtax$country)
+  envtax <- dplyr::bind_rows(
+    envtax,
+    data.frame(
+      geo = NA, envtax = mean(envtax$envtax, na.rm = TRUE),
+      iso3 = NA, country = miss, stringsAsFactors = FALSE
+    )
+  )
+}
+envtax <- envtax |> dplyr::arrange(match(country, country_labels))
+envtax_vec <- setNames(log(envtax$envtax + 1), envtax$country)
+D_envtax <- abs(outer(envtax_vec, envtax_vec, FUN = "-"))
+dimnames(D_envtax) <- list(country_labels, country_labels)
+
+# 9) FDI bilateral (Eurostat) - log(1 + FDI_ij)
+fdi_raw <- readr::read_csv(
+  file.path(data_dir, "estat_bop_fdi6_pos_en.csv.gz"),
+  show_col_types = FALSE
+)
+fdi <- fdi_raw |>
+  dplyr::filter(
+    counterp == "IMM", nace_r2 == "FDI", stk_flow == "ASS",
+    entity == "TOTAL", fdi_item == "DI__D__F",
+    currency == "MIO_EUR", TIME_PERIOD %in% 2013:2020
+  ) |>
+  dplyr::mutate(OBS_VALUE = suppressWarnings(as.numeric(OBS_VALUE))) |>
+  dplyr::filter(!is.na(OBS_VALUE)) |>
+  dplyr::group_by(geo, partner) |>
+  dplyr::summarise(fdi_value = mean(OBS_VALUE, na.rm = TRUE), .groups = "drop") |>
+  dplyr::mutate(
+    geo_iso3 = iso2_to_iso3(geo),
+    partner_iso3 = iso2_to_iso3(partner)
+  ) |>
+  dplyr::filter(geo_iso3 %in% cl_iso3, partner_iso3 %in% cl_iso3) |>
+  dplyr::mutate(
+    sender = iso_to_label[geo_iso3],
+    receiver = iso_to_label[partner_iso3]
+  )
+F_fdi <- matrix(0, N, N, dimnames = list(country_labels, country_labels))
+for (k in seq_len(nrow(fdi))) {
+  F_fdi[fdi$sender[k], fdi$receiver[k]] <- pmax(fdi$fdi_value[k], 0)
+}
+log_fdi <- log1p(F_fdi)
+diag(log_fdi) <- 0
+
+# 10) Cultural distance (already computed: D_cul)
+# 11) Geographic distance (already computed: D_geo)
+log_dist <- log(D_geo + 1)
+diag(log_dist) <- 0
+
+# ---- Build long dyadic dataset of all candidates --------------------------
+mats <- list(
+  d_gdppc      = D_gdppc,
+  d_pop        = D_pop,
+  d_gov        = D_gov,
+  d_rd         = D_rd,
+  d_tradeopen  = D_trade_open,
+  d_renew      = D_renew,
+  d_pm25       = D_pm25,
+  d_envtax     = D_envtax,
+  d_cult       = D_cul,
+  d_geo        = log_dist,
+  log_fdi      = log_fdi
+)
+
+dyad_idx <- expand.grid(i = seq_len(N), j = seq_len(N)) |>
+  dplyr::filter(i != j)
+
+X <- sapply(mats, function(M) M[cbind(dyad_idx$i, dyad_idx$j)])
+X <- as.data.frame(X)
+
+# ---- Pairwise correlation matrix ------------------------------------------
+cor_mat <- cor(X, use = "pairwise.complete.obs")
+cor_disp <- formatC(cor_mat, format = "f", digits = 2)
+cor_disp[abs(cor_mat) >= 0.5 & abs(cor_mat) < 1] <-
+  paste0("\\textbf{", cor_disp[abs(cor_mat) >= 0.5 & abs(cor_mat) < 1], "}")
+
+cor_df <- as.data.frame(cor_disp)
+cor_df <- cbind(Variable = rownames(cor_disp), cor_df)
+
+dict_labels <- c(
+  d_gdppc      = "$|\\Delta|$ log GDPpc",
+  d_pop        = "$|\\Delta|$ log Pop",
+  d_gov        = "$|\\Delta|$ Gov eff.",
+  d_rd         = "$|\\Delta|$ log Patents",
+  d_tradeopen  = "$|\\Delta|$ Trade open.",
+  d_renew      = "$|\\Delta|$ Renewables",
+  d_pm25       = "$|\\Delta|$ log PM2.5",
+  d_envtax     = "$|\\Delta|$ log Env. tax",
+  d_cult       = "Cultural dist.",
+  d_geo        = "log Geo dist.",
+  log_fdi      = "log(1 + FDI$_{ij}$)"
+)
+cor_df$Variable <- dict_labels[cor_df$Variable]
+colnames(cor_df)[-1] <- dict_labels[colnames(cor_df)[-1]]
+
+kbl(cor_df,
+  booktabs = TRUE, format = "latex", escape = FALSE,
+  align = c("l", rep("c", ncol(cor_df) - 1)), row.names = FALSE,
+  caption = "Pairwise correlation among candidate covariates",
+  label = "tab:dyadic_corr"
+) |>
+  kable_styling(
+    latex_options = c("hold_position", "scale_down"),
+    font_size = 8
+  )
+```
+
+```{r}
+#| label: dyadic-regression-homophily-new
+#| echo: false
+#| results: asis
+#| cache: true
+# OLS dyadic regression of recovered network weights w_hat_ij on five
+# bilateral covariates retained after pairwise-correlation screening
+# (all pairwise |rho| < 0.3 among the five):
+# (1) economic asymmetry:    log GDP pc_i - log GDP pc_j        (signed)
+# (2) environmental asym.:   log Env tax_i - log Env tax_j      (signed)
+# (3) cultural distance:     Euclidean distance on Hofstede PDI/IDV/MAS/UAI (D_cul)
+# (4) geographic distance:   log great-circle distance between capitals
+# (5) bilateral FDI:         log(1 + FDI stock_ij)
+#
+# Rationale for signed gaps on (1) and (2): w_hat_ij encodes a directed
+# influence link i -> j with non-negative magnitude. The absolute value
+# specification tests homophily (Lazarsfeld & Merton 1954; McPherson,
+# Smith-Lovin & Cook 2001) and mechanically pools opposite-sign effects;
+# the signed (sender - receiver) specification tests directional
+# asymmetry (Fafchamps & Gubert 2007 J. Dev. Econ.; Graham 2017
+# Econometrica), which is what the leader/follower interpretation
+# requires. Geographic and cultural distances remain symmetric metrics
+# by construction.
+#
+# No fixed effects. Two-way clustered SE on sender and receiver
+# (Cameron & Miller 2014, J. Human Resources).
+
+# Helper: ISO2 -> ISO3 with Eurostat quirks
+iso2_to_iso3 <- function(x) {
+  x <- as.character(x)
+  x <- dplyr::case_match(x, "EL" ~ "GR", "UK" ~ "GB", .default = x)
+  countrycode::countrycode(x,
+    origin = "iso2c",
+    destination = "iso3c", warn = FALSE
+  )
+}
+
+# ---- 1) Economic asymmetry: signed log GDP per capita gap -----------------
+gdp_path <- file.path(data_dir, "API_NY.GDP.PCAP.KD_DS2_en_csv_v2_234.csv")
+gdp_raw <- readr::read_csv(gdp_path, skip = 4, show_col_types = FALSE) |>
+  janitor::clean_names()
+
+gdp <- gdp_raw |>
+  dplyr::transmute(
+    iso3 = country_code,
+    gdppc = rowMeans(
+      dplyr::across(
+        c(x1996, x1997, x1998, x1999, x2000),
+        \(z) suppressWarnings(as.numeric(z))
+      ),
+      na.rm = TRUE
+    )
+  ) |>
+  dplyr::filter(iso3 %in% cl_iso3, !is.na(gdppc)) |>
+  dplyr::mutate(country = iso_to_label[iso3]) |>
+  dplyr::arrange(match(country, country_labels))
+
+if (nrow(gdp) < N) {
+  miss <- setdiff(country_labels, gdp$country)
+  gdp <- dplyr::bind_rows(
+    gdp,
+    data.frame(
+      iso3 = NA, gdppc = mean(gdp$gdppc, na.rm = TRUE),
+      country = miss, stringsAsFactors = FALSE
+    )
+  ) |>
+    dplyr::arrange(match(country, country_labels))
+}
+gdp_vec <- setNames(log(gdp$gdppc), gdp$country)
+# Signed gap: sender (row) - receiver (column)
+D_gdppc <- outer(gdp_vec, gdp_vec, FUN = "-")
+dimnames(D_gdppc) <- list(country_labels, country_labels)
+diag(D_gdppc) <- 0
+
+# ---- 2) Environmental asymmetry: signed log Env Tax gap -------------------
+envtax_path <- file.path(data_dir, "estat_env_ac_taxind2_en.csv.gz")
+envtax_raw <- readr::read_csv(envtax_path, show_col_types = FALSE)
+
+envtax <- envtax_raw |>
+  dplyr::filter(
+    tax == "ENV",
+    unit == "MIO_EUR",
+    nace_r2 == "TOTAL",
+    TIME_PERIOD %in% 1996:2000
+  ) |>
+  dplyr::mutate(OBS_VALUE = suppressWarnings(as.numeric(OBS_VALUE))) |>
+  dplyr::filter(!is.na(OBS_VALUE)) |>
+  dplyr::group_by(geo) |>
+  dplyr::summarise(envtax = mean(OBS_VALUE, na.rm = TRUE), .groups = "drop") |>
+  dplyr::mutate(
+    iso3    = iso2_to_iso3(geo),
+    country = iso_to_label[iso3]
+  ) |>
+  dplyr::filter(iso3 %in% cl_iso3, !is.na(country))
+
+if (nrow(envtax) < N) {
+  miss <- setdiff(country_labels, envtax$country)
+  envtax <- dplyr::bind_rows(
+    envtax,
+    data.frame(
+      geo = NA, envtax = mean(envtax$envtax, na.rm = TRUE),
+      iso3 = NA, country = miss, stringsAsFactors = FALSE
+    )
+  )
+}
+envtax <- envtax |> dplyr::arrange(match(country, country_labels))
+envtax_vec <- setNames(log(envtax$envtax + 1), envtax$country)
+# Signed gap: sender (row) - receiver (column)
+D_envtax <- outer(envtax_vec, envtax_vec, FUN = "-")
+dimnames(D_envtax) <- list(country_labels, country_labels)
+diag(D_envtax) <- 0
+
+# ---- 3) Cultural distance: Hofstede (D_cul, already computed) -------------
+
+# ---- 4) Geographic distance: log great-circle distance --------------------
+log_dist <- log(D_geo + 1)
+diag(log_dist) <- 0
+
+# ---- 5) Bilateral FDI: log(1 + FDI stock_ij) ------------------------------
+fdi_path <- file.path(data_dir, "estat_bop_fdi6_pos_en.csv.gz")
+fdi_raw <- readr::read_csv(fdi_path, show_col_types = FALSE)
+
+fdi <- fdi_raw |>
+  dplyr::filter(
+    counterp == "IMM",
+    nace_r2 == "FDI",
+    stk_flow == "ASS",
+    entity == "TOTAL",
+    fdi_item == "DI__D__F",
+    currency == "MIO_EUR",
+    TIME_PERIOD %in% 2013:2020
+  ) |>
+  dplyr::mutate(OBS_VALUE = suppressWarnings(as.numeric(OBS_VALUE))) |>
+  dplyr::filter(!is.na(OBS_VALUE)) |>
+  dplyr::group_by(geo, partner) |>
+  dplyr::summarise(fdi_value = mean(OBS_VALUE, na.rm = TRUE), .groups = "drop") |>
+  dplyr::mutate(
+    geo_iso3     = iso2_to_iso3(geo),
+    partner_iso3 = iso2_to_iso3(partner)
+  ) |>
+  dplyr::filter(geo_iso3 %in% cl_iso3, partner_iso3 %in% cl_iso3) |>
+  dplyr::mutate(
+    sender_country   = iso_to_label[geo_iso3],
+    receiver_country = iso_to_label[partner_iso3]
+  )
+
+F_fdi <- matrix(0, N, N, dimnames = list(country_labels, country_labels))
+for (k in seq_len(nrow(fdi))) {
+  F_fdi[fdi$sender_country[k], fdi$receiver_country[k]] <-
+    pmax(fdi$fdi_value[k], 0)
+}
+log_fdi <- log1p(F_fdi)
+diag(log_fdi) <- 0
+
+# ---- 6) Build dyadic dataset (702 ordered dyads) --------------------------
+build_dyadic_df <- function(W_outcome) {
+  expand.grid(
+    sender = seq_len(N), receiver = seq_len(N),
+    KEEP.OUT.ATTRS = FALSE
+  ) |>
+    dplyr::filter(sender != receiver) |>
+    dplyr::mutate(
+      sender   = factor(country_labels[sender], levels = country_labels),
+      receiver = factor(country_labels[receiver], levels = country_labels),
+      w_hat    = W_outcome[cbind(as.integer(sender), as.integer(receiver))],
+      d_econ   = D_gdppc[cbind(as.integer(sender), as.integer(receiver))],
+      d_envir  = D_envtax[cbind(as.integer(sender), as.integer(receiver))],
+      d_cult   = D_cul[cbind(as.integer(sender), as.integer(receiver))],
+      d_geo    = log_dist[cbind(as.integer(sender), as.integer(receiver))],
+      l_fdi    = log_fdi[cbind(as.integer(sender), as.integer(receiver))]
+    )
+}
+dyadic_q <- build_dyadic_df(W_q)
+dyadic_e <- build_dyadic_df(W_e)
+
+# ---- 7) Estimate OLS dyadic, two-way clustering ---------------------------
+fit_q <- feols(w_hat ~ d_econ + d_envir + d_cult + d_geo + l_fdi,
+  data = dyadic_q, cluster = ~ sender + receiver
+)
+fit_e <- feols(w_hat ~ d_econ + d_envir + d_cult + d_geo + l_fdi,
+  data = dyadic_e, cluster = ~ sender + receiver
+)
+
+etable(
+  list(
+    "Quality $\\hat w^Q_{ij}$"     = fit_q,
+    "Environment $\\hat w^E_{ij}$" = fit_e
+  ),
+  depvar = FALSE,
+  style.tex = style.tex(
+    "base",
+    model.title = ""
+  ),
+  dict = c(
+    d_econ  = "Economic asymmetry ($\\log \\text{GDPpc}_i - \\log \\text{GDPpc}_j$)",
+    d_envir = "Environmental asymmetry ($\\log \\text{EnvTax}_i - \\log \\text{EnvTax}_j$)",
+    d_cult  = "Cultural distance ($D^{cul}_{ij}$)",
+    d_geo   = "Geographic distance ($\\log \\text{dist}_{ij}$)",
+    l_fdi   = "Bilateral FDI ($\\log(1 + \\text{FDI}_{ij})$)"
+  ),
+  signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10),
+  fitstat = ~ n + r2,
+  tex = TRUE,
+  title = "Dyadic regression of recovered weights",
+  label = "tab:dyadic_homophily"
+)
+```
+
+## Application of Bramoullé, Djebbari & Fortin (2009)
 
 ```{r}
 #| label: exogenous-networks-grid
 #| echo: false
 #| fig-width: 14
 #| fig-height: 14
-#| fig-cap: "Exogenous networks for the EU 27 sample, constructed following Albuquerque, Bronnenberg and Corbett (2007). For each country, the top-3 nearest neighbors are connected with uniform weight $1/3$. The neighbor-set size is reduced from 5 (used by Albuquerque on a sample of 56 countries) to 3, in light of the smaller sample size ($N = 27$). \\textbf{Geographic}: great-circle distance between capitals. \\textbf{Trade}: largest export shares from BACI 1996, total bilateral trade aggregated across all products. \\textbf{Cultural}: Euclidean distance on Hofstede's four cultural dimensions (PDI, IDV, MAS, UAI), with Cyprus assigned Greece's scores. The networks are directed: $i$'s neighbor set is not symmetric to $j$'s. The 3$\\times$3 grid fixes the Fruchterman--Reingold layout by row (computed on the network on the diagonal); columns then plot all three networks on that row's layout, allowing direct visual comparison of edge structure across networks."
+#| fig-cap: "Exogenous networks (Albuquerque, Bronnenberg & Corbett 2007)"
 # ============================================================================
 # 0. PATHS
 # ============================================================================
@@ -862,10 +1446,6 @@ print(panel_exo)
 # (ii)  country FE, pairs cluster bootstrap on country (B = 999)
 # (iii) country + year FE, pairs cluster bootstrap on country (B = 999)
 
-library(fixest)
-library(dplyr)
-library(tidyr)
-library(kableExtra)
 
 set.seed(1861)
 B <- 999
@@ -1112,15 +1692,10 @@ colnames(tab) <- c(
 kbl(tab,
   booktabs = TRUE, format = "latex", escape = FALSE,
   align = "llrrr", row.names = FALSE,
-  caption = sprintf("Endogenous peer effect $\\hat\\beta$ from Bramoull\\'e, Djebbari \\& Fortin (2009) G2SLS with one-year lag on the peer outcome, across three fixed-effects specifications. Comparison between the De Paula, Rasul \\& Souza (2025) recovered networks (Endogenous) and the combined exogenous network of Albuquerque, Bronnenberg \\& Corbett (2007, Eq. 9). The no-FE specification uses asymptotic country-clustered standard errors; the country-FE and country + year FE specifications use pairs cluster bootstrap on country, $B = %d$ replications (Cameron \\& Miller 2015, J. Human Resources). Standard errors in parentheses below estimates.", B),
+  caption = "Endogenous peer effect: recovered vs combined exogenous network",
   label = "tab:bdf_combined_summary"
 ) |>
-  kable_styling(latex_options = "hold_position", font_size = 10) |>
-  kableExtra::footnote(
-    general = "Diffusion timing follows Albuquerque, Bronnenberg \\\\& Corbett (2007, Eq. 1) and Bass (1969). The combined exogenous network is the union of top-3 nearest neighbours from geography, bilateral trade, and Hofstede cultural distance, with uniform row-stochastic weights. Country FE absorb time-invariant national heterogeneity; year FE absorb common EU-wide shocks. Stability of $\\\\hat\\\\beta$ across specifications is diagnostic of correlated-effect contamination: the recovered networks display stable estimates, whereas the combined exogenous network estimates are inflated and exceed the stability boundary $|\\\\beta| < 1$ required for SAR equilibrium (Lee 2007). For ISO 14001, observed predominantly in its take-off phase, year FE may absorb part of the diffusion-driven temporal commonality alongside common shocks (Bertrand, Duflo \\\\& Mullainathan 2004; Neumayer \\\\& Perkins 2004). $^{*}p<0.10$, $^{**}p<0.05$, $^{***}p<0.01$.",
-    general_title = "Notes:", threeparttable = TRUE,
-    escape = FALSE, footnote_as_chunk = TRUE
-  )
+  kable_styling(latex_options = "hold_position", font_size = 10)
 ```
 
 ```{r}
@@ -1224,512 +1799,11 @@ colnames(tab) <- c(
 kbl(tab,
   booktabs = TRUE, format = "latex", escape = FALSE,
   align = "llrr", row.names = FALSE,
-  caption = sprintf("Endogenous peer effect $\\hat\\beta$ from Bramoull\\'e, Djebbari \\& Fortin (2009) G2SLS with one-year lag on the peer outcome, applied to the preferred two-channel exogenous networks of Albuquerque, Bronnenberg \\& Corbett (2007, Table 3, Model 5). The no-FE specification uses asymptotic country-clustered standard errors; the country + year FE specification uses pairs cluster bootstrap on country, $B = %d$ replications (Cameron \\& Miller 2015, J. Human Resources). Standard errors in parentheses below estimates.", B),
+  caption = "Endogenous peer effect: ABC two-channel networks",
   label = "tab:bdf_abc_model5"
 ) |>
-  kable_styling(latex_options = "hold_position", font_size = 10) |>
-  kableExtra::footnote(
-    general = "Each network is the union of two top-3 nearest neighbour sets, with uniform row-stochastic weights. Diffusion timing follows Albuquerque et al.\\\\ (2007, Eq. 1) and Bass (1969). Country FE absorb time-invariant national heterogeneity; year FE absorb common EU-wide shocks. $|\\\\beta| < 1$ is required for SAR equilibrium (Lee 2007). $^{*}p<0.10$, $^{**}p<0.05$, $^{***}p<0.01$.",
-    general_title = "Notes:", threeparttable = TRUE,
-    escape = FALSE, footnote_as_chunk = TRUE
-  )
+  kable_styling(latex_options = "hold_position", font_size = 10)
 ```
-
-```{r}
-#| label: dyadic-correlation-check
-#| echo: false
-#| results: asis
-#| cache: true
-#| include: false
-# Pairwise correlation matrix among candidate dyadic homophily covariates,
-# computed on the N(N-1) = 702 ordered dyads.
-
-library(dplyr)
-library(tidyr)
-library(kableExtra)
-
-# Helper: ISO2 -> ISO3 with Eurostat quirks
-iso2_to_iso3 <- function(x) {
-  x <- as.character(x)
-  x <- dplyr::case_match(x, "EL" ~ "GR", "UK" ~ "GB", .default = x)
-  countrycode::countrycode(x,
-    origin = "iso2c",
-    destination = "iso3c", warn = FALSE
-  )
-}
-
-# Generic builder: WDI-style country-year wide CSV -> distance matrix in logs
-build_dist_wdi <- function(path, year_cols, take_log = TRUE) {
-  raw <- readr::read_csv(path, skip = 4, show_col_types = FALSE) |>
-    janitor::clean_names()
-  available <- intersect(year_cols, names(raw))
-  if (length(available) == 0) {
-    available <- grep("^x[0-9]{4}$", names(raw), value = TRUE)[1:5]
-  }
-  d <- raw |>
-    dplyr::transmute(
-      iso3 = country_code,
-      val = rowMeans(
-        dplyr::across(
-          dplyr::all_of(available),
-          \(z) suppressWarnings(as.numeric(z))
-        ),
-        na.rm = TRUE
-      )
-    ) |>
-    dplyr::filter(iso3 %in% cl_iso3, !is.na(val), is.finite(val)) |>
-    dplyr::mutate(country = iso_to_label[iso3]) |>
-    dplyr::arrange(match(country, country_labels))
-  if (nrow(d) < N) {
-    miss <- setdiff(country_labels, d$country)
-    d <- dplyr::bind_rows(
-      d,
-      data.frame(
-        iso3 = NA, val = mean(d$val, na.rm = TRUE),
-        country = miss, stringsAsFactors = FALSE
-      )
-    ) |>
-      dplyr::arrange(match(country, country_labels))
-  }
-  v <- if (take_log) log(d$val + 1) else d$val
-  names(v) <- d$country
-  M <- abs(outer(v, v, FUN = "-"))
-  dimnames(M) <- list(country_labels, country_labels)
-  M
-}
-
-# ---- Build all candidate distance / dyadic matrices -----------------------
-
-# 1) GDP per capita
-D_gdppc <- build_dist_wdi(
-  file.path(data_dir, "API_NY.GDP.PCAP.KD_DS2_en_csv_v2_234.csv"),
-  c("x1996", "x1997", "x1998", "x1999", "x2000")
-)
-
-# 2) Population (proxy: labour force total)
-D_pop <- build_dist_wdi(
-  file.path(data_dir, "API_SL.TLF.TOTL.IN_DS2_en_csv_v2_196.csv"),
-  c("x1996", "x1997", "x1998", "x1999", "x2000")
-)
-
-# 3) Government effectiveness (WDI GE.EST)
-D_gov <- build_dist_wdi(
-  file.path(data_dir, "API_GE.EST_DS2_en_csv_v2_213352.csv"),
-  c("x1996", "x1998", "x2000"),
-  take_log = FALSE
-)
-
-# 4) R&D / patents (proxy)
-D_rd <- build_dist_wdi(
-  file.path(data_dir, "API_IP.PAT.RESD_DS2_en_csv_v2_213364.csv"),
-  c("x1996", "x1997", "x1998", "x1999", "x2000")
-)
-
-# 5) Trade openness (% GDP)
-D_trade_open <- build_dist_wdi(
-  file.path(data_dir, "API_NE.TRD.GNFS.ZS_DS2_en_csv_v2_334.csv"),
-  c("x1996", "x1997", "x1998", "x1999", "x2000"),
-  take_log = FALSE
-)
-
-# 6) Renewables share
-D_renew <- build_dist_wdi(
-  file.path(data_dir, "API_EG.FEC.RNEW.ZS_DS2_en_csv_v2_4948.csv"),
-  c("x1996", "x1997", "x1998", "x1999", "x2000"),
-  take_log = FALSE
-)
-
-# 7) PM2.5
-D_pm25 <- build_dist_wdi(
-  file.path(data_dir, "API_EN.ATM.PM25.MC.M3_DS2_en_csv_v2_316.csv"),
-  c("x1998", "x1999", "x2000", "x2001", "x2002")
-)
-
-# 8) Environmental tax revenue (Eurostat)
-envtax_raw <- readr::read_csv(
-  file.path(data_dir, "estat_env_ac_taxind2_en.csv.gz"),
-  show_col_types = FALSE
-)
-envtax <- envtax_raw |>
-  dplyr::filter(
-    tax == "ENV", unit == "MIO_EUR", nace_r2 == "TOTAL",
-    TIME_PERIOD %in% 1996:2000
-  ) |>
-  dplyr::mutate(OBS_VALUE = suppressWarnings(as.numeric(OBS_VALUE))) |>
-  dplyr::filter(!is.na(OBS_VALUE)) |>
-  dplyr::group_by(geo) |>
-  dplyr::summarise(envtax = mean(OBS_VALUE, na.rm = TRUE), .groups = "drop") |>
-  dplyr::mutate(
-    iso3 = iso2_to_iso3(geo),
-    country = iso_to_label[iso3]
-  ) |>
-  dplyr::filter(iso3 %in% cl_iso3, !is.na(country))
-if (nrow(envtax) < N) {
-  miss <- setdiff(country_labels, envtax$country)
-  envtax <- dplyr::bind_rows(
-    envtax,
-    data.frame(
-      geo = NA, envtax = mean(envtax$envtax, na.rm = TRUE),
-      iso3 = NA, country = miss, stringsAsFactors = FALSE
-    )
-  )
-}
-envtax <- envtax |> dplyr::arrange(match(country, country_labels))
-envtax_vec <- setNames(log(envtax$envtax + 1), envtax$country)
-D_envtax <- abs(outer(envtax_vec, envtax_vec, FUN = "-"))
-dimnames(D_envtax) <- list(country_labels, country_labels)
-
-# 9) FDI bilateral (Eurostat) - log(1 + FDI_ij)
-fdi_raw <- readr::read_csv(
-  file.path(data_dir, "estat_bop_fdi6_pos_en.csv.gz"),
-  show_col_types = FALSE
-)
-fdi <- fdi_raw |>
-  dplyr::filter(
-    counterp == "IMM", nace_r2 == "FDI", stk_flow == "ASS",
-    entity == "TOTAL", fdi_item == "DI__D__F",
-    currency == "MIO_EUR", TIME_PERIOD %in% 2013:2020
-  ) |>
-  dplyr::mutate(OBS_VALUE = suppressWarnings(as.numeric(OBS_VALUE))) |>
-  dplyr::filter(!is.na(OBS_VALUE)) |>
-  dplyr::group_by(geo, partner) |>
-  dplyr::summarise(fdi_value = mean(OBS_VALUE, na.rm = TRUE), .groups = "drop") |>
-  dplyr::mutate(
-    geo_iso3 = iso2_to_iso3(geo),
-    partner_iso3 = iso2_to_iso3(partner)
-  ) |>
-  dplyr::filter(geo_iso3 %in% cl_iso3, partner_iso3 %in% cl_iso3) |>
-  dplyr::mutate(
-    sender = iso_to_label[geo_iso3],
-    receiver = iso_to_label[partner_iso3]
-  )
-F_fdi <- matrix(0, N, N, dimnames = list(country_labels, country_labels))
-for (k in seq_len(nrow(fdi))) {
-  F_fdi[fdi$sender[k], fdi$receiver[k]] <- pmax(fdi$fdi_value[k], 0)
-}
-log_fdi <- log1p(F_fdi)
-diag(log_fdi) <- 0
-
-# 10) Cultural distance (already computed: D_cul)
-# 11) Geographic distance (already computed: D_geo)
-log_dist <- log(D_geo + 1)
-diag(log_dist) <- 0
-
-# ---- Build long dyadic dataset of all candidates --------------------------
-mats <- list(
-  d_gdppc      = D_gdppc,
-  d_pop        = D_pop,
-  d_gov        = D_gov,
-  d_rd         = D_rd,
-  d_tradeopen  = D_trade_open,
-  d_renew      = D_renew,
-  d_pm25       = D_pm25,
-  d_envtax     = D_envtax,
-  d_cult       = D_cul,
-  d_geo        = log_dist,
-  log_fdi      = log_fdi
-)
-
-dyad_idx <- expand.grid(i = seq_len(N), j = seq_len(N)) |>
-  dplyr::filter(i != j)
-
-X <- sapply(mats, function(M) M[cbind(dyad_idx$i, dyad_idx$j)])
-X <- as.data.frame(X)
-
-# ---- Pairwise correlation matrix ------------------------------------------
-cor_mat <- cor(X, use = "pairwise.complete.obs")
-cor_disp <- formatC(cor_mat, format = "f", digits = 2)
-cor_disp[abs(cor_mat) >= 0.5 & abs(cor_mat) < 1] <-
-  paste0("\\textbf{", cor_disp[abs(cor_mat) >= 0.5 & abs(cor_mat) < 1], "}")
-
-cor_df <- as.data.frame(cor_disp)
-cor_df <- cbind(Variable = rownames(cor_disp), cor_df)
-
-dict_labels <- c(
-  d_gdppc      = "$|\\Delta|$ log GDPpc",
-  d_pop        = "$|\\Delta|$ log Pop",
-  d_gov        = "$|\\Delta|$ Gov eff.",
-  d_rd         = "$|\\Delta|$ log Patents",
-  d_tradeopen  = "$|\\Delta|$ Trade open.",
-  d_renew      = "$|\\Delta|$ Renewables",
-  d_pm25       = "$|\\Delta|$ log PM2.5",
-  d_envtax     = "$|\\Delta|$ log Env. tax",
-  d_cult       = "Cultural dist.",
-  d_geo        = "log Geo dist.",
-  log_fdi      = "log(1 + FDI$_{ij}$)"
-)
-cor_df$Variable <- dict_labels[cor_df$Variable]
-colnames(cor_df)[-1] <- dict_labels[colnames(cor_df)[-1]]
-
-kbl(cor_df,
-  booktabs = TRUE, format = "latex", escape = FALSE,
-  align = c("l", rep("c", ncol(cor_df) - 1)), row.names = FALSE,
-  caption = "Pairwise Pearson correlation matrix among candidate dyadic homophily covariates, computed on the $N(N-1) = 702$ ordered dyads. Entries with $|\\rho| \\geq 0.5$ are highlighted in bold.",
-  label = "tab:dyadic_corr"
-) |>
-  kable_styling(
-    latex_options = c("hold_position", "scale_down"),
-    font_size = 8
-  )
-```
-
-```{r}
-#| label: dyadic-regression-homophily-new
-#| echo: false
-#| results: asis
-#| cache: true
-# OLS dyadic regression of recovered network weights w_hat_ij on five
-# bilateral covariates retained after pairwise-correlation screening
-# (all pairwise |rho| < 0.3 among the five):
-# (1) economic asymmetry:    log GDP pc_i - log GDP pc_j        (signed)
-# (2) environmental asym.:   log Env tax_i - log Env tax_j      (signed)
-# (3) cultural distance:     Euclidean distance on Hofstede PDI/IDV/MAS/UAI (D_cul)
-# (4) geographic distance:   log great-circle distance between capitals
-# (5) bilateral FDI:         log(1 + FDI stock_ij)
-#
-# Rationale for signed gaps on (1) and (2): w_hat_ij encodes a directed
-# influence link i -> j with non-negative magnitude. The absolute value
-# specification tests homophily (Lazarsfeld & Merton 1954; McPherson,
-# Smith-Lovin & Cook 2001) and mechanically pools opposite-sign effects;
-# the signed (sender - receiver) specification tests directional
-# asymmetry (Fafchamps & Gubert 2007 J. Dev. Econ.; Graham 2017
-# Econometrica), which is what the leader/follower interpretation
-# requires. Geographic and cultural distances remain symmetric metrics
-# by construction.
-#
-# No fixed effects. Two-way clustered SE on sender and receiver
-# (Cameron & Miller 2014, J. Human Resources).
-
-library(fixest)
-library(dplyr)
-library(tidyr)
-library(kableExtra)
-
-# Helper: ISO2 -> ISO3 with Eurostat quirks
-iso2_to_iso3 <- function(x) {
-  x <- as.character(x)
-  x <- dplyr::case_match(x, "EL" ~ "GR", "UK" ~ "GB", .default = x)
-  countrycode::countrycode(x,
-    origin = "iso2c",
-    destination = "iso3c", warn = FALSE
-  )
-}
-
-# ---- 1) Economic asymmetry: signed log GDP per capita gap -----------------
-gdp_path <- file.path(data_dir, "API_NY.GDP.PCAP.KD_DS2_en_csv_v2_234.csv")
-gdp_raw <- readr::read_csv(gdp_path, skip = 4, show_col_types = FALSE) |>
-  janitor::clean_names()
-
-gdp <- gdp_raw |>
-  dplyr::transmute(
-    iso3 = country_code,
-    gdppc = rowMeans(
-      dplyr::across(
-        c(x1996, x1997, x1998, x1999, x2000),
-        \(z) suppressWarnings(as.numeric(z))
-      ),
-      na.rm = TRUE
-    )
-  ) |>
-  dplyr::filter(iso3 %in% cl_iso3, !is.na(gdppc)) |>
-  dplyr::mutate(country = iso_to_label[iso3]) |>
-  dplyr::arrange(match(country, country_labels))
-
-if (nrow(gdp) < N) {
-  miss <- setdiff(country_labels, gdp$country)
-  gdp <- dplyr::bind_rows(
-    gdp,
-    data.frame(
-      iso3 = NA, gdppc = mean(gdp$gdppc, na.rm = TRUE),
-      country = miss, stringsAsFactors = FALSE
-    )
-  ) |>
-    dplyr::arrange(match(country, country_labels))
-}
-gdp_vec <- setNames(log(gdp$gdppc), gdp$country)
-# Signed gap: sender (row) - receiver (column)
-D_gdppc <- outer(gdp_vec, gdp_vec, FUN = "-")
-dimnames(D_gdppc) <- list(country_labels, country_labels)
-diag(D_gdppc) <- 0
-
-# ---- 2) Environmental asymmetry: signed log Env Tax gap -------------------
-envtax_path <- file.path(data_dir, "estat_env_ac_taxind2_en.csv.gz")
-envtax_raw <- readr::read_csv(envtax_path, show_col_types = FALSE)
-
-envtax <- envtax_raw |>
-  dplyr::filter(
-    tax == "ENV",
-    unit == "MIO_EUR",
-    nace_r2 == "TOTAL",
-    TIME_PERIOD %in% 1996:2000
-  ) |>
-  dplyr::mutate(OBS_VALUE = suppressWarnings(as.numeric(OBS_VALUE))) |>
-  dplyr::filter(!is.na(OBS_VALUE)) |>
-  dplyr::group_by(geo) |>
-  dplyr::summarise(envtax = mean(OBS_VALUE, na.rm = TRUE), .groups = "drop") |>
-  dplyr::mutate(
-    iso3    = iso2_to_iso3(geo),
-    country = iso_to_label[iso3]
-  ) |>
-  dplyr::filter(iso3 %in% cl_iso3, !is.na(country))
-
-if (nrow(envtax) < N) {
-  miss <- setdiff(country_labels, envtax$country)
-  envtax <- dplyr::bind_rows(
-    envtax,
-    data.frame(
-      geo = NA, envtax = mean(envtax$envtax, na.rm = TRUE),
-      iso3 = NA, country = miss, stringsAsFactors = FALSE
-    )
-  )
-}
-envtax <- envtax |> dplyr::arrange(match(country, country_labels))
-envtax_vec <- setNames(log(envtax$envtax + 1), envtax$country)
-# Signed gap: sender (row) - receiver (column)
-D_envtax <- outer(envtax_vec, envtax_vec, FUN = "-")
-dimnames(D_envtax) <- list(country_labels, country_labels)
-diag(D_envtax) <- 0
-
-# ---- 3) Cultural distance: Hofstede (D_cul, already computed) -------------
-
-# ---- 4) Geographic distance: log great-circle distance --------------------
-log_dist <- log(D_geo + 1)
-diag(log_dist) <- 0
-
-# ---- 5) Bilateral FDI: log(1 + FDI stock_ij) ------------------------------
-fdi_path <- file.path(data_dir, "estat_bop_fdi6_pos_en.csv.gz")
-fdi_raw <- readr::read_csv(fdi_path, show_col_types = FALSE)
-
-fdi <- fdi_raw |>
-  dplyr::filter(
-    counterp == "IMM",
-    nace_r2 == "FDI",
-    stk_flow == "ASS",
-    entity == "TOTAL",
-    fdi_item == "DI__D__F",
-    currency == "MIO_EUR",
-    TIME_PERIOD %in% 2013:2020
-  ) |>
-  dplyr::mutate(OBS_VALUE = suppressWarnings(as.numeric(OBS_VALUE))) |>
-  dplyr::filter(!is.na(OBS_VALUE)) |>
-  dplyr::group_by(geo, partner) |>
-  dplyr::summarise(fdi_value = mean(OBS_VALUE, na.rm = TRUE), .groups = "drop") |>
-  dplyr::mutate(
-    geo_iso3     = iso2_to_iso3(geo),
-    partner_iso3 = iso2_to_iso3(partner)
-  ) |>
-  dplyr::filter(geo_iso3 %in% cl_iso3, partner_iso3 %in% cl_iso3) |>
-  dplyr::mutate(
-    sender_country   = iso_to_label[geo_iso3],
-    receiver_country = iso_to_label[partner_iso3]
-  )
-
-F_fdi <- matrix(0, N, N, dimnames = list(country_labels, country_labels))
-for (k in seq_len(nrow(fdi))) {
-  F_fdi[fdi$sender_country[k], fdi$receiver_country[k]] <-
-    pmax(fdi$fdi_value[k], 0)
-}
-log_fdi <- log1p(F_fdi)
-diag(log_fdi) <- 0
-
-# ---- 6) Build dyadic dataset (702 ordered dyads) --------------------------
-build_dyadic_df <- function(W_outcome) {
-  expand.grid(
-    sender = seq_len(N), receiver = seq_len(N),
-    KEEP.OUT.ATTRS = FALSE
-  ) |>
-    dplyr::filter(sender != receiver) |>
-    dplyr::mutate(
-      sender   = factor(country_labels[sender], levels = country_labels),
-      receiver = factor(country_labels[receiver], levels = country_labels),
-      w_hat    = W_outcome[cbind(as.integer(sender), as.integer(receiver))],
-      d_econ   = D_gdppc[cbind(as.integer(sender), as.integer(receiver))],
-      d_envir  = D_envtax[cbind(as.integer(sender), as.integer(receiver))],
-      d_cult   = D_cul[cbind(as.integer(sender), as.integer(receiver))],
-      d_geo    = log_dist[cbind(as.integer(sender), as.integer(receiver))],
-      l_fdi    = log_fdi[cbind(as.integer(sender), as.integer(receiver))]
-    )
-}
-dyadic_q <- build_dyadic_df(W_q)
-dyadic_e <- build_dyadic_df(W_e)
-
-# ---- 7) Estimate OLS dyadic, two-way clustering ---------------------------
-fit_q <- feols(w_hat ~ d_econ + d_envir + d_cult + d_geo + l_fdi,
-  data = dyadic_q, cluster = ~ sender + receiver
-)
-fit_e <- feols(w_hat ~ d_econ + d_envir + d_cult + d_geo + l_fdi,
-  data = dyadic_e, cluster = ~ sender + receiver
-)
-
-etable(fit_q, fit_e,
-  headers = c("Quality $\\hat w^Q_{ij}$", "Environment $\\hat w^E_{ij}$"),
-  dict = c(
-    d_econ  = "Economic asymmetry ($\\log \\text{GDPpc}_i - \\log \\text{GDPpc}_j$)",
-    d_envir = "Environmental asymmetry ($\\log \\text{EnvTax}_i - \\log \\text{EnvTax}_j$)",
-    d_cult  = "Cultural distance ($D^{cul}_{ij}$)",
-    d_geo   = "Geographic distance ($\\log \\text{dist}_{ij}$)",
-    l_fdi   = "Bilateral FDI ($\\log(1 + \\text{FDI}_{ij})$)"
-  ),
-  signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10),
-  fitstat = ~ n + r2, tex = TRUE,
-  title = "OLS dyadic regression of recovered network weights $\\hat w_{ij}$ .",
-  label = "tab:dyadic_homophily"
-)
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 ```{r}
 #| label: grid-summary-appendix
@@ -1753,16 +1827,8 @@ tab_full <- kbl(summary_df,
   kable_styling(
     latex_options = c("hold_position", "repeat_header"),
     font_size = 8
-  ) |>
-  footnote(
-    general = "Penalty triplet $(\\\\lambda_1, \\\\lambda_2, \\\\lambda_1^*)$ from De Paula, Rasul \\\\& Souza (2025). $\\\\hat{\\\\rho}_{EN}$, $\\\\hat{\\\\rho}_{Ada}$, $\\\\hat{\\\\rho}_{GMM}$ are the elastic-net, adaptive elastic-net, and post-LASSO GMM estimates of the peer-effect parameter. BIC selects the preferred specification per panel.",
-    general_title = "Notes:",
-    threeparttable = TRUE,
-    escape = FALSE,
-    footnote_as_chunk = TRUE
   )
 
 writeLines(as.character(tab_full), file.path(tab_dir, "grid_search_full.tex"))
 tab_full
 ```
-
