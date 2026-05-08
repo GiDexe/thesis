@@ -20,7 +20,7 @@ data_dir <- "/workspaces/thesis/data"
 clean_dir <- "/workspaces/thesis/data/cleaned_data"
 
 # install.packages(
-#  c("maps", "countrycode")
+# c("maps", "countrycode")
 # )
 
 library(kableExtra)
@@ -43,7 +43,6 @@ library(tidygraph)
 library(maps)
 library(countrycode)
 library(fixest)
-
 
 
 set.seed(1861)
@@ -162,69 +161,32 @@ cat(tex, sep = "\n")
 
 \subsection*{Methodology}
 
-The canonical structural model of social interactions is
-
+De Paula, Rasul \& Souza (2025) extend the peer-effects literature (Manski 1993; Bramoullé, Djebbari \& Fortin 2009) to the case in which the network of interactions is unknown. Their structural model
 \begin{equation}
-y_{it} = \rho_0 \sum_{j} W_{0,ij}\, y_{jt} + \beta_0\, x_{it} + \gamma_0 \sum_{j} W_{0,ij}\, x_{jt} + \alpha_i + \varepsilon_{it},
-\label{eq:depaula_structural}
+y_{it} = \rho_0 \sum_{j=1}^{N} W_{0,ij}\, y_{jt} + \beta_0 x_{it} + \gamma_0 \sum_{j=1}^{N} W_{0,ij}\, x_{jt} + \alpha_i + \alpha_t + \varepsilon_{it}
+\label{eq:structural}
 \end{equation}
-
-which is defined by the fact that the outcome variable $y$ appears on both sides of the equation. This simultaneity represents the endogenous peer effect, where an individual's behaviour ($y_{it}$) is directly influenced by the weighted outcomes of their peers ($\rho_0 \sum_{j} W_{0,ij}\, y_{jt}$). Because every agent in the network is potentially influenced by every other agent, this creates a system of simultaneous linear equations where outcomes are determined at a network equilibrium.
-
-This simultaneity triggers a process of reverberation, often described as a ``ripple effect'' throughout the network architecture. When an agent's characteristic ($x_{it}$) changes, it first impacts their own outcome and their direct neighbours' outcomes via exogenous effects. Because outcomes are endogenous, these changes trigger an infinite series of feedback loops as the effect travels to neighbours-of-neighbours ($W^2$), neighbours-of-neighbours-of-neighbours ($W^3$), and so on. Mathematically, this is captured in the Neumann series expansion of the reduced-form coefficient matrix:
-
+admits the compact form $y_t = \rho_0 W_0 y_t + \beta_0 x_t + \gamma_0 W_0 x_t + \varepsilon_t$, which rearranges into the reduced form
 \begin{equation}
-\Pi_0 = \beta_0\, I + (\rho_0 \beta_0 + \gamma_0) \sum_{k=1}^{\infty} \rho_0^{\,k-1}\, W_0^{\,k}.
-\label{eq:neumann}
+y_t = \Pi_0 x_t + \nu_t, \qquad \Pi_0 = (I - \rho_0 W_0)^{-1}(\beta_0 I + \gamma_0 W_0).
+\label{eq:reduced}
 \end{equation}
+Under their six assumptions (A1--A6, see Appendix~\ref{app:assumptions}), the structural map $(W_0,\rho_0,\beta_0,\gamma_0) \mapsto \Pi_0$ is one-to-one generically: since $\Pi_0$ and the covariates $x_t$ are observable, all structural unknowns can be recovered jointly by inverting this map.
 
-For the system to be stable, Assumption A2 requires that these shocks ``die out'' as they reverberate, meaning the endogenous effect $|\rho_0|$ must be less than one.
+The 3-node example on p.~2700 of De Paula, Rasul \& Souza (2025) makes the intuition concrete. Suppose the reduced-form matrix is estimated as
+\begin{equation}
+\Pi_0 = \frac{1}{455}
+\begin{pmatrix}
+275 & 310 & 0 \\
+310 & 275 & 0 \\
+0 & 0 & 182
+\end{pmatrix}.
+\label{eq:pihat}
+\end{equation}
+The third row and column are zero off the diagonal, so under (A3) individual 3 is isolated --- her covariate does not affect anyone else's outcome and vice versa. Individuals 1 and 2 cannot be isolated, since their covariates are correlated with the other's outcome (A5); the row-sum normalisation (A4) combined with (A1) forces $(W_0)_{12}=1$, and symmetry of $\Pi_0$ then gives $(W_0)_{21}=1$. The latent network is fully recovered, and the structural parameters $(\beta_0,\rho_0,\gamma_0)$ follow mechanically from the matrix identity $(I-\rho_0 W_0)\Pi_0 = \beta_0 I + \gamma_0 W_0$.
 
-The methodology developed by de Paula et al.\ (2024) leverages these ripples to solve for an entirely unknown network structure ($W_0$). In a network with $N$ individuals, there are $N(N-1) + 3$ structural unknowns, which include the individual ties (excluding self-influence, $W_{ii} = 0$) plus the endogenous ($\rho_0$), exogenous ($\gamma_0$), and individual effect ($\beta_0$) parameters. To identify these, the researcher utilises the $N^2$ parameters available in the reduced-form coefficient matrix $\Pi_0$, which maps individual covariates ($x$) to outcomes ($y$). Since there are more equations than unknowns even for small $N$, the specific architecture of the ties can be ``backed out'' from the observed statistical relationships between agents.
+The takeaway is that, once $\Pi_0$ is in hand, the zero pattern of the reduced form identifies the topology of the latent network, while the magnitudes pin down the structural parameters. This is the result that justifies treating the recovered network as a primitive object in the second-stage analysis below: it is identified from observable cross-sectional spillovers under transparent assumptions, without requiring any a priori commitment to a specific weighting scheme (geographic, trade, cultural).
 
-
-
-
-```{r}
-#| label: grid-summary
-#| echo: false
-summary_df <- readRDS(file.path(out_dir, "grid_search_summary.rds"))
-
-summary_top5 <- summary_df |>
-  dplyr::mutate(
-    Panel = dplyr::case_match(Panel,
-      "Quality (9001) eu" ~ "Quality",
-      "Environment (14001) eu" ~ "Environment",
-      .default = Panel
-    ),
-    BIC_num = suppressWarnings(as.numeric(BIC))
-  ) |>
-  dplyr::group_by(Panel) |>
-  dplyr::slice_min(BIC_num, n = 5) |>
-  dplyr::arrange(Panel, BIC_num) |>
-  dplyr::ungroup() |>
-  dplyr::select(-BIC_num)
-
-tab_top5 <- kbl(summary_top5,
-  booktabs = TRUE,
-  caption = "Grid search: lowest-BIC specifications",
-  col.names = c(
-    "Panel", "$\\lambda_1$", "$\\lambda_2$", "$\\lambda_1^*$",
-    "Edges", "$\\hat{\\rho}_{EN}$", "$\\hat{\\rho}_{Ada}$",
-    "$\\hat{\\rho}_{GMM}$", "BIC"
-  ),
-  escape = FALSE,
-  align = "lrrrccccc",
-  format = "latex"
-) |>
-  kable_styling(
-    latex_options = c("hold_position"),
-    font_size = 9
-  )
-
-writeLines(as.character(tab_top5), file.path(tab_dir, "grid_search_top5.tex"))
-tab_top5
-```
 
 ```{r}
 #| label: network-stats-table
@@ -310,57 +272,87 @@ cat(tex, sep = "\n")
 ```
 
 ```{r}
-#| label: fig-weights-density
+#| label: fig-degree-hist
 #| echo: false
-#| fig-width: 8
+#| fig-width: 9
 #| fig-height: 3.5
-#| fig-cap: "Distribution of recovered edge weights"
-w_df <- dplyr::bind_rows(
+#| fig-cap: "Unweighted degree distributions of recovered networks"
+eps <- 1e-5
+# Use signed threshold: edges are entries with W_ij > eps.
+# Negative entries (if any) are NOT counted as edges.
+B_q <- (W_q > eps) * 1
+diag(B_q) <- 0
+B_e <- (W_e > eps) * 1
+diag(B_e) <- 0
+
+# Quick check: report if any negative entries exist in the recovered W
+cat(sprintf(
+  "W_q: %d negative off-diagonal entries (min = %.4f)\n",
+  sum(W_q < -eps & row(W_q) != col(W_q)),
+  min(W_q[row(W_q) != col(W_q)])
+))
+cat(sprintf(
+  "W_e: %d negative off-diagonal entries (min = %.4f)\n",
+  sum(W_e < -eps & row(W_e) != col(W_e)),
+  min(W_e[row(W_e) != col(W_e)])
+))
+
+deg_df <- dplyr::bind_rows(
   data.frame(
     standard = "Quality (ISO 9001)",
-    w = abs(W_q[abs(W_q) > 1e-5])
+    direction = "Out-degree", value = rowSums(B_q)
+  ),
+  data.frame(
+    standard = "Quality (ISO 9001)",
+    direction = "In-degree", value = colSums(B_q)
   ),
   data.frame(
     standard = "Environment (ISO 14001)",
-    w = abs(W_e[abs(W_e) > 1e-5])
+    direction = "Out-degree", value = rowSums(B_e)
+  ),
+  data.frame(
+    standard = "Environment (ISO 14001)",
+    direction = "In-degree", value = colSums(B_e)
   )
 ) |>
-  dplyr::mutate(standard = factor(standard,
-    levels = c("Quality (ISO 9001)", "Environment (ISO 14001)")
-  ))
+  dplyr::mutate(
+    standard = factor(standard,
+      levels = c("Quality (ISO 9001)", "Environment (ISO 14001)")
+    ),
+    direction = factor(direction, levels = c("Out-degree", "In-degree"))
+  )
 
-p <- ggplot(w_df, aes(x = w, fill = standard)) +
+p <- ggplot(deg_df, aes(x = value, fill = standard)) +
   geom_histogram(
-    binwidth = 0.05, boundary = 0,
-    colour = "white", linewidth = 0.3
+    position = "identity", alpha = 0.55,
+    colour = "white", linewidth = 0.3, bins = 12
   ) +
   geom_rug(aes(colour = standard),
     sides = "b",
-    length = unit(0.04, "npc"), alpha = 0.7
+    length = unit(0.03, "npc"), alpha = 0.7
   ) +
-  facet_wrap(~standard) +
+  facet_wrap(~direction, scales = "free", ncol = 2) +
   scale_fill_manual(values = c(
-    "Quality (ISO 9001)" = "#3182bd",
+    "Quality (ISO 9001)"      = "#3182bd",
     "Environment (ISO 14001)" = "#31a354"
   )) +
   scale_colour_manual(values = c(
-    "Quality (ISO 9001)" = "#08519c",
+    "Quality (ISO 9001)"      = "#08519c",
     "Environment (ISO 14001)" = "#006d2c"
   )) +
-  scale_x_continuous(limits = c(0, NA), expand = expansion(mult = c(0, 0.02))) +
-  labs(x = expression(hat(w)[ij]), y = "Count") +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.02))) +
+  labs(x = "Degree", y = "Count", fill = NULL, colour = NULL) +
   theme_minimal(base_size = 10) +
   theme(
-    legend.position = "none",
-    strip.text = element_text(face = "bold"),
+    legend.position  = "bottom",
+    strip.text       = element_text(face = "bold"),
     panel.grid.minor = element_blank()
   )
 
-ggsave(file.path(fig_dir, "weights_density.pdf"), p,
-  width = 8, height = 3.5
-)
+ggsave(file.path(fig_dir, "degree_hist.pdf"), p, width = 9, height = 3.5)
 print(p)
 ```
+
 
 ```{r}
 #| label: jaccard-compute
@@ -394,80 +386,6 @@ where $E_Q = \{(i, j) : |\hat w^Q_{ij}| > 10^{-5}\}$ and $E_E$ is defined analog
 
 For the BIC-selected recovered networks, $|E_Q| = `r n_q`$, $|E_E| = `r n_e`$, $|E_Q \cap E_E| = `r n_inter`$, and $|E_Q \cup E_E| = `r n_union`$, yielding $J = `r jaccard_val`$.
 
-```{r}
-#| label: fig-network-adjacency-overlap
-#| echo: false
-#| fig-width: 10
-#| fig-height: 9
-#| fig-cap: "Adjacency-matrix overlap"
-N <- nrow(W_q)
-off <- which(row(W_q) != col(W_q))
-D <- W_q - W_e
-mad <- mean(abs(D[off]))
-rmse <- sqrt(mean(D[off]^2))
-corr <- cor(W_q[off], W_e[off])
-mean_q <- mean(abs(W_q[off]))
-mean_e <- mean(abs(W_e[off]))
-eps <- 1e-5
-B_q <- (abs(W_q) > eps) * 1
-B_e <- (abs(W_e) > eps) * 1
-diag(B_q) <- diag(B_e) <- 0
-
-# Classify each directed cell
-status_mat <- matrix("none", N, N, dimnames = list(country_labels, country_labels))
-status_mat[B_q == 1 & B_e == 1] <- "both"
-status_mat[B_q == 1 & B_e == 0] <- "quality_only"
-status_mat[B_q == 0 & B_e == 1] <- "environment_only"
-diag(status_mat) <- NA_character_
-
-# Long format for ggplot
-df_adj <- expand.grid(
-  sender = country_labels,
-  receiver = country_labels,
-  stringsAsFactors = FALSE
-) |>
-  dplyr::mutate(
-    status = as.character(status_mat[cbind(sender, receiver)]),
-    sender = factor(sender, levels = country_labels),
-    receiver = factor(receiver, levels = rev(country_labels))
-  ) |>
-  dplyr::filter(!is.na(status))
-
-p <- ggplot(df_adj, aes(x = sender, y = receiver, fill = status)) +
-  geom_tile(colour = "grey85", linewidth = 0.2) +
-  scale_fill_manual(
-    values = c(
-      "none"             = "white",
-      "both"             = "#08306B",
-      "quality_only"     = "#3182BD",
-      "environment_only" = "#A50026"
-    ),
-    labels = c(
-      "none"             = "No link",
-      "both"             = "Link in both",
-      "quality_only"     = "Link only in Quality",
-      "environment_only" = "Link only in Environment"
-    ),
-    breaks = c("both", "quality_only", "environment_only", "none"),
-    name = NULL
-  ) +
-  coord_fixed() +
-  scale_x_discrete(position = "top") +
-  labs(x = "Sender (i)", y = "Receiver (j)") +
-  theme_minimal(base_size = 9) +
-  theme(
-    axis.text.x = element_text(angle = 45, hjust = 0, vjust = 0, size = 7),
-    axis.text.y = element_text(size = 7),
-    panel.grid = element_blank(),
-    legend.position = "right",
-    legend.text = element_text(size = 9)
-  )
-
-ggsave(file.path(fig_dir, "adjacency_overlap.pdf"), p,
-  width = 10, height = 9
-)
-print(p)
-```
 
 ### Network visualisation
 
@@ -506,9 +424,9 @@ plot_net_gg <- function(g, lo, title, w_max) {
     geom_edge_arc(
       aes(
         alpha = abs(weight),
-        colour = abs(weight) > 0.3
+        colour = abs(weight) > 0.9
       ),
-      width = 0.5, # spessore costante e sottile
+      width = 0.5,
       arrow = arrow(
         length = unit(2, "mm"),
         type = "closed", angle = 22
@@ -1141,6 +1059,7 @@ etable(
 #| fig-width: 14
 #| fig-height: 14
 #| fig-cap: "Exogenous networks (Albuquerque, Bronnenberg & Corbett 2007)"
+#| include: false
 # ============================================================================
 # 0. PATHS
 # ============================================================================
@@ -1619,74 +1538,54 @@ cfe_q_abc <- extract_cfe(boot_q_abc_cfe)
 cfe_e_rec <- extract_cfe(boot_e_rec_cfe)
 cfe_e_abc <- extract_cfe(boot_e_abc_cfe)
 
-# ---- (iii) Two-way FE ------------------------------------------------------
-boot_q_rec_tw <- cluster_boot(bdf_q_lag, f_twfe, "country", B = B)
-boot_q_abc_tw <- cluster_boot(bdf_comb_q_lag, f_twfe, "country", B = B)
-boot_e_rec_tw <- cluster_boot(bdf_e_lag, f_twfe, "country", B = B)
-boot_e_abc_tw <- cluster_boot(bdf_comb_e_lag, f_twfe, "country", B = B)
-
-tw_q_rec <- extract_cfe(boot_q_rec_tw)
-tw_q_abc <- extract_cfe(boot_q_abc_tw)
-tw_e_rec <- extract_cfe(boot_e_rec_tw)
-tw_e_abc <- extract_cfe(boot_e_abc_tw)
-
 # ---- Build table (estimates above, SE below) -------------------------------
 tab <- rbind(
   c(
     "Quality", "Endogenous",
     sprintf("%.3f%s", nofe_q_rec$b, sig_stars(nofe_q_rec$p)),
-    sprintf("%.3f%s", cfe_q_rec$b, sig_stars(cfe_q_rec$p)),
-    sprintf("%.3f%s", tw_q_rec$b, sig_stars(tw_q_rec$p))
+    sprintf("%.3f%s", cfe_q_rec$b, sig_stars(cfe_q_rec$p))
   ),
   c(
     "", "",
     sprintf("(%.3f)", nofe_q_rec$se),
-    sprintf("(%.3f)", cfe_q_rec$se),
-    sprintf("(%.3f)", tw_q_rec$se)
+    sprintf("(%.3f)", cfe_q_rec$se)
   ),
   c(
     "Quality", "Combined Exogenous",
     sprintf("%.3f%s", nofe_q_abc$b, sig_stars(nofe_q_abc$p)),
-    sprintf("%.3f%s", cfe_q_abc$b, sig_stars(cfe_q_abc$p)),
-    sprintf("%.3f%s", tw_q_abc$b, sig_stars(tw_q_abc$p))
+    sprintf("%.3f%s", cfe_q_abc$b, sig_stars(cfe_q_abc$p))
   ),
   c(
     "", "",
     sprintf("(%.3f)", nofe_q_abc$se),
-    sprintf("(%.3f)", cfe_q_abc$se),
-    sprintf("(%.3f)", tw_q_abc$se)
+    sprintf("(%.3f)", cfe_q_abc$se)
   ),
   c(
     "Environment", "Endogenous",
     sprintf("%.3f%s", nofe_e_rec$b, sig_stars(nofe_e_rec$p)),
-    sprintf("%.3f%s", cfe_e_rec$b, sig_stars(cfe_e_rec$p)),
-    sprintf("%.3f%s", tw_e_rec$b, sig_stars(tw_e_rec$p))
+    sprintf("%.3f%s", cfe_e_rec$b, sig_stars(cfe_e_rec$p))
   ),
   c(
     "", "",
     sprintf("(%.3f)", nofe_e_rec$se),
-    sprintf("(%.3f)", cfe_e_rec$se),
-    sprintf("(%.3f)", tw_e_rec$se)
+    sprintf("(%.3f)", cfe_e_rec$se)
   ),
   c(
     "Environment", "Combined Exogenous",
     sprintf("%.3f%s", nofe_e_abc$b, sig_stars(nofe_e_abc$p)),
-    sprintf("%.3f%s", cfe_e_abc$b, sig_stars(cfe_e_abc$p)),
-    sprintf("%.3f%s", tw_e_abc$b, sig_stars(tw_e_abc$p))
+    sprintf("%.3f%s", cfe_e_abc$b, sig_stars(cfe_e_abc$p))
   ),
   c(
     "", "",
     sprintf("(%.3f)", nofe_e_abc$se),
-    sprintf("(%.3f)", cfe_e_abc$se),
-    sprintf("(%.3f)", tw_e_abc$se)
+    sprintf("(%.3f)", cfe_e_abc$se)
   )
 )
 tab <- as.data.frame(tab, stringsAsFactors = FALSE)
 colnames(tab) <- c(
   "Panel", "Network",
   "$\\hat\\beta$ (no FE)",
-  "$\\hat\\beta$ (country FE)",
-  "$\\hat\\beta$ (country + year FE)"
+  "$\\hat\\beta$ (country FE)"
 )
 
 kbl(tab,
@@ -1703,7 +1602,6 @@ kbl(tab,
 #| echo: false
 #| results: asis
 #| cache: true
-#| output: false
 # BDF (2009) G2SLS with one-year lag, applied to Albuquerque, Bronnenberg
 # & Corbett (2007, Table 3, Model 5) preferred two-channel networks:
 # - Quality (ISO 9001):     geography + bilateral trade
@@ -1806,29 +1704,1678 @@ kbl(tab,
 ```
 
 ```{r}
-#| label: grid-summary-appendix
+#| label: dyadic-regression-dzemski
 #| echo: false
-#| output: false
-summary_df <- readRDS(file.path(out_dir, "grid_search_summary.rds"))
+#| results: asis
+#| cache: true
+# Dzemski (2018) two-sided FE specification.
+# Signed gaps log X_i - log X_j are perfectly absorbed by sender + receiver FE
+# (additively separable). We replace them with absolute gaps |log X_i - log X_j|,
+# which are non-separable in (i,j) and therefore identified within FE.
+# This matches McPherson, Smith-Lovin & Cook (2001) homophily and standard
+# practice in the gravity literature (Head & Mayer 2014).
 
-tab_full <- kbl(summary_df,
-  booktabs = TRUE,
-  longtable = TRUE,
-  caption = "Grid search results",
-  col.names = c(
-    "Panel", "$\\lambda_1$", "$\\lambda_2$", "$\\lambda_1^*$",
-    "Edges", "$\\hat{\\rho}_{EN}$", "$\\hat{\\rho}_{Ada}$",
-    "$\\hat{\\rho}_{GMM}$", "BIC"
+build_dyadic_dz <- function(W_outcome) {
+  expand.grid(
+    sender = seq_len(N), receiver = seq_len(N),
+    KEEP.OUT.ATTRS = FALSE
+  ) |>
+    dplyr::filter(sender != receiver) |>
+    dplyr::mutate(
+      sender   = factor(country_labels[sender], levels = country_labels),
+      receiver = factor(country_labels[receiver], levels = country_labels),
+      w_hat    = W_outcome[cbind(as.integer(sender), as.integer(receiver))],
+      edge     = as.integer(abs(w_hat) > 1e-5),
+      d_econ   = abs(D_gdppc[cbind(as.integer(sender), as.integer(receiver))]),
+      d_envir  = abs(D_envtax[cbind(as.integer(sender), as.integer(receiver))]),
+      d_cult   =     D_cul[cbind(as.integer(sender), as.integer(receiver))],
+      d_geo    =     log_dist[cbind(as.integer(sender), as.integer(receiver))],
+      l_fdi    =     log_fdi[cbind(as.integer(sender), as.integer(receiver))]
+    )
+}
+
+dz_q <- build_dyadic_dz(W_q)
+dz_e <- build_dyadic_dz(W_e)
+
+f_logit <- edge  ~ d_econ + d_envir + d_cult + d_geo + l_fdi | sender + receiver
+f_ols <- w_hat ~ d_econ + d_envir + d_cult + d_geo + l_fdi | sender + receiver
+
+fit_logit_q <- feglm(f_logit,
+  data = dz_q,
+  family = binomial("logit"),
+  cluster = ~ sender + receiver
+)
+fit_logit_e <- feglm(f_logit,
+  data = dz_e,
+  family = binomial("logit"),
+  cluster = ~ sender + receiver
+)
+
+fit_ols_q <- feols(f_ols, data = dz_q, cluster = ~ sender + receiver)
+fit_ols_e <- feols(f_ols, data = dz_e, cluster = ~ sender + receiver)
+
+etable(
+  list(
+    "Logit: $g^Q_{ij}$"     = fit_logit_q,
+    "Logit: $g^E_{ij}$"     = fit_logit_e,
+    "OLS: $\\hat w^Q_{ij}$" = fit_ols_q,
+    "OLS: $\\hat w^E_{ij}$" = fit_ols_e
   ),
-  escape = FALSE,
-  align = "lrrrccccc",
-  format = "latex"
-) |>
-  kable_styling(
-    latex_options = c("hold_position", "repeat_header"),
-    font_size = 8
-  )
+  depvar = FALSE,
+  style.tex = style.tex("base", model.title = "", fixef.suffix = ":"),
+  dict = c(
+    d_econ   = "Economic distance ($|\\log \\text{GDPpc}_i - \\log \\text{GDPpc}_j|$)",
+    d_envir  = "Environmental distance ($|\\log \\text{EnvTax}_i - \\log \\text{EnvTax}_j|$)",
+    d_cult   = "Cultural distance ($D^{cul}_{ij}$)",
+    d_geo    = "Geographic distance ($\\log \\text{dist}_{ij}$)",
+    l_fdi    = "Bilateral FDI ($\\log(1 + \\text{FDI}_{ij})$)",
+    sender   = "Sender FE ($\\alpha_i^{\\text{out}}$)",
+    receiver = "Receiver FE ($\\alpha_j^{\\text{in}}$)"
+  ),
+  signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10),
+  fitstat = ~ n + r2 + pr2,
+  tex = TRUE,
+  title = "Dyadic regression of recovered weights with sender and receiver FE (Dzemski 2018)",
+  label = "tab:dyadic_dzemski"
+)
+```
 
-writeLines(as.character(tab_full), file.path(tab_dir, "grid_search_full.tex"))
-tab_full
+```{r}
+#| label: dyadic-regression-dzemski-signed
+#| echo: false
+#| results: asis
+#| cache: true
+# Dzemski (2018) two-sided FE on signed gaps. Note: signed gaps
+# log X_i - log X_j are additively separable in (i,j) and therefore
+# absorbed by sender + receiver FE. fixest will drop them automatically
+# (collinearity with FE). Reported anyway for transparency: only
+# non-separable covariates (cultural, geographic, FDI) are identified.
+
+build_dyadic_dz_signed <- function(W_outcome) {
+  expand.grid(
+    sender = seq_len(N), receiver = seq_len(N),
+    KEEP.OUT.ATTRS = FALSE
+  ) |>
+    dplyr::filter(sender != receiver) |>
+    dplyr::mutate(
+      sender   = factor(country_labels[sender], levels = country_labels),
+      receiver = factor(country_labels[receiver], levels = country_labels),
+      w_hat    = W_outcome[cbind(as.integer(sender), as.integer(receiver))],
+      edge     = as.integer(abs(w_hat) > 1e-5),
+      d_econ   = D_gdppc[cbind(as.integer(sender), as.integer(receiver))],
+      d_envir  = D_envtax[cbind(as.integer(sender), as.integer(receiver))],
+      d_cult   = D_cul[cbind(as.integer(sender), as.integer(receiver))],
+      d_geo    = log_dist[cbind(as.integer(sender), as.integer(receiver))],
+      l_fdi    = log_fdi[cbind(as.integer(sender), as.integer(receiver))]
+    )
+}
+
+dz_q_s <- build_dyadic_dz_signed(W_q)
+dz_e_s <- build_dyadic_dz_signed(W_e)
+
+f_logit <- edge  ~ d_econ + d_envir + d_cult + d_geo + l_fdi | sender + receiver
+f_ols <- w_hat ~ d_econ + d_envir + d_cult + d_geo + l_fdi | sender + receiver
+
+fit_logit_q <- feglm(f_logit,
+  data = dz_q_s,
+  family = binomial("logit"),
+  cluster = ~ sender + receiver
+)
+fit_logit_e <- feglm(f_logit,
+  data = dz_e_s,
+  family = binomial("logit"),
+  cluster = ~ sender + receiver
+)
+
+fit_ols_q <- feols(f_ols, data = dz_q_s, cluster = ~ sender + receiver)
+fit_ols_e <- feols(f_ols, data = dz_e_s, cluster = ~ sender + receiver)
+
+etable(
+  list(
+    "Logit: $g^Q_{ij}$"     = fit_logit_q,
+    "Logit: $g^E_{ij}$"     = fit_logit_e,
+    "OLS: $\\hat w^Q_{ij}$" = fit_ols_q,
+    "OLS: $\\hat w^E_{ij}$" = fit_ols_e
+  ),
+  depvar = FALSE,
+  style.tex = style.tex("base", model.title = "", fixef.suffix = ":"),
+  dict = c(
+    d_econ   = "Economic asymmetry ($\\log \\text{GDPpc}_i - \\log \\text{GDPpc}_j$)",
+    d_envir  = "Environmental asymmetry ($\\log \\text{EnvTax}_i - \\log \\text{EnvTax}_j$)",
+    d_cult   = "Cultural distance ($D^{cul}_{ij}$)",
+    d_geo    = "Geographic distance ($\\log \\text{dist}_{ij}$)",
+    l_fdi    = "Bilateral FDI ($\\log(1 + \\text{FDI}_{ij})$)",
+    sender   = "Sender FE ($\\alpha_i^{\\text{out}}$)",
+    receiver = "Receiver FE ($\\alpha_j^{\\text{in}}$)"
+  ),
+  signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10),
+  fitstat = ~ n + r2 + pr2,
+  tex = TRUE,
+  title = "Dyadic regression with sender and receiver FE, signed asymmetries",
+  label = "tab:dyadic_dzemski_signed"
+)
+```
+
+```{r}
+#| label: dyadic-regression-dzemski-abs-nofe
+#| echo: false
+#| results: asis
+#| cache: true
+# Pooled specification (no FE) on absolute-value asymmetries.
+# Same covariates as Table tab:dyadic_dzemski (Dzemski 2018 with FE), but
+# without sender/receiver FE — so all five coefficients are identified.
+# Two-way clustered SE on sender and receiver.
+
+build_dyadic_dz <- function(W_outcome) {
+  expand.grid(
+    sender = seq_len(N), receiver = seq_len(N),
+    KEEP.OUT.ATTRS = FALSE
+  ) |>
+    dplyr::filter(sender != receiver) |>
+    dplyr::mutate(
+      sender   = factor(country_labels[sender], levels = country_labels),
+      receiver = factor(country_labels[receiver], levels = country_labels),
+      w_hat    = W_outcome[cbind(as.integer(sender), as.integer(receiver))],
+      edge     = as.integer(abs(w_hat) > 1e-5),
+      d_econ   = abs(D_gdppc[cbind(as.integer(sender), as.integer(receiver))]),
+      d_envir  = abs(D_envtax[cbind(as.integer(sender), as.integer(receiver))]),
+      d_cult   =     D_cul[cbind(as.integer(sender), as.integer(receiver))],
+      d_geo    =     log_dist[cbind(as.integer(sender), as.integer(receiver))],
+      l_fdi    =     log_fdi[cbind(as.integer(sender), as.integer(receiver))]
+    )
+}
+
+dz_q <- build_dyadic_dz(W_q)
+dz_e <- build_dyadic_dz(W_e)
+
+f_logit_nofe <- edge  ~ d_econ + d_envir + d_cult + d_geo + l_fdi
+f_ols_nofe <- w_hat ~ d_econ + d_envir + d_cult + d_geo + l_fdi
+
+fit_logit_q_nf <- feglm(f_logit_nofe,
+  data = dz_q,
+  family = binomial("logit"),
+  cluster = ~ sender + receiver
+)
+fit_logit_e_nf <- feglm(f_logit_nofe,
+  data = dz_e,
+  family = binomial("logit"),
+  cluster = ~ sender + receiver
+)
+
+fit_ols_q_nf <- feols(f_ols_nofe, data = dz_q, cluster = ~ sender + receiver)
+fit_ols_e_nf <- feols(f_ols_nofe, data = dz_e, cluster = ~ sender + receiver)
+
+etable(
+  list(
+    "Logit: $g^Q_{ij}$"     = fit_logit_q_nf,
+    "Logit: $g^E_{ij}$"     = fit_logit_e_nf,
+    "OLS: $\\hat w^Q_{ij}$" = fit_ols_q_nf,
+    "OLS: $\\hat w^E_{ij}$" = fit_ols_e_nf
+  ),
+  depvar = FALSE,
+  style.tex = style.tex("base", model.title = ""),
+  dict = c(
+    d_econ  = "Economic distance ($|\\log \\text{GDPpc}_i - \\log \\text{GDPpc}_j|$)",
+    d_envir = "Environmental distance ($|\\log \\text{EnvTax}_i - \\log \\text{EnvTax}_j|$)",
+    d_cult  = "Cultural distance ($D^{cul}_{ij}$)",
+    d_geo   = "Geographic distance ($\\log \\text{dist}_{ij}$)",
+    l_fdi   = "Bilateral FDI ($\\log(1 + \\text{FDI}_{ij})$)"
+  ),
+  signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10),
+  fitstat = ~ n + r2 + pr2,
+  tex = TRUE,
+  title = "Dyadic regression of recovered weights, pooled specification without fixed effects",
+  label = "tab:dyadic_dzemski_abs_nofe"
+)
+```
+
+```{r}
+#| label: bdf-final-summary-combined-diff
+#| echo: false
+#| results: asis
+#| cache: true
+# BDF (2009) G2SLS with one-year lag on the peer outcome.
+# Outcome: y_it = log(1 + n_it) - log(1 + n_{i,t-1}) — same log-difference
+# transformation used in the recoverNetwork stage (consistent scale).
+# Two specifications:
+# (i)  no FE, asymptotic country-clustered SE
+# (ii) country FE, pairs cluster bootstrap on country (B = 999)
+
+set.seed(1861)
+B <- 999
+
+# ---- Outcome builder: log-difference with one-year lag --------------------
+attach_y_diff <- function(dp_raw, certs) {
+  dp_raw |>
+    dplyr::mutate(country = id_to_country[as.character(id)], year = time) |>
+    dplyr::select(country, year, x1, x2, x3, x4, x5) |>
+    dplyr::inner_join(
+      certs |>
+        dplyr::filter(country %in% country_labels) |>
+        dplyr::arrange(country, year) |>
+        dplyr::group_by(country) |>
+        dplyr::mutate(
+          y = log1p(n_cert) -
+            log1p(dplyr::lag(n_cert, n = 1, order_by = year))
+        ) |>
+        dplyr::ungroup() |>
+        dplyr::transmute(country, year, y),
+      by = c("country", "year")
+    ) |>
+    tidyr::drop_na() |>
+    dplyr::filter(country %in% country_labels)
+}
+
+# ---- Build data ------------------------------------------------------------
+id_to_country <- setNames(country_labels, seq_along(country_labels))
+N <- length(country_labels)
+x_vars <- c("x1", "x2", "x3", "x4", "x5")
+
+panel_q <- keep_full(
+  attach_y_diff(readRDS(file.path(clean_dir, "panel_9001_eu.rds")), f9001)
+)
+panel_e <- keep_full(
+  attach_y_diff(readRDS(file.path(clean_dir, "panel_14001_eu.rds")), f14001)
+)
+
+# Combined ABC network
+W_combined <- matrix(0, N, N, dimnames = list(country_labels, country_labels))
+for (i in seq_len(N)) {
+  nbrs_i <- unique(c(
+    which(W_geo[i, ] > 0),
+    which(W_trade[i, ] > 0),
+    which(W_cul[i, ] > 0)
+  ))
+  W_combined[i, nbrs_i] <- 1 / length(nbrs_i)
+}
+
+# BDF panels with one-year lag on Gy
+bdf_q_lag <- build_bdf_panel_lag(panel_q, W_q, x_vars)
+bdf_e_lag <- build_bdf_panel_lag(panel_e, W_e, x_vars)
+bdf_comb_q_lag <- build_bdf_panel_lag(panel_q, W_combined, x_vars)
+bdf_comb_e_lag <- build_bdf_panel_lag(panel_e, W_combined, x_vars)
+
+# ---- Formulas --------------------------------------------------------------
+rhs <- paste(x_vars, collapse = " + ")
+exo <- paste(paste0("G_", x_vars), collapse = " + ")
+inst2_lag <- paste(paste0("G2_", x_vars, "_lag"), collapse = " + ")
+inst3_lag <- paste(paste0("G3_", x_vars, "_lag"), collapse = " + ")
+
+f_nofe <- as.formula(sprintf(
+  "y ~ %s + %s | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+f_cfe <- as.formula(sprintf(
+  "y ~ %s + %s | country | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+
+# ---- (i) No FE -------------------------------------------------------------
+nofe_q_rec <- extract_nofe(feols(f_nofe, data = bdf_q_lag, cluster = ~country))
+nofe_q_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_q_lag, cluster = ~country))
+nofe_e_rec <- extract_nofe(feols(f_nofe, data = bdf_e_lag, cluster = ~country))
+nofe_e_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_e_lag, cluster = ~country))
+
+# ---- (ii) Country FE -------------------------------------------------------
+boot_q_rec_cfe <- cluster_boot(bdf_q_lag, f_cfe, "country", B = B)
+boot_q_abc_cfe <- cluster_boot(bdf_comb_q_lag, f_cfe, "country", B = B)
+boot_e_rec_cfe <- cluster_boot(bdf_e_lag, f_cfe, "country", B = B)
+boot_e_abc_cfe <- cluster_boot(bdf_comb_e_lag, f_cfe, "country", B = B)
+
+cfe_q_rec <- extract_cfe(boot_q_rec_cfe)
+cfe_q_abc <- extract_cfe(boot_q_abc_cfe)
+cfe_e_rec <- extract_cfe(boot_e_rec_cfe)
+cfe_e_abc <- extract_cfe(boot_e_abc_cfe)
+
+# ---- Build table -----------------------------------------------------------
+tab <- rbind(
+  c(
+    "Quality", "Endogenous",
+    sprintf("%.3f%s", nofe_q_rec$b, sig_stars(nofe_q_rec$p)),
+    sprintf("%.3f%s", cfe_q_rec$b, sig_stars(cfe_q_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_rec$se),
+    sprintf("(%.3f)", cfe_q_rec$se)
+  ),
+  c(
+    "Quality", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_q_abc$b, sig_stars(nofe_q_abc$p)),
+    sprintf("%.3f%s", cfe_q_abc$b, sig_stars(cfe_q_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_abc$se),
+    sprintf("(%.3f)", cfe_q_abc$se)
+  ),
+  c(
+    "Environment", "Endogenous",
+    sprintf("%.3f%s", nofe_e_rec$b, sig_stars(nofe_e_rec$p)),
+    sprintf("%.3f%s", cfe_e_rec$b, sig_stars(cfe_e_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_rec$se),
+    sprintf("(%.3f)", cfe_e_rec$se)
+  ),
+  c(
+    "Environment", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_e_abc$b, sig_stars(nofe_e_abc$p)),
+    sprintf("%.3f%s", cfe_e_abc$b, sig_stars(cfe_e_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_abc$se),
+    sprintf("(%.3f)", cfe_e_abc$se)
+  )
+)
+tab <- as.data.frame(tab, stringsAsFactors = FALSE)
+colnames(tab) <- c(
+  "Panel", "Network",
+  "$\\hat\\beta$ (no FE)",
+  "$\\hat\\beta$ (country FE)"
+)
+
+kbl(tab,
+  booktabs = TRUE, format = "latex", escape = FALSE,
+  align = "llrr", row.names = FALSE,
+  caption = "Endogenous peer effect on log-differences: recovered vs combined exogenous network",
+  label = "tab:bdf_combined_summary_diff"
+) |>
+  kable_styling(latex_options = "hold_position", font_size = 10)
+```  
+
+```{r}
+#| label: bdf-summary-combined-diff-yfe
+#| echo: false
+#| results: asis
+#| cache: true
+# BDF (2009) G2SLS on log-differences, recovered + combined exogenous network.
+# Four FE specifications:
+# (i)   no FE                  -> asymptotic country-clustered SE
+# (ii)  country FE             -> pairs cluster bootstrap on country (B = 999)
+# (iii) year FE only           -> pairs cluster bootstrap on country (B = 999)
+# (iv)  country + year FE      -> pairs cluster bootstrap on country (B = 999)
+
+set.seed(1861)
+B <- 999
+
+f_nofe <- as.formula(sprintf(
+  "y ~ %s + %s | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+f_cfe <- as.formula(sprintf(
+  "y ~ %s + %s | country | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+f_yfe <- as.formula(sprintf(
+  "y ~ %s + %s | year | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+f_twfe <- as.formula(sprintf(
+  "y ~ %s + %s | country + year | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+
+# (i) No FE - asymptotic
+nofe_q_rec <- extract_nofe(feols(f_nofe, data = bdf_q_lag, cluster = ~country))
+nofe_q_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_q_lag, cluster = ~country))
+nofe_e_rec <- extract_nofe(feols(f_nofe, data = bdf_e_lag, cluster = ~country))
+nofe_e_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_e_lag, cluster = ~country))
+
+# (ii) Country FE - bootstrap
+cfe_q_rec <- extract_cfe(cluster_boot(bdf_q_lag, f_cfe, "country", B = B))
+cfe_q_abc <- extract_cfe(cluster_boot(bdf_comb_q_lag, f_cfe, "country", B = B))
+cfe_e_rec <- extract_cfe(cluster_boot(bdf_e_lag, f_cfe, "country", B = B))
+cfe_e_abc <- extract_cfe(cluster_boot(bdf_comb_e_lag, f_cfe, "country", B = B))
+
+# (iii) Year FE only - bootstrap
+yfe_q_rec <- extract_cfe(cluster_boot(bdf_q_lag, f_yfe, "country", B = B))
+yfe_q_abc <- extract_cfe(cluster_boot(bdf_comb_q_lag, f_yfe, "country", B = B))
+yfe_e_rec <- extract_cfe(cluster_boot(bdf_e_lag, f_yfe, "country", B = B))
+yfe_e_abc <- extract_cfe(cluster_boot(bdf_comb_e_lag, f_yfe, "country", B = B))
+
+# (iv) Two-way FE - bootstrap
+tw_q_rec <- extract_cfe(cluster_boot(bdf_q_lag, f_twfe, "country", B = B))
+tw_q_abc <- extract_cfe(cluster_boot(bdf_comb_q_lag, f_twfe, "country", B = B))
+tw_e_rec <- extract_cfe(cluster_boot(bdf_e_lag, f_twfe, "country", B = B))
+tw_e_abc <- extract_cfe(cluster_boot(bdf_comb_e_lag, f_twfe, "country", B = B))
+
+# Build table
+tab <- rbind(
+  c(
+    "Quality", "Endogenous",
+    sprintf("%.3f%s", nofe_q_rec$b, sig_stars(nofe_q_rec$p)),
+    sprintf("%.3f%s", cfe_q_rec$b, sig_stars(cfe_q_rec$p)),
+    sprintf("%.3f%s", yfe_q_rec$b, sig_stars(yfe_q_rec$p)),
+    sprintf("%.3f%s", tw_q_rec$b, sig_stars(tw_q_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_rec$se),
+    sprintf("(%.3f)", cfe_q_rec$se),
+    sprintf("(%.3f)", yfe_q_rec$se),
+    sprintf("(%.3f)", tw_q_rec$se)
+  ),
+  c(
+    "Quality", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_q_abc$b, sig_stars(nofe_q_abc$p)),
+    sprintf("%.3f%s", cfe_q_abc$b, sig_stars(cfe_q_abc$p)),
+    sprintf("%.3f%s", yfe_q_abc$b, sig_stars(yfe_q_abc$p)),
+    sprintf("%.3f%s", tw_q_abc$b, sig_stars(tw_q_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_abc$se),
+    sprintf("(%.3f)", cfe_q_abc$se),
+    sprintf("(%.3f)", yfe_q_abc$se),
+    sprintf("(%.3f)", tw_q_abc$se)
+  ),
+  c(
+    "Environment", "Endogenous",
+    sprintf("%.3f%s", nofe_e_rec$b, sig_stars(nofe_e_rec$p)),
+    sprintf("%.3f%s", cfe_e_rec$b, sig_stars(cfe_e_rec$p)),
+    sprintf("%.3f%s", yfe_e_rec$b, sig_stars(yfe_e_rec$p)),
+    sprintf("%.3f%s", tw_e_rec$b, sig_stars(tw_e_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_rec$se),
+    sprintf("(%.3f)", cfe_e_rec$se),
+    sprintf("(%.3f)", yfe_e_rec$se),
+    sprintf("(%.3f)", tw_e_rec$se)
+  ),
+  c(
+    "Environment", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_e_abc$b, sig_stars(nofe_e_abc$p)),
+    sprintf("%.3f%s", cfe_e_abc$b, sig_stars(cfe_e_abc$p)),
+    sprintf("%.3f%s", yfe_e_abc$b, sig_stars(yfe_e_abc$p)),
+    sprintf("%.3f%s", tw_e_abc$b, sig_stars(tw_e_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_abc$se),
+    sprintf("(%.3f)", cfe_e_abc$se),
+    sprintf("(%.3f)", yfe_e_abc$se),
+    sprintf("(%.3f)", tw_e_abc$se)
+  )
+)
+tab <- as.data.frame(tab, stringsAsFactors = FALSE)
+colnames(tab) <- c(
+  "Panel", "Network",
+  "no FE", "country FE", "year FE", "country+year FE"
+)
+
+kbl(tab,
+  booktabs = TRUE, format = "latex", escape = FALSE,
+  align = "llrrrr", row.names = FALSE,
+  caption = "Endogenous peer effect $\\hat\\beta$ on log-differences across FE specifications",
+  label = "tab:bdf_combined_yfe"
+) |>
+  kable_styling(latex_options = c("hold_position", "scale_down"), font_size = 10)
+```
+
+
+```{r}
+#| label: bdf-final-summary-abc-model5-diff
+#| echo: false
+#| results: asis
+#| cache: true
+# BDF (2009) G2SLS with one-year lag, applied to ABC (2007, Tab. 3, Model 5)
+# preferred two-channel networks. Outcome on log-differences (consistent
+# with recoverNetwork stage).
+# Two specifications:
+# (i)  no FE, asymptotic country-clustered SE
+# (ii) country FE, pairs cluster bootstrap on country (B = 999)
+# Reuses panel_q, panel_e (already log-diff) from previous chunk.
+
+set.seed(1861)
+B <- 999
+N <- length(country_labels)
+
+# ---- Build ABC Model 5 networks --------------------------------------------
+W_geotrade <- matrix(0, N, N, dimnames = list(country_labels, country_labels))
+for (i in seq_len(N)) {
+  nbrs_i <- unique(c(which(W_geo[i, ] > 0), which(W_trade[i, ] > 0)))
+  W_geotrade[i, nbrs_i] <- 1 / length(nbrs_i)
+}
+
+W_geoculture <- matrix(0, N, N, dimnames = list(country_labels, country_labels))
+for (i in seq_len(N)) {
+  nbrs_i <- unique(c(which(W_geo[i, ] > 0), which(W_cul[i, ] > 0)))
+  W_geoculture[i, nbrs_i] <- 1 / length(nbrs_i)
+}
+
+bdf_geotrade_q_lag <- build_bdf_panel_lag(panel_q, W_geotrade, x_vars)
+bdf_geoculture_e_lag <- build_bdf_panel_lag(panel_e, W_geoculture, x_vars)
+
+f_nofe <- as.formula(sprintf(
+  "y ~ %s + %s | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+f_cfe <- as.formula(sprintf(
+  "y ~ %s + %s | country | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+
+# ---- (i) No FE -------------------------------------------------------------
+nofe_q_abc5 <- extract_nofe(feols(f_nofe, data = bdf_geotrade_q_lag, cluster = ~country))
+nofe_e_abc5 <- extract_nofe(feols(f_nofe, data = bdf_geoculture_e_lag, cluster = ~country))
+
+# ---- (ii) Country FE -------------------------------------------------------
+boot_q_abc5_cfe <- cluster_boot(bdf_geotrade_q_lag, f_cfe, "country", B = B)
+boot_e_abc5_cfe <- cluster_boot(bdf_geoculture_e_lag, f_cfe, "country", B = B)
+
+cfe_q_abc5 <- extract_cfe(boot_q_abc5_cfe)
+cfe_e_abc5 <- extract_cfe(boot_e_abc5_cfe)
+
+tab <- rbind(
+  c(
+    "Quality", "Exogenous: Geo + Trade",
+    sprintf("%.3f%s", nofe_q_abc5$b, sig_stars(nofe_q_abc5$p)),
+    sprintf("%.3f%s", cfe_q_abc5$b, sig_stars(cfe_q_abc5$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_abc5$se),
+    sprintf("(%.3f)", cfe_q_abc5$se)
+  ),
+  c(
+    "Environment", "Exogenous: Geo + Culture",
+    sprintf("%.3f%s", nofe_e_abc5$b, sig_stars(nofe_e_abc5$p)),
+    sprintf("%.3f%s", cfe_e_abc5$b, sig_stars(cfe_e_abc5$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_abc5$se),
+    sprintf("(%.3f)", cfe_e_abc5$se)
+  )
+)
+tab <- as.data.frame(tab, stringsAsFactors = FALSE)
+colnames(tab) <- c(
+  "Panel", "Network",
+  "$\\hat\\beta$ (no FE)",
+  "$\\hat\\beta$ (country FE)"
+)
+
+kbl(tab,
+  booktabs = TRUE, format = "latex", escape = FALSE,
+  align = "llrr", row.names = FALSE,
+  caption = "Endogenous peer effect on log-differences: ABC two-channel networks",
+  label = "tab:bdf_abc_model5_diff"
+) |>
+  kable_styling(latex_options = "hold_position", font_size = 10)
+```
+
+```{r}
+#| label: bdf-final-summary-combined-diff-sucaminchia
+#| echo: false
+#| results: asis
+#| cache: true
+# BDF (2009) G2SLS on log-differences with De Paula spatio-temporal spec:
+#   y_it = rho * y_{i,t-1} + beta * Gy_{i,t-1}
+#        + gamma_x * x_it + gamma_Gx * Gx_it + alpha_i + eps_it
+# y_it = log(1 + n_cert,it) - log(1 + n_cert,i,t-1)  [log-difference]
+# Instruments for Gy_lag: G^2 X_{i,t-1}, G^3 X_{i,t-1}
+# Instrument for y_lag:   y_{i,t-2} (Anderson-Hsiao 1981; Arellano-Bond 1991)
+# Two specs: (i) no FE, asymptotic country-clustered SE
+#            (ii) country FE, pairs cluster bootstrap on country (B = 999)
+
+set.seed(1861)
+B <- 999
+
+# ---- Outcome builder: log-difference --------------------------------------
+attach_y_diff <- function(dp_raw, certs) {
+  dp_raw |>
+    dplyr::mutate(country = id_to_country[as.character(id)], year = time) |>
+    dplyr::select(country, year, x1, x2, x3, x4, x5) |>
+    dplyr::inner_join(
+      certs |>
+        dplyr::filter(country %in% country_labels) |>
+        dplyr::arrange(country, year) |>
+        dplyr::group_by(country) |>
+        dplyr::mutate(
+          y = log1p(n_cert) -
+            log1p(dplyr::lag(n_cert, n = 1, order_by = year))
+        ) |>
+        dplyr::ungroup() |>
+        dplyr::transmute(country, year, y),
+      by = c("country", "year")
+    ) |>
+    tidyr::drop_na() |>
+    dplyr::filter(country %in% country_labels)
+}
+
+# ---- BDF panel builder with y_lag and y_lag2 ------------------------------
+build_bdf_panel_dp <- function(panel, W, x_vars) {
+  G <- row_normalise(W)
+  G2 <- G %*% G
+  G3 <- G2 %*% G
+  d <- panel[order(panel$year, match(panel$country, rownames(G))), ]
+  yrs <- sort(unique(d$year))
+  d$Gy <- unlist(lapply(yrs, function(t) {
+    yt <- d$y[d$year == t]
+    as.numeric(G %*% yt)
+  }))
+  for (v in x_vars) {
+    Xt <- matrix(d[[v]], ncol = length(yrs))
+    d[[paste0("G_", v)]] <- as.numeric(G %*% Xt)
+    d[[paste0("G2_", v)]] <- as.numeric(G2 %*% Xt)
+    d[[paste0("G3_", v)]] <- as.numeric(G3 %*% Xt)
+  }
+  d <- d[order(d$country, d$year), ]
+  d <- d |>
+    dplyr::group_by(country) |>
+    dplyr::mutate(
+      y_lag = dplyr::lag(y, n = 1, order_by = year),
+      y_lag2 = dplyr::lag(y, n = 2, order_by = year),
+      Gy_lag = dplyr::lag(Gy, n = 1, order_by = year),
+      dplyr::across(
+        dplyr::all_of(c(paste0("G2_", x_vars), paste0("G3_", x_vars))),
+        \(z) dplyr::lag(z, n = 1, order_by = year),
+        .names = "{.col}_lag"
+      )
+    ) |>
+    dplyr::ungroup() |>
+    tidyr::drop_na(y_lag, y_lag2, Gy_lag)
+  d
+}
+
+# ---- Build data ------------------------------------------------------------
+id_to_country <- setNames(country_labels, seq_along(country_labels))
+N <- length(country_labels)
+x_vars <- c("x1", "x2", "x3", "x4", "x5")
+
+panel_q <- keep_full(
+  attach_y_diff(readRDS(file.path(clean_dir, "panel_9001_eu.rds")), f9001)
+)
+panel_e <- keep_full(
+  attach_y_diff(readRDS(file.path(clean_dir, "panel_14001_eu.rds")), f14001)
+)
+
+# Combined ABC network
+W_combined <- matrix(0, N, N, dimnames = list(country_labels, country_labels))
+for (i in seq_len(N)) {
+  nbrs_i <- unique(c(
+    which(W_geo[i, ] > 0),
+    which(W_trade[i, ] > 0),
+    which(W_cul[i, ] > 0)
+  ))
+  W_combined[i, nbrs_i] <- 1 / length(nbrs_i)
+}
+
+bdf_q_lag <- build_bdf_panel_dp(panel_q, W_q, x_vars)
+bdf_e_lag <- build_bdf_panel_dp(panel_e, W_e, x_vars)
+bdf_comb_q_lag <- build_bdf_panel_dp(panel_q, W_combined, x_vars)
+bdf_comb_e_lag <- build_bdf_panel_dp(panel_e, W_combined, x_vars)
+
+# ---- Formulas: two endogenous vars (y_lag, Gy_lag), three instruments ----
+rhs <- paste(x_vars, collapse = " + ")
+exo <- paste(paste0("G_", x_vars), collapse = " + ")
+inst2_lag <- paste(paste0("G2_", x_vars, "_lag"), collapse = " + ")
+inst3_lag <- paste(paste0("G3_", x_vars, "_lag"), collapse = " + ")
+
+f_nofe <- as.formula(sprintf(
+  "y ~ %s + %s | y_lag + Gy_lag ~ y_lag2 + %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+f_cfe <- as.formula(sprintf(
+  "y ~ %s + %s | country | y_lag + Gy_lag ~ y_lag2 + %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+
+# ---- (i) No FE -------------------------------------------------------------
+nofe_q_rec <- extract_nofe(feols(f_nofe, data = bdf_q_lag, cluster = ~country))
+nofe_q_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_q_lag, cluster = ~country))
+nofe_e_rec <- extract_nofe(feols(f_nofe, data = bdf_e_lag, cluster = ~country))
+nofe_e_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_e_lag, cluster = ~country))
+
+# ---- (ii) Country FE -------------------------------------------------------
+cfe_q_rec <- extract_cfe(cluster_boot(bdf_q_lag, f_cfe, "country", B = B))
+cfe_q_abc <- extract_cfe(cluster_boot(bdf_comb_q_lag, f_cfe, "country", B = B))
+cfe_e_rec <- extract_cfe(cluster_boot(bdf_e_lag, f_cfe, "country", B = B))
+cfe_e_abc <- extract_cfe(cluster_boot(bdf_comb_e_lag, f_cfe, "country", B = B))
+
+# ---- Build table -----------------------------------------------------------
+tab <- rbind(
+  c(
+    "Quality", "Endogenous",
+    sprintf("%.3f%s", nofe_q_rec$b, sig_stars(nofe_q_rec$p)),
+    sprintf("%.3f%s", cfe_q_rec$b, sig_stars(cfe_q_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_rec$se),
+    sprintf("(%.3f)", cfe_q_rec$se)
+  ),
+  c(
+    "Quality", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_q_abc$b, sig_stars(nofe_q_abc$p)),
+    sprintf("%.3f%s", cfe_q_abc$b, sig_stars(cfe_q_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_abc$se),
+    sprintf("(%.3f)", cfe_q_abc$se)
+  ),
+  c(
+    "Environment", "Endogenous",
+    sprintf("%.3f%s", nofe_e_rec$b, sig_stars(nofe_e_rec$p)),
+    sprintf("%.3f%s", cfe_e_rec$b, sig_stars(cfe_e_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_rec$se),
+    sprintf("(%.3f)", cfe_e_rec$se)
+  ),
+  c(
+    "Environment", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_e_abc$b, sig_stars(nofe_e_abc$p)),
+    sprintf("%.3f%s", cfe_e_abc$b, sig_stars(cfe_e_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_abc$se),
+    sprintf("(%.3f)", cfe_e_abc$se)
+  )
+)
+tab <- as.data.frame(tab, stringsAsFactors = FALSE)
+colnames(tab) <- c(
+  "Panel", "Network",
+  "$\\hat\\beta$ (no FE)",
+  "$\\hat\\beta$ (country FE)"
+)
+
+kbl(tab,
+  booktabs = TRUE, format = "latex", escape = FALSE,
+  align = "llrr", row.names = FALSE,
+  caption = "Endogenous peer effect on log-differences with own autoregression: recovered vs combined exogenous network",
+  label = "tab:bdf_combined_summary_diff"
+) |>
+  kable_styling(latex_options = "hold_position", font_size = 10)
+```
+
+```{r}
+#| label: bdf-final-summary-combined-firmnorm
+#| echo: false
+#| results: asis
+#| cache: true
+# BDF (2009) G2SLS on certification intensity, time-invariant firm-count
+# normalisation: y_it = n_cert,it / n_firms,i,2017 * 1000.
+# Divides out cross-country scale heterogeneity (Albuquerque, Bronnenberg
+# & Corbett 2007 use a similar firm-count normalisation in their adoption-
+# rate construction). Because n_firms_17 is time-invariant, within-country
+# variation in y comes entirely from n_cert.
+# Specs:
+#   (i)  no FE, asymptotic country-clustered SE
+#   (ii) country FE, pairs cluster bootstrap on country (B = 999)
+
+set.seed(1861)
+B <- 999
+
+# ---- Load firm counts at 2017 (Eurostat SBS) -------------------------------
+harmonise_names <- function(df) {
+  if (nrow(df) == 0) {
+    return(df)
+  }
+  df %>% dplyr::mutate(country = dplyr::case_match(country,
+    "Korea (Republic of)" ~ "Korea", "Korea, Republic of" ~ "Korea",
+    "Korea (the Republic of)" ~ "Korea",
+    "Czechia" ~ "Czech Republic", "Slovakia" ~ "Slovak Republic",
+    "United Kingdom of Great Britain and Northern Ireland" ~ "United Kingdom",
+    "United States of America" ~ "United States",
+    "Netherlands (Kingdom of the)" ~ "Netherlands",
+    .default = country
+  ))
+}
+
+load_sbs_2017 <- function() {
+  file_path <- file.path(data_dir, "enterprises_eu.xlsx")
+  raw <- readxl::read_excel(file_path,
+    sheet = "Sheet 1",
+    skip = 9, col_names = FALSE
+  )
+  tibble::tibble(
+    country    = raw[[1]],
+    n_firms_17 = suppressWarnings(as.numeric(raw[[26]]))
+  ) %>%
+    dplyr::filter(!is.na(country), !is.na(n_firms_17)) %>%
+    harmonise_names() %>%
+    dplyr::distinct(country, .keep_all = TRUE)
+}
+
+firm17 <- load_sbs_2017()
+missing_firm17 <- setdiff(country_labels, firm17$country)
+if (length(missing_firm17) > 0) {
+  warning(
+    "n_firms_17 missing for: ",
+    paste(missing_firm17, collapse = ", "),
+    "; these countries will be dropped via inner_join"
+  )
+}
+cat("Firm counts loaded for", nrow(firm17), "countries.\n")
+
+# ---- Outcome builder: certification intensity (per 1000 firms 2017) -------
+attach_y_intensity <- function(dp_raw, certs) {
+  dp_raw |>
+    dplyr::mutate(country = id_to_country[as.character(id)], year = time) |>
+    dplyr::select(country, year, x1, x2, x3, x4, x5) |>
+    dplyr::inner_join(
+      certs |>
+        dplyr::filter(country %in% country_labels) |>
+        dplyr::transmute(country, year, n_cert),
+      by = c("country", "year")
+    ) |>
+    dplyr::inner_join(firm17, by = "country") |>
+    dplyr::mutate(y = n_cert / n_firms_17 * 1000) |>
+    dplyr::select(country, year, x1, x2, x3, x4, x5, y) |>
+    tidyr::drop_na() |>
+    dplyr::filter(country %in% country_labels)
+}
+
+# ---- Build data ------------------------------------------------------------
+id_to_country <- setNames(country_labels, seq_along(country_labels))
+N <- length(country_labels)
+x_vars <- c("x1", "x2", "x3", "x4", "x5")
+
+panel_q <- keep_full(
+  attach_y_intensity(readRDS(file.path(clean_dir, "panel_9001_eu.rds")), f9001)
+)
+panel_e <- keep_full(
+  attach_y_intensity(readRDS(file.path(clean_dir, "panel_14001_eu.rds")), f14001)
+)
+
+# Diagnostic
+cat(sprintf(
+  "Quality (cert/1000 firms 2017): mean=%.2f, sd=%.2f, range=[%.2f, %.2f], N obs=%d, T=%d\n",
+  mean(panel_q$y), sd(panel_q$y), min(panel_q$y), max(panel_q$y),
+  nrow(panel_q), length(unique(panel_q$year))
+))
+cat(sprintf(
+  "Environment (cert/1000 firms 2017): mean=%.2f, sd=%.2f, range=[%.2f, %.2f], N obs=%d, T=%d\n",
+  mean(panel_e$y), sd(panel_e$y), min(panel_e$y), max(panel_e$y),
+  nrow(panel_e), length(unique(panel_e$year))
+))
+
+# Combined ABC network
+W_combined <- matrix(0, N, N, dimnames = list(country_labels, country_labels))
+for (i in seq_len(N)) {
+  nbrs_i <- unique(c(
+    which(W_geo[i, ] > 0),
+    which(W_trade[i, ] > 0),
+    which(W_cul[i, ] > 0)
+  ))
+  W_combined[i, nbrs_i] <- 1 / length(nbrs_i)
+}
+
+bdf_q_lag <- build_bdf_panel_lag(panel_q, W_q, x_vars)
+bdf_e_lag <- build_bdf_panel_lag(panel_e, W_e, x_vars)
+bdf_comb_q_lag <- build_bdf_panel_lag(panel_q, W_combined, x_vars)
+bdf_comb_e_lag <- build_bdf_panel_lag(panel_e, W_combined, x_vars)
+
+# ---- Formulas (reuse rhs, exo, inst2_lag, inst3_lag) ---------------------
+f_nofe <- as.formula(sprintf(
+  "y ~ %s + %s | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+f_cfe <- as.formula(sprintf(
+  "y ~ %s + %s | country | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+
+# ---- (i) No FE -------------------------------------------------------------
+nofe_q_rec <- extract_nofe(feols(f_nofe, data = bdf_q_lag, cluster = ~country))
+nofe_q_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_q_lag, cluster = ~country))
+nofe_e_rec <- extract_nofe(feols(f_nofe, data = bdf_e_lag, cluster = ~country))
+nofe_e_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_e_lag, cluster = ~country))
+
+# ---- (ii) Country FE -------------------------------------------------------
+cfe_q_rec <- extract_cfe(cluster_boot(bdf_q_lag, f_cfe, "country", B = B))
+cfe_q_abc <- extract_cfe(cluster_boot(bdf_comb_q_lag, f_cfe, "country", B = B))
+cfe_e_rec <- extract_cfe(cluster_boot(bdf_e_lag, f_cfe, "country", B = B))
+cfe_e_abc <- extract_cfe(cluster_boot(bdf_comb_e_lag, f_cfe, "country", B = B))
+
+# ---- Build table -----------------------------------------------------------
+tab <- rbind(
+  c(
+    "Quality", "Endogenous",
+    sprintf("%.3f%s", nofe_q_rec$b, sig_stars(nofe_q_rec$p)),
+    sprintf("%.3f%s", cfe_q_rec$b, sig_stars(cfe_q_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_rec$se),
+    sprintf("(%.3f)", cfe_q_rec$se)
+  ),
+  c(
+    "Quality", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_q_abc$b, sig_stars(nofe_q_abc$p)),
+    sprintf("%.3f%s", cfe_q_abc$b, sig_stars(cfe_q_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_abc$se),
+    sprintf("(%.3f)", cfe_q_abc$se)
+  ),
+  c(
+    "Environment", "Endogenous",
+    sprintf("%.3f%s", nofe_e_rec$b, sig_stars(nofe_e_rec$p)),
+    sprintf("%.3f%s", cfe_e_rec$b, sig_stars(cfe_e_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_rec$se),
+    sprintf("(%.3f)", cfe_e_rec$se)
+  ),
+  c(
+    "Environment", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_e_abc$b, sig_stars(nofe_e_abc$p)),
+    sprintf("%.3f%s", cfe_e_abc$b, sig_stars(cfe_e_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_abc$se),
+    sprintf("(%.3f)", cfe_e_abc$se)
+  )
+)
+tab <- as.data.frame(tab, stringsAsFactors = FALSE)
+colnames(tab) <- c(
+  "Panel", "Network",
+  "$\\hat\\beta$ (no FE)",
+  "$\\hat\\beta$ (country FE)"
+)
+
+kbl(tab,
+  booktabs = TRUE, format = "latex", escape = FALSE,
+  align = "llrr", row.names = FALSE,
+  caption = "Endogenous peer effect on certification intensity (per 1000 firms, 2017): recovered vs combined exogenous network",
+  label = "tab:bdf_combined_summary_firmnorm"
+) |>
+  kable_styling(latex_options = "hold_position", font_size = 10)
+```
+
+```{r}
+#| label: bdf-firmnorm-levels
+#| echo: false
+#| results: asis
+#| cache: true
+# BDF (2009) G2SLS on certification intensity in levels.
+# Outcome: y_it = n_cert,it / n_firms,i,2017 * 1000  (cert per 1000 firms)
+# Time-invariant firm-count normalisation (Albuquerque, Bronnenberg & Corbett
+# 2007). Within-country variation in y comes entirely from n_cert.
+
+set.seed(1861)
+B <- 999
+
+# ---- Load firm counts at 2017 ----------------------------------------------
+load_sbs_2017 <- function() {
+  file_path <- file.path(data_dir, "enterprises_eu.xlsx")
+  raw <- readxl::read_excel(file_path,
+    sheet = "Sheet 1",
+    skip = 9, col_names = FALSE
+  )
+  tibble::tibble(
+    country    = raw[[1]],
+    n_firms_17 = suppressWarnings(as.numeric(raw[[26]]))
+  ) %>%
+    dplyr::filter(!is.na(country), !is.na(n_firms_17)) %>%
+    dplyr::mutate(country = dplyr::case_match(country,
+      "Czechia" ~ "Czech Republic", "Slovakia" ~ "Slovak Republic",
+      .default = country
+    )) %>%
+    dplyr::distinct(country, .keep_all = TRUE)
+}
+firm17 <- load_sbs_2017()
+
+# ---- Outcome: levels of cert per 1000 firms 2017 --------------------------
+attach_y_levels_norm <- function(dp_raw, certs) {
+  dp_raw |>
+    dplyr::mutate(country = id_to_country[as.character(id)], year = time) |>
+    dplyr::select(country, year, x1, x2, x3, x4, x5) |>
+    dplyr::inner_join(
+      certs |>
+        dplyr::filter(country %in% country_labels) |>
+        dplyr::transmute(country, year, n_cert),
+      by = c("country", "year")
+    ) |>
+    dplyr::inner_join(firm17, by = "country") |>
+    dplyr::mutate(y = n_cert / n_firms_17 * 1000) |>
+    dplyr::select(country, year, x1, x2, x3, x4, x5, y) |>
+    tidyr::drop_na() |>
+    dplyr::filter(country %in% country_labels)
+}
+
+id_to_country <- setNames(country_labels, seq_along(country_labels))
+N <- length(country_labels)
+x_vars <- c("x1", "x2", "x3", "x4", "x5")
+
+panel_q <- keep_full(attach_y_levels_norm(
+  readRDS(file.path(clean_dir, "panel_9001_eu.rds")), f9001
+))
+panel_e <- keep_full(attach_y_levels_norm(
+  readRDS(file.path(clean_dir, "panel_14001_eu.rds")), f14001
+))
+
+cat(sprintf(
+  "Quality: mean=%.2f, sd=%.2f, range=[%.2f, %.2f]\n",
+  mean(panel_q$y), sd(panel_q$y), min(panel_q$y), max(panel_q$y)
+))
+cat(sprintf(
+  "Environment: mean=%.2f, sd=%.2f, range=[%.2f, %.2f]\n",
+  mean(panel_e$y), sd(panel_e$y), min(panel_e$y), max(panel_e$y)
+))
+
+W_combined <- matrix(0, N, N, dimnames = list(country_labels, country_labels))
+for (i in seq_len(N)) {
+  nbrs_i <- unique(c(
+    which(W_geo[i, ] > 0), which(W_trade[i, ] > 0),
+    which(W_cul[i, ] > 0)
+  ))
+  W_combined[i, nbrs_i] <- 1 / length(nbrs_i)
+}
+
+bdf_q_lag <- build_bdf_panel_lag(panel_q, W_q, x_vars)
+bdf_e_lag <- build_bdf_panel_lag(panel_e, W_e, x_vars)
+bdf_comb_q_lag <- build_bdf_panel_lag(panel_q, W_combined, x_vars)
+bdf_comb_e_lag <- build_bdf_panel_lag(panel_e, W_combined, x_vars)
+
+f_nofe <- as.formula(sprintf(
+  "y ~ %s + %s | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+f_cfe <- as.formula(sprintf(
+  "y ~ %s + %s | country | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+
+nofe_q_rec <- extract_nofe(feols(f_nofe, data = bdf_q_lag, cluster = ~country))
+nofe_q_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_q_lag, cluster = ~country))
+nofe_e_rec <- extract_nofe(feols(f_nofe, data = bdf_e_lag, cluster = ~country))
+nofe_e_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_e_lag, cluster = ~country))
+
+cfe_q_rec <- extract_cfe(cluster_boot(bdf_q_lag, f_cfe, "country", B = B))
+cfe_q_abc <- extract_cfe(cluster_boot(bdf_comb_q_lag, f_cfe, "country", B = B))
+cfe_e_rec <- extract_cfe(cluster_boot(bdf_e_lag, f_cfe, "country", B = B))
+cfe_e_abc <- extract_cfe(cluster_boot(bdf_comb_e_lag, f_cfe, "country", B = B))
+
+tab <- rbind(
+  c(
+    "Quality", "Endogenous",
+    sprintf("%.3f%s", nofe_q_rec$b, sig_stars(nofe_q_rec$p)),
+    sprintf("%.3f%s", cfe_q_rec$b, sig_stars(cfe_q_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_rec$se), sprintf("(%.3f)", cfe_q_rec$se)
+  ),
+  c(
+    "Quality", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_q_abc$b, sig_stars(nofe_q_abc$p)),
+    sprintf("%.3f%s", cfe_q_abc$b, sig_stars(cfe_q_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_abc$se), sprintf("(%.3f)", cfe_q_abc$se)
+  ),
+  c(
+    "Environment", "Endogenous",
+    sprintf("%.3f%s", nofe_e_rec$b, sig_stars(nofe_e_rec$p)),
+    sprintf("%.3f%s", cfe_e_rec$b, sig_stars(cfe_e_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_rec$se), sprintf("(%.3f)", cfe_e_rec$se)
+  ),
+  c(
+    "Environment", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_e_abc$b, sig_stars(nofe_e_abc$p)),
+    sprintf("%.3f%s", cfe_e_abc$b, sig_stars(cfe_e_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_abc$se), sprintf("(%.3f)", cfe_e_abc$se)
+  )
+)
+tab <- as.data.frame(tab, stringsAsFactors = FALSE)
+colnames(tab) <- c(
+  "Panel", "Network",
+  "$\\hat\\beta$ (no FE)",
+  "$\\hat\\beta$ (country FE)"
+)
+
+kbl(tab,
+  booktabs = TRUE, format = "latex", escape = FALSE,
+  align = "llrr", row.names = FALSE,
+  caption = "Endogenous peer effect on certification intensity in levels (cert per 1000 firms 2017)",
+  label = "tab:bdf_firmnorm_levels"
+) |>
+  kable_styling(latex_options = "hold_position", font_size = 10)
+```
+
+```{r}
+#| label: bdf-firmnorm-loglevels
+#| echo: false
+#| results: asis
+#| cache: true
+# BDF (2009) G2SLS on log certification intensity.
+# Outcome: y_it = log(1 + n_cert,it / n_firms,i,2017 * 1000)
+# Combines firm-count normalisation (Albuquerque, Bronnenberg & Corbett
+# 2007) with log transformation (variance stabilisation; standard in BDF
+# adoption applications). Reuses panel_q, panel_e structure but with
+# log-transformed outcome.
+
+set.seed(1861)
+B <- 999
+
+attach_y_log_norm <- function(dp_raw, certs) {
+  dp_raw |>
+    dplyr::mutate(country = id_to_country[as.character(id)], year = time) |>
+    dplyr::select(country, year, x1, x2, x3, x4, x5) |>
+    dplyr::inner_join(
+      certs |>
+        dplyr::filter(country %in% country_labels) |>
+        dplyr::transmute(country, year, n_cert),
+      by = c("country", "year")
+    ) |>
+    dplyr::inner_join(firm17, by = "country") |>
+    dplyr::mutate(y = log1p(n_cert / n_firms_17 * 1000)) |>
+    dplyr::select(country, year, x1, x2, x3, x4, x5, y) |>
+    tidyr::drop_na() |>
+    dplyr::filter(country %in% country_labels)
+}
+
+panel_q <- keep_full(attach_y_log_norm(
+  readRDS(file.path(clean_dir, "panel_9001_eu.rds")), f9001
+))
+panel_e <- keep_full(attach_y_log_norm(
+  readRDS(file.path(clean_dir, "panel_14001_eu.rds")), f14001
+))
+
+cat(sprintf(
+  "Quality (log): mean=%.2f, sd=%.2f, range=[%.2f, %.2f]\n",
+  mean(panel_q$y), sd(panel_q$y), min(panel_q$y), max(panel_q$y)
+))
+cat(sprintf(
+  "Environment (log): mean=%.2f, sd=%.2f, range=[%.2f, %.2f]\n",
+  mean(panel_e$y), sd(panel_e$y), min(panel_e$y), max(panel_e$y)
+))
+
+bdf_q_lag <- build_bdf_panel_lag(panel_q, W_q, x_vars)
+bdf_e_lag <- build_bdf_panel_lag(panel_e, W_e, x_vars)
+bdf_comb_q_lag <- build_bdf_panel_lag(panel_q, W_combined, x_vars)
+bdf_comb_e_lag <- build_bdf_panel_lag(panel_e, W_combined, x_vars)
+
+f_nofe <- as.formula(sprintf(
+  "y ~ %s + %s | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+f_cfe <- as.formula(sprintf(
+  "y ~ %s + %s | country | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+
+nofe_q_rec <- extract_nofe(feols(f_nofe, data = bdf_q_lag, cluster = ~country))
+nofe_q_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_q_lag, cluster = ~country))
+nofe_e_rec <- extract_nofe(feols(f_nofe, data = bdf_e_lag, cluster = ~country))
+nofe_e_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_e_lag, cluster = ~country))
+
+cfe_q_rec <- extract_cfe(cluster_boot(bdf_q_lag, f_cfe, "country", B = B))
+cfe_q_abc <- extract_cfe(cluster_boot(bdf_comb_q_lag, f_cfe, "country", B = B))
+cfe_e_rec <- extract_cfe(cluster_boot(bdf_e_lag, f_cfe, "country", B = B))
+cfe_e_abc <- extract_cfe(cluster_boot(bdf_comb_e_lag, f_cfe, "country", B = B))
+
+tab <- rbind(
+  c(
+    "Quality", "Endogenous",
+    sprintf("%.3f%s", nofe_q_rec$b, sig_stars(nofe_q_rec$p)),
+    sprintf("%.3f%s", cfe_q_rec$b, sig_stars(cfe_q_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_rec$se), sprintf("(%.3f)", cfe_q_rec$se)
+  ),
+  c(
+    "Quality", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_q_abc$b, sig_stars(nofe_q_abc$p)),
+    sprintf("%.3f%s", cfe_q_abc$b, sig_stars(cfe_q_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_abc$se), sprintf("(%.3f)", cfe_q_abc$se)
+  ),
+  c(
+    "Environment", "Endogenous",
+    sprintf("%.3f%s", nofe_e_rec$b, sig_stars(nofe_e_rec$p)),
+    sprintf("%.3f%s", cfe_e_rec$b, sig_stars(cfe_e_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_rec$se), sprintf("(%.3f)", cfe_e_rec$se)
+  ),
+  c(
+    "Environment", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_e_abc$b, sig_stars(nofe_e_abc$p)),
+    sprintf("%.3f%s", cfe_e_abc$b, sig_stars(cfe_e_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_abc$se), sprintf("(%.3f)", cfe_e_abc$se)
+  )
+)
+tab <- as.data.frame(tab, stringsAsFactors = FALSE)
+colnames(tab) <- c(
+  "Panel", "Network",
+  "$\\hat\\beta$ (no FE)",
+  "$\\hat\\beta$ (country FE)"
+)
+
+kbl(tab,
+  booktabs = TRUE, format = "latex", escape = FALSE,
+  align = "llrr", row.names = FALSE,
+  caption = "Endogenous peer effect on log certification intensity ($\\log(1 + \\text{cert per 1000 firms 2017})$)",
+  label = "tab:bdf_firmnorm_loglevels"
+) |>
+  kable_styling(latex_options = "hold_position", font_size = 10)
+```
+
+```{r}
+#| label: bdf-firmnorm-loglevels-strong
+#| echo: false
+#| results: asis
+#| cache: true
+# BDF (2009) G2SLS on log certification intensity, with STRONG-LINK
+# recovered networks: only edges with |w_ij| > 0.7 are retained.
+# Countries with no surviving links remain in the panel but have Gy = 0
+# (isolated in the network sense).
+#
+# Rationale: a row-stochastic recovered W with weight > 0.7 indicates a
+# dominant influence relationship — country i derives most of its peer
+# input from j. Restricting to these "strong ties" (Granovetter 1973) tests
+# whether the recovered structure carries explanatory power even when only
+# the most concentrated influence channels are retained.
+#
+# Note: under thresholding without row-renormalisation, rowSums < 1 by
+# construction; the BDF identification still goes through provided
+# |rho| < 1 (Lee 2004 Econometrica), but Gy is no longer a simple peer
+# average — it is a weighted sum that reflects influence concentration.
+#
+# Outcome: y_it = log(1 + n_cert,it / n_firms,i,2017 * 1000)
+
+set.seed(1861)
+B <- 999
+N <- length(country_labels)
+
+# ---- Apply strong-link threshold (NO row-renormalisation) -----------------
+# Keep only |w_ij| > 0.7; isolated countries get Gy = 0 (their entire row is 0).
+strong_link_W <- function(W, threshold = 0.7) {
+  W2 <- W
+  W2[abs(W2) <= threshold] <- 0
+  diag(W2) <- 0
+  W2
+}
+
+W_q_strong <- strong_link_W(W_q, threshold = 0.7)
+W_e_strong <- strong_link_W(W_e, threshold = 0.7)
+dimnames(W_q_strong) <- dimnames(W_e_strong) <-
+  list(country_labels, country_labels)
+
+# Diagnostic: how many strong links survive, how many countries isolated
+n_q_links <- sum(W_q_strong > 0)
+n_e_links <- sum(W_e_strong > 0)
+isolated_q <- sum(rowSums(W_q_strong) == 0)
+isolated_e <- sum(rowSums(W_e_strong) == 0)
+mean_rsum_q <- mean(rowSums(W_q_strong))
+mean_rsum_e <- mean(rowSums(W_e_strong))
+
+cat(sprintf(
+  "W_q (strong, |w|>0.7): %d edges, %d isolated countries, mean rowSum=%.3f\n",
+  n_q_links, isolated_q, mean_rsum_q
+))
+cat(sprintf(
+  "W_e (strong, |w|>0.7): %d edges, %d isolated countries, mean rowSum=%.3f\n",
+  n_e_links, isolated_e, mean_rsum_e
+))
+
+# Stop early if too sparse — give user clear signal
+if (n_q_links < 5 | n_e_links < 5) {
+  warning("Very few strong links survived (<5). Consider lowering threshold.")
+}
+
+# ---- Outcome (reuse attach_y_log_norm, firm17 from previous chunks) ------
+panel_q <- keep_full(attach_y_log_norm(
+  readRDS(file.path(clean_dir, "panel_9001_eu.rds")), f9001
+))
+panel_e <- keep_full(attach_y_log_norm(
+  readRDS(file.path(clean_dir, "panel_14001_eu.rds")), f14001
+))
+
+# ---- IMPORTANT: bypass row_normalise inside build_bdf_panel_lag ----------
+# The default helper row-normalises W. We need to use the strong-link W
+# *as is* (rowSums < 1 reflect concentration of influence). We define a
+# version that skips row_normalise but otherwise replicates the helper.
+build_bdf_panel_strong <- function(panel, W, x_vars) {
+  G <- W # use as-is; do NOT row-normalise
+  diag(G) <- 0
+  G2 <- G %*% G
+  G3 <- G2 %*% G
+  d <- panel[order(panel$year, match(panel$country, rownames(G))), ]
+  yrs <- sort(unique(d$year))
+  d$Gy <- unlist(lapply(yrs, function(t) {
+    yt <- d$y[d$year == t]
+    as.numeric(G %*% yt)
+  }))
+  for (v in x_vars) {
+    Xt <- matrix(d[[v]], ncol = length(yrs))
+    d[[paste0("G_", v)]] <- as.numeric(G %*% Xt)
+    d[[paste0("G2_", v)]] <- as.numeric(G2 %*% Xt)
+    d[[paste0("G3_", v)]] <- as.numeric(G3 %*% Xt)
+  }
+  d <- d[order(d$country, d$year), ]
+  d <- d |>
+    dplyr::group_by(country) |>
+    dplyr::mutate(
+      Gy_lag = dplyr::lag(Gy, n = 1, order_by = year),
+      dplyr::across(
+        dplyr::all_of(c(paste0("G2_", x_vars), paste0("G3_", x_vars))),
+        \(z) dplyr::lag(z, n = 1, order_by = year),
+        .names = "{.col}_lag"
+      )
+    ) |>
+    dplyr::ungroup() |>
+    tidyr::drop_na(Gy_lag)
+  d
+}
+
+# Build BDF panels: strong-link recovered + Combined ABC (still row-normalised)
+bdf_q_lag <- build_bdf_panel_strong(panel_q, W_q_strong, x_vars)
+bdf_e_lag <- build_bdf_panel_strong(panel_e, W_e_strong, x_vars)
+bdf_comb_q_lag <- build_bdf_panel_lag(panel_q, W_combined, x_vars)
+bdf_comb_e_lag <- build_bdf_panel_lag(panel_e, W_combined, x_vars)
+
+# Diagnostic on isolated-country observations: their Gy = 0 contributes
+# trivially. Report fraction.
+cat(sprintf(
+  "Quality (strong): %.1f%% of obs have Gy=0 (isolated countries)\n",
+  100 * mean(bdf_q_lag$Gy == 0)
+))
+cat(sprintf(
+  "Environment (strong): %.1f%% of obs have Gy=0 (isolated countries)\n",
+  100 * mean(bdf_e_lag$Gy == 0)
+))
+
+f_nofe <- as.formula(sprintf(
+  "y ~ %s + %s | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+f_cfe <- as.formula(sprintf(
+  "y ~ %s + %s | country | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+
+nofe_q_rec <- extract_nofe(feols(f_nofe, data = bdf_q_lag, cluster = ~country))
+nofe_q_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_q_lag, cluster = ~country))
+nofe_e_rec <- extract_nofe(feols(f_nofe, data = bdf_e_lag, cluster = ~country))
+nofe_e_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_e_lag, cluster = ~country))
+
+cfe_q_rec <- extract_cfe(cluster_boot(bdf_q_lag, f_cfe, "country", B = B))
+cfe_q_abc <- extract_cfe(cluster_boot(bdf_comb_q_lag, f_cfe, "country", B = B))
+cfe_e_rec <- extract_cfe(cluster_boot(bdf_e_lag, f_cfe, "country", B = B))
+cfe_e_abc <- extract_cfe(cluster_boot(bdf_comb_e_lag, f_cfe, "country", B = B))
+
+tab <- rbind(
+  c(
+    "Quality", "Endogenous (strong, $|w|>0.7$)",
+    sprintf("%.3f%s", nofe_q_rec$b, sig_stars(nofe_q_rec$p)),
+    sprintf("%.3f%s", cfe_q_rec$b, sig_stars(cfe_q_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_rec$se), sprintf("(%.3f)", cfe_q_rec$se)
+  ),
+  c(
+    "Quality", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_q_abc$b, sig_stars(nofe_q_abc$p)),
+    sprintf("%.3f%s", cfe_q_abc$b, sig_stars(cfe_q_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_abc$se), sprintf("(%.3f)", cfe_q_abc$se)
+  ),
+  c(
+    "Environment", "Endogenous (strong, $|w|>0.7$)",
+    sprintf("%.3f%s", nofe_e_rec$b, sig_stars(nofe_e_rec$p)),
+    sprintf("%.3f%s", cfe_e_rec$b, sig_stars(cfe_e_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_rec$se), sprintf("(%.3f)", cfe_e_rec$se)
+  ),
+  c(
+    "Environment", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_e_abc$b, sig_stars(nofe_e_abc$p)),
+    sprintf("%.3f%s", cfe_e_abc$b, sig_stars(cfe_e_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_abc$se), sprintf("(%.3f)", cfe_e_abc$se)
+  )
+)
+tab <- as.data.frame(tab, stringsAsFactors = FALSE)
+colnames(tab) <- c(
+  "Panel", "Network",
+  "$\\hat\\beta$ (no FE)",
+  "$\\hat\\beta$ (country FE)"
+)
+
+kbl(tab,
+  booktabs = TRUE, format = "latex", escape = FALSE,
+  align = "llrr", row.names = FALSE,
+  caption = "Endogenous peer effect on log certification intensity, recovered networks restricted to strong ties ($|w_{ij}| > 0.7$). Isolated countries retained in the panel with $Gy_{it} = 0$. Combined Exogenous network row-normalised as before.",
+  label = "tab:bdf_firmnorm_loglevels_strong"
+) |>
+  kable_styling(latex_options = "hold_position", font_size = 10)
+```
+
+```{r}
+#| label: bdf-strong-logdiff
+#| echo: false
+#| results: asis
+#| cache: true
+# BDF (2009) G2SLS on log-differences with STRONG-LINK recovered networks.
+# Outcome: y_it = log(1 + n_cert,it) - log(1 + n_cert,i,t-1)
+# Network: only edges with |w_ij| > 0.7 retained, NO row-renormalisation.
+# Isolated countries kept in panel with Gy = 0.
+# Combined ABC remains row-normalised as before.
+#
+# Specs:
+#   (i)  no FE, asymptotic country-clustered SE
+#   (ii) country FE, pairs cluster bootstrap on country (B = 999)
+
+set.seed(1861)
+B <- 999
+N <- length(country_labels)
+
+# ---- Strong-link extractor (no row-renormalisation) -----------------------
+strong_link_W <- function(W, threshold = 0.7) {
+  W2 <- W
+  W2[abs(W2) <= threshold] <- 0
+  diag(W2) <- 0
+  W2
+}
+
+W_q_strong <- strong_link_W(W_q, threshold = 0.7)
+W_e_strong <- strong_link_W(W_e, threshold = 0.7)
+dimnames(W_q_strong) <- dimnames(W_e_strong) <-
+  list(country_labels, country_labels)
+
+cat(sprintf(
+  "W_q (strong, |w|>0.7): %d edges, %d isolated, mean rowSum=%.3f\n",
+  sum(W_q_strong > 0), sum(rowSums(W_q_strong) == 0),
+  mean(rowSums(W_q_strong))
+))
+cat(sprintf(
+  "W_e (strong, |w|>0.7): %d edges, %d isolated, mean rowSum=%.3f\n",
+  sum(W_e_strong > 0), sum(rowSums(W_e_strong) == 0),
+  mean(rowSums(W_e_strong))
+))
+
+# ---- Outcome builder: log-difference --------------------------------------
+attach_y_diff <- function(dp_raw, certs) {
+  dp_raw |>
+    dplyr::mutate(country = id_to_country[as.character(id)], year = time) |>
+    dplyr::select(country, year, x1, x2, x3, x4, x5) |>
+    dplyr::inner_join(
+      certs |>
+        dplyr::filter(country %in% country_labels) |>
+        dplyr::arrange(country, year) |>
+        dplyr::group_by(country) |>
+        dplyr::mutate(
+          y = log1p(n_cert) -
+            log1p(dplyr::lag(n_cert, n = 1, order_by = year))
+        ) |>
+        dplyr::ungroup() |>
+        dplyr::transmute(country, year, y),
+      by = c("country", "year")
+    ) |>
+    tidyr::drop_na() |>
+    dplyr::filter(country %in% country_labels)
+}
+
+panel_q <- keep_full(attach_y_diff(
+  readRDS(file.path(clean_dir, "panel_9001_eu.rds")), f9001
+))
+panel_e <- keep_full(attach_y_diff(
+  readRDS(file.path(clean_dir, "panel_14001_eu.rds")), f14001
+))
+
+cat(sprintf(
+  "Quality (log-diff): mean=%.3f, sd=%.3f, range=[%.2f, %.2f]\n",
+  mean(panel_q$y), sd(panel_q$y), min(panel_q$y), max(panel_q$y)
+))
+cat(sprintf(
+  "Environment (log-diff): mean=%.3f, sd=%.3f, range=[%.2f, %.2f]\n",
+  mean(panel_e$y), sd(panel_e$y), min(panel_e$y), max(panel_e$y)
+))
+
+# ---- BDF panel builder for strong-link W (no row-renormalisation) --------
+build_bdf_panel_strong <- function(panel, W, x_vars) {
+  G <- W
+  diag(G) <- 0
+  G2 <- G %*% G
+  G3 <- G2 %*% G
+  d <- panel[order(panel$year, match(panel$country, rownames(G))), ]
+  yrs <- sort(unique(d$year))
+  d$Gy <- unlist(lapply(yrs, function(t) {
+    yt <- d$y[d$year == t]
+    as.numeric(G %*% yt)
+  }))
+  for (v in x_vars) {
+    Xt <- matrix(d[[v]], ncol = length(yrs))
+    d[[paste0("G_", v)]] <- as.numeric(G %*% Xt)
+    d[[paste0("G2_", v)]] <- as.numeric(G2 %*% Xt)
+    d[[paste0("G3_", v)]] <- as.numeric(G3 %*% Xt)
+  }
+  d <- d[order(d$country, d$year), ]
+  d <- d |>
+    dplyr::group_by(country) |>
+    dplyr::mutate(
+      Gy_lag = dplyr::lag(Gy, n = 1, order_by = year),
+      dplyr::across(
+        dplyr::all_of(c(paste0("G2_", x_vars), paste0("G3_", x_vars))),
+        \(z) dplyr::lag(z, n = 1, order_by = year),
+        .names = "{.col}_lag"
+      )
+    ) |>
+    dplyr::ungroup() |>
+    tidyr::drop_na(Gy_lag)
+  d
+}
+
+# Combined ABC: keep row-normalised (build_bdf_panel_lag does it)
+bdf_q_lag <- build_bdf_panel_strong(panel_q, W_q_strong, x_vars)
+bdf_e_lag <- build_bdf_panel_strong(panel_e, W_e_strong, x_vars)
+bdf_comb_q_lag <- build_bdf_panel_lag(panel_q, W_combined, x_vars)
+bdf_comb_e_lag <- build_bdf_panel_lag(panel_e, W_combined, x_vars)
+
+cat(sprintf(
+  "Quality (strong, log-diff): %.1f%% obs have Gy=0\n",
+  100 * mean(bdf_q_lag$Gy == 0)
+))
+cat(sprintf(
+  "Environment (strong, log-diff): %.1f%% obs have Gy=0\n",
+  100 * mean(bdf_e_lag$Gy == 0)
+))
+
+f_nofe <- as.formula(sprintf(
+  "y ~ %s + %s | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+f_cfe <- as.formula(sprintf(
+  "y ~ %s + %s | country | Gy_lag ~ %s + %s",
+  rhs, exo, inst2_lag, inst3_lag
+))
+
+nofe_q_rec <- extract_nofe(feols(f_nofe, data = bdf_q_lag, cluster = ~country))
+nofe_q_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_q_lag, cluster = ~country))
+nofe_e_rec <- extract_nofe(feols(f_nofe, data = bdf_e_lag, cluster = ~country))
+nofe_e_abc <- extract_nofe(feols(f_nofe, data = bdf_comb_e_lag, cluster = ~country))
+
+cfe_q_rec <- extract_cfe(cluster_boot(bdf_q_lag, f_cfe, "country", B = B))
+cfe_q_abc <- extract_cfe(cluster_boot(bdf_comb_q_lag, f_cfe, "country", B = B))
+cfe_e_rec <- extract_cfe(cluster_boot(bdf_e_lag, f_cfe, "country", B = B))
+cfe_e_abc <- extract_cfe(cluster_boot(bdf_comb_e_lag, f_cfe, "country", B = B))
+
+tab <- rbind(
+  c(
+    "Quality", "Endogenous (strong, $|w|>0.7$)",
+    sprintf("%.3f%s", nofe_q_rec$b, sig_stars(nofe_q_rec$p)),
+    sprintf("%.3f%s", cfe_q_rec$b, sig_stars(cfe_q_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_rec$se), sprintf("(%.3f)", cfe_q_rec$se)
+  ),
+  c(
+    "Quality", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_q_abc$b, sig_stars(nofe_q_abc$p)),
+    sprintf("%.3f%s", cfe_q_abc$b, sig_stars(cfe_q_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_q_abc$se), sprintf("(%.3f)", cfe_q_abc$se)
+  ),
+  c(
+    "Environment", "Endogenous (strong, $|w|>0.7$)",
+    sprintf("%.3f%s", nofe_e_rec$b, sig_stars(nofe_e_rec$p)),
+    sprintf("%.3f%s", cfe_e_rec$b, sig_stars(cfe_e_rec$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_rec$se), sprintf("(%.3f)", cfe_e_rec$se)
+  ),
+  c(
+    "Environment", "Combined Exogenous",
+    sprintf("%.3f%s", nofe_e_abc$b, sig_stars(nofe_e_abc$p)),
+    sprintf("%.3f%s", cfe_e_abc$b, sig_stars(cfe_e_abc$p))
+  ),
+  c(
+    "", "",
+    sprintf("(%.3f)", nofe_e_abc$se), sprintf("(%.3f)", cfe_e_abc$se)
+  )
+)
+tab <- as.data.frame(tab, stringsAsFactors = FALSE)
+colnames(tab) <- c(
+  "Panel", "Network",
+  "$\\hat\\beta$ (no FE)",
+  "$\\hat\\beta$ (country FE)"
+)
+
+kbl(tab,
+  booktabs = TRUE, format = "latex", escape = FALSE,
+  align = "llrr", row.names = FALSE,
+  caption = "Endogenous peer effect on log-differences, recovered networks restricted to strong ties ($|w_{ij}| > 0.7$). Isolated countries retained with $Gy_{it} = 0$.",
+  label = "tab:bdf_strong_logdiff"
+) |>
+  kable_styling(latex_options = "hold_position", font_size = 10)
 ```
