@@ -73,7 +73,6 @@ add_note <- function(k, note = "SAMPLE NOTE") {
 ```{r}
 #| label: load-best
 #| include: false
-#| cache: true
 best <- readRDS(file.path(out_dir, "best_per_panel.rds"))
 W_q <- as.matrix(best[["9001_eu"]]$rn$unpenalisedgmm$W)
 diag(W_q) <- 0
@@ -94,7 +93,6 @@ rownames(W_e) <- colnames(W_e) <- country_labels
 #| label: descriptive-stats
 #| echo: false
 #| results: asis
-#| cache: true
 f9001 <- readRDS(file.path(clean_dir, "f9001.rds"))
 f14001 <- readRDS(file.path(clean_dir, "f14001.rds"))
 
@@ -124,7 +122,7 @@ f1 <- function(x) formatC(x, format = "f", digits = 1, big.mark = ",")
 f2 <- function(x) formatC(x, format = "f", digits = 2)
 
 # Note string for this table. Replace "SAMPLE NOTE" with the actual text.
-desc_stats_note <- "This table summarises the distribution of certifications across the 27 EU countries in the three selected years. The first row reports the number of countries with non-missing data in each year, which is the basis for all subsequent statistics. The second row reports the total number of certifications across all countries, while the third and fourth rows report the mean and standard deviation of certifications per country, respectively. The fifth row reports the minimum and maximum number of certifications across countries. Finally, the sixth row reports the mean certification intensity, defined as the number of certifications per thousand dollars of GDP per capita, averaged across countries. Ennvironment 1993 is empty as its adoption started in 1997.
+desc_stats_note <- "This table summarises the distribution of certifications across the 27 EU countries in the three selected years. The first row reports the number of countries with non-missing data in each year, which is the basis for all subsequent statistics. The second row reports the total number of certifications across all countries, while the third and fourth rows report the mean and standard deviation of certifications per country, respectively. The fifth row reports the minimum and maximum number of certifications across countries. Finally, the sixth row reports the mean certification intensity, defined as the number of certifications per thousand dollars of GDP per capita, averaged across countries. Environment 1993 is empty as its adoption started in 1997.
 Sources: ISO Survey, World Bank."
 
 tex <- c(
@@ -198,13 +196,12 @@ If $W_0$ were known, equation~\eqref{eq:reduced} would directly identify the str
 
 The intuition is the one that underlies any diffusion process. If a contagious disease spreads through a population, the people who fall ill at the same time tend to be the ones who interact: knowing who got sick when, and what their characteristics are, one can work backwards to who must have been in contact with whom. The same logic applies here. If four countries adopt a standard in synchronous patterns that cannot be explained by their own characteristics alone, the synchrony itself is evidence of a link between them. Cross-country covariation in $y$, conditional on $x$, identifies who is connected to whom, and the strength of the covariation, suitably disentangled, identifies how strong the link is.
 
-In practice, $W_0$ is an unkown matrix and $\Pi_0$ is observable. De Paula, Rasul \& Souza exploit the adaptive elastic net (Caner \& Zhang 2014), which simultaneously selects the non-zero entries of $\hat W$ and estimates their values together with $(\hat\rho,\hat\beta,\hat\gamma)$. The result is an interaction network identified directly from observable cross-sectional spillovers, without requiring a priori commitment to any specific weighting scheme.
+In practice, $W_0$ is an unknown matrix and $\Pi_0$ is observable. De Paula, Rasul \& Souza exploit the adaptive elastic net (Caner \& Zhang 2014), which simultaneously selects the non-zero entries of $\hat W$ and estimates their values together with $(\hat\rho,\hat\beta,\hat\gamma)$. The result is an interaction network identified directly from observable cross-sectional spillovers, without requiring a priori commitment to any specific weighting scheme.
 
 ```{r}
 #| label: network-stats-table
 #| echo: false
 #| results: asis
-#| cache: true
 s_q <- net_stats(W_q)
 s_e <- net_stats(W_e)
 
@@ -226,7 +223,7 @@ bic_q <- best[["9001_eu"]]$bic
 bic_e <- best[["14001_eu"]]$bic
 
 # Note string for this table. Replace "SAMPLE NOTE" with the actual text.
-network_stats_note <- "This table reports summary statistics of the two recovered networks, selected by BIC. The first row reports the number of edges in each network, while the second and third rows report how many edges are shared by both networks and how many are unique to each network, respectively. A shared link is intendended when there is a link between the same two nodes in the same direction in both networks. The fourth and fifth rows report the clustering coefficient (share of closed triplets) and reciprocity (bidirectional edges) of each network, respectively. The sixth to ninth rows report the mean and standard deviation of out-degrees and in-degrees across nodes (countries) for each network. Finally, the tenth to twelfth rows report the GMM estimates of the structural parameters $\\hat{\\rho}$ (endogenous peer effects) and $\\hat{\\lambda}$ (penalties for the Adaptive Elastic Net) and the BIC values for each network.
+network_stats_note <- "This table reports summary statistics of the two recovered networks, selected by BIC. The first row reports the number of edges in each network, while the second and third rows report how many edges are shared by both networks and how many are unique to each network, respectively. A shared link is intended when there is a link between the same two nodes in the same direction in both networks. The fourth and fifth rows report the clustering coefficient (share of closed triplets) and reciprocity (bidirectional edges) of each network, respectively. The sixth to ninth rows report the mean and standard deviation of out-degrees and in-degrees across nodes (countries) for each network. Finally, the tenth to twelfth rows report the GMM estimates of the structural parameters $\\hat{\\rho}$ (endogenous peer effects) and $\\hat{\\lambda}$ (penalties for the Adaptive Elastic Net) and the BIC values for each network.
 Sources: Elaboration on ISO Survey Data, the World Bank Data and the Worldwide Governance Indicators. The network estimation relies on GDP per capita (WDI: NY.GDP.PCAP.KD), Trade (\\% of GDP; WDI: NE.TRD.GNFS.ZS), Rule of Law estimate (WGI: RL.EST)*, Total Natural Resources Rents (\\% of GDP; WDI: NY.GDP.TOTL.RT.ZS), and Share of Renewables in Total Final Energy Consumption (\\% ; WDI: EG.FEC.RNEW.ZS). All the covariates were log linearised (log (1+x))."
 
 tex <- c(
@@ -483,7 +480,6 @@ print(panel)
 #| label: dyadic-build-covariates
 #| echo: false
 #| include: false
-#| cache: true
 # Build all dyadic covariates AND all exogenous networks (Albuquerque single-
 # and two-channel). Done in one chunk because both the dyadic regressions
 # and the BDF applications below need W_geotrade and W_geoculture.
@@ -765,7 +761,6 @@ for (i in seq_len(N)) {
 #| label: dyadic-fullperiod-robustness
 #| echo: false
 #| results: asis
-#| cache: true
 # Robustness check: rebuild all dyadic covariates using full-sample period
 # averages (1993-2017) instead of pre-treatment averages (1996-2000).
 # For each covariate, take the mean of all available years in [1993, 2017];
@@ -923,108 +918,12 @@ etable(
   label = "tab:dyadic_recovered_fp_fe",
   notes = "*Notes* The table reports OLS estimates of the dyadic regression of the recovered edge weight $\\hat w_{ij}$ on dyadic covariates. The sample comprises all 702 directed ordered pairs $(i,j)$ with $i\\neq j$ from the 27 EU countries. All time-varying covariates enter as full-period (1993--2017) averages. \\textit{Economic distance} is the absolute log-difference of GDP per capita in constant 2015 USD (WDI: NY.GDP.PCAP.KD). \\textit{Env. policy asymmetry} is the absolute log-difference of total environmental tax revenue (Eurostat: env\\_ac\\_taxind2, all NACE sections, MIO\\_EUR) divided by total labour force (WDI: SL.TLF.TOTL.IN). \\textit{Cultural distance} is the Euclidean distance between countries on Hofstede's four classical dimensions (PDI, IDV, MAS, UAI). \\textit{Geographic distance} is the log of the great-circle distance between capital cities, in km. \\textit{Bilateral FDI} is $\\log(1+\\text{FDI}_{ij})$, where $\\text{FDI}_{ij}$ is the average bilateral outward FDI stock from $i$ to $j$, 2013--2020 (Eurostat: bop\\_fdi6\\_pos, immediate counterpart, total economy, MIO\\_EUR). Sender and receiver fixed effects absorb country-level outdegree and indegree heterogeneity. Standard errors are two-way clustered on sender and receiver country. Significance levels: $^{***}$ $p<0.01$, $^{**}$ $p<0.05$, $^{*}$ $p<0.10$."
 )
-# ---- RECOVERED without FE ------------------------------------------------
-fit_ols_q_rec_nf <- feols(f_ols_nofe,
-  data = dz_q_fp,
-  cluster = ~ sender + receiver
-)
-fit_ols_e_rec_nf <- feols(f_ols_nofe,
-  data = dz_e_fp,
-  cluster = ~ sender + receiver
-)
-
-etable(
-  list(
-    fit_ols_q_rec_nf, fit_ols_e_rec_nf
-  ),
-  depvar = FALSE,
-  headers = list(
-    " " = c("Quality", "Environment"),
-    "Specification" = c("OLS", "OLS")
-  ),
-  style.tex = style.tex("base",
-    model.title = "",
-    tablefoot = FALSE
-  ),
-  dict = dict_full,
-  signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10),
-  fitstat = ~ n + r2,
-  tex = TRUE,
-  title = "Dyadic regression of recovered network weights, pooled specification without fixed effects, full-period averages (1993-2017) for time-varying covariates.",
-  label = "tab:dyadic_recovered_fp_nofe",
-  notes = "*Notes* The table reports OLS estimates for the recovered network without fixed effects. The table follows the same sample and covariate definitions as Tab. 3 but with a pooled specification without sender and receiver fixed effects. Significance levels: *** p<0.01, ** p<0.05, * p<0.10."
-)
-
-# ---- Albuquerque with FE ---------------------------------------------------------
-fit_ols_q_abc_fe <- feols(f_ols_fe,
-  data = dz_qabc_fp,
-  cluster = ~ sender + receiver
-)
-fit_ols_e_abc_fe <- feols(f_ols_fe,
-  data = dz_eabc_fp,
-  cluster = ~ sender + receiver
-)
-
-etable(
-  list(
-    fit_ols_q_abc_fe, fit_ols_e_abc_fe
-  ),
-  depvar = FALSE,
-  headers = list(
-    " " = c("Quality", "Environment"),
-    "Specification" = c("OLS", "OLS")
-  ),
-  style.tex = style.tex("base",
-    model.title = "", fixef.suffix = ":",
-    tablefoot = FALSE
-  ),
-  dict = dict_full,
-  signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10),
-  fitstat = ~ n + r2,
-  tex = TRUE,
-  title = "Dyadic regression of Albuquerque two-channel network weights with sender and receiver fixed effects, full-period averages (1993-2017) for time-varying covariates.",
-  label = "tab:dyadic_abc_fp_fe",
-  notes = "*Notes* The table reports OLS estimates for the Albuquerque two-channel network with sender and receiver fixed effects. The table follows the same sample and covariate definitions as Tab. 3. Significance levels: *** p<0.01, ** p<0.05, * p<0.10."
-)
-
-# ---- Albuquerque without FE ------------------------------------------------------
-fit_ols_q_abc_nf <- feols(f_ols_nofe,
-  data = dz_qabc_fp,
-  cluster = ~ sender + receiver
-)
-fit_ols_e_abc_nf <- feols(f_ols_nofe,
-  data = dz_eabc_fp,
-  cluster = ~ sender + receiver
-)
-
-etable(
-  list(
-    fit_ols_q_abc_nf, fit_ols_e_abc_nf
-  ),
-  depvar = FALSE,
-  headers = list(
-    " " = c("Quality", "Environment"),
-    "Specification" = c("OLS", "OLS")
-  ),
-  style.tex = style.tex("base",
-    model.title = "",
-    tablefoot = FALSE
-  ),
-  dict = dict_full,
-  signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10),
-  fitstat = ~ n + r2,
-  tex = TRUE,
-  title = "Dyadic regression of Albuquerque two-channel network weights, pooled specification without fixed effects, full-period averages (1993-2017) for time-varying covariates.",
-  label = "tab:dyadic_abc_fp_nofe",
-  notes = "*Notes* The table reports OLS estimates for the Albuquerque two-channel network without fixed effects. The table follows the same sample and covariate definitions as Tab. 3 but with a pooled specification without sender and receiver fixed effects. Significance levels: *** p<0.01, ** p<0.05, * p<0.10."
-)
 ```
 
 ```{r}
 #| label: dyadic-pm25-fullperiod-robustness
 #| echo: false
 #| results: asis
-#| cache: true
 #| include: false
 # Robustness check: PM2.5 air pollution asymmetry as environmental-policy
 # proxy, averaged over the full available period (1993-2017 where data
@@ -1218,7 +1117,6 @@ etable(
 #| label: exogenous-networks-grid
 #| echo: false
 #| include: false
-#| cache: true
 # Build Albuquerque top-3 directed networks (geography, trade, culture) following
 # Albuquerque, Bronnenberg & Corbett (2007). The TOP_N parameter is fixed
 # at 3 throughout (matching Albuquerque); see top_n_network() in thesis_helpers.R.
@@ -1268,7 +1166,6 @@ saveRDS(
 #| label: bdf-prereqs
 #| echo: false
 #| include: false
-#| cache: true
 # Constants and matrices needed by all BDF tables:
 # - x_vars / id_to_country / firm17 (Eurostat SBS firm count at 2017)
 # - W_geotrade / W_geoculture (Albuquerque two-channel networks)
@@ -1315,7 +1212,6 @@ for (i in seq_len(N)) {
 #| label: bdf-formulas
 #| echo: false
 #| include: false
-#| cache: true
 # IV formulas shared across all BDF tables. Variable names are identical
 # with or without lag because build_bdf() rewrites Gy and G^k x columns
 # in place.
@@ -1339,7 +1235,6 @@ f_cfe <- as.formula(sprintf(
 #| label: bdf-logdiff-lag-noslo
 #| echo: false
 #| results: asis
-#| cache: true
 # Drop Slovenia (structural isolate in W_q, zero in/out-degree).
 
 set.seed(1861)
@@ -1403,7 +1298,7 @@ print(
     tab,
     "Peer effect on log-differences, recovered vs Albuquerque two-channel networks",
     "tab:bdf_logdiff_lag_noslo"
-  ) |> add_note("N = 26 This table compares the estimated peer effect coefficients ($\\hat\\beta$) from Bramoullé et al. (2009) method when using the recovered network versus the Albuquerque et al. (2007)two-channel network (based on exogenous geography and trade for Quality and geography and culture for Environment). The dependent variable is the log-difference of certifications, and the regressions include a one-year lag in the peer effect. The independent variables were log-standardised (log (1+x)). Standard errors are clustered at the country level. The sample includes all countries with full data for the relevant period. Slovenia node is dropped since it is isolated.")
+  ) |> add_note("N = 26 This table compares the estimated peer effect coefficients ($\\hat\\beta$) from Bramoullé et al. (2009) method when using the recovered networks versus the exogenous Albuquerque et al. (2007) two-channel networks based on  geography and trade for Quality and geography and culture for Environment. The dependent variable is the log-difference of certifications, and the regressions include a one-year lag in the peer effect. The independent variables were log-standardised (log (1+x)). Standard errors are clustered at the country level. The sample includes all EU countries but Slovenia, dropped as isolated.")
 )
 ```
 
@@ -1411,7 +1306,7 @@ print(
 #| label: bdf-logdiff-lag
 #| echo: false
 #| results: asis
-#| cache: true
+#| include: false
 set.seed(1861)
 panel_q <- keep_full(attach_y_logdiff(
   readRDS(file.path(clean_dir, "panel_9001_eu.rds")), f9001
@@ -1425,7 +1320,7 @@ panel_e <- keep_full(attach_y_logdiff(
 #    table_rec_vs_abc(panel_q, panel_e, use_lag = TRUE),
 #    "One-year lag: peer effect on log-differences of certifications, recovered vs Albuquerque two-channel networks",
 #    "tab:bdf_logdiff_lag_rec"
-#  ) |> add_note("This table compares the estimated peer effect coefficients ($\\hat\\beta$) from Bramoullé et al. (2009) method when using the recovered network versus the Albuquerque et al. (2007)two-channel network (based on exogenous geography and trade for Quality and geography and culture for Environment). The dependent variable is the log-difference of certifications, and the regressions include a one-year lag in the peer effect. The independent variables were log-standardised (log (1+x)). Standard errors are clustered at the country level. The sample includes all countries with full data for the relevant period.")
+#  ) |> add_note("This table compares the estimated peer effect coefficients ($\\hat\\beta$) from Bramoullé et al. (2009) method when using the recovered network versus the Albuquerque et al. (2007)two-channel network (based on geography and trade for Quality and geography and culture for Environment). The dependent variable is the log-difference of certifications, and the regressions include a one-year lag in the peer effect. The independent variables were log-standardised (log (1+x)). Standard errors are clustered at the country level. The sample includes all countries with full data for the relevant period.")
 # )
 # cat("\n\n")
 print(
@@ -1433,7 +1328,7 @@ print(
     table_abc_single(panel_q, panel_e, use_lag = TRUE),
     "One-year lag: peer effect on log-differences of certifications, Albuquerque single-channel networks",
     "tab:bdf_logdiff_lag_single"
-  ) |> add_note("This table reports the estimated endogenous peer effect for both standards computed across the 3 exogenous networks considered by Albuquerque et al. (2007). The table follows the same conventions as Tab.7")
+  ) |> add_note("This table reports the estimated endogenous peer effect for both standards computed across the 3 exogenous networks considered by Albuquerque et al. (2007). The table follows the same conventions as Tab. 3")
 )
 ```
 
@@ -1441,7 +1336,6 @@ print(
 #| label: bdf-logdiff-lag-strongties-noslo
 #| echo: false
 #| results: asis
-#| cache: true
 #| include: false
 # Robustness: trim recovered networks to w > 0.3, drop Slovenia and
 # any further isolates.
@@ -1544,242 +1438,12 @@ print(
     add_note("This table follows the same conventions as Tab.7 with the difference that only strong ties (w > 0.3) in the recovered network are retained, and Slovenia is dropped since it is an isolate in the recovered network.")
 )
 ```
-```{r}
-#| label: dyadic-pm25-pergdp-fullperiod-robustness
-#| echo: false
-#| results: asis
-#| cache: true
-#| include: false
-# Robustness: PM2.5 standardised by GDP per capita (full-period 1993-2017).
-# Pollution per unit of economic output, in the spirit of the
-# Environmental Kuznets Curve literature (Grossman & Krueger 1995;
-# Copeland & Taylor 2004).
 
-full_years_wdi <- paste0("x", 1993:2017)
-
-# Country-level PM2.5 average (1993-2017)
-pm25_levels <- readr::read_csv(
-  file.path(data_dir, "API_EN.ATM.PM25.MC.M3_DS2_en_csv_v2_316.csv"),
-  skip = 4, show_col_types = FALSE
-) |>
-  janitor::clean_names() |>
-  dplyr::transmute(
-    iso3 = country_code,
-    pm25 = rowMeans(dplyr::across(
-      dplyr::any_of(full_years_wdi),
-      \(z) suppressWarnings(as.numeric(z))
-    ), na.rm = TRUE)
-  ) |>
-  dplyr::filter(iso3 %in% cl_iso3, is.finite(pm25)) |>
-  dplyr::mutate(country = iso_to_label[iso3])
-
-# Country-level GDP per capita average (1993-2017)
-gdppc_levels <- readr::read_csv(
-  file.path(data_dir, "API_NY.GDP.PCAP.KD_DS2_en_csv_v2_234.csv"),
-  skip = 4, show_col_types = FALSE
-) |>
-  janitor::clean_names() |>
-  dplyr::transmute(
-    iso3 = country_code,
-    gdppc = rowMeans(dplyr::across(
-      dplyr::any_of(full_years_wdi),
-      \(z) suppressWarnings(as.numeric(z))
-    ), na.rm = TRUE)
-  ) |>
-  dplyr::filter(iso3 %in% cl_iso3, is.finite(gdppc))
-
-pm25_pergdp <- pm25_levels |>
-  dplyr::inner_join(gdppc_levels, by = "iso3") |>
-  dplyr::mutate(pm25_per_gdp = pm25 / gdppc) |>
-  dplyr::arrange(match(country, country_labels))
-
-if (nrow(pm25_pergdp) < N) {
-  miss <- setdiff(country_labels, pm25_pergdp$country)
-  pm25_pergdp <- dplyr::bind_rows(
-    pm25_pergdp,
-    data.frame(
-      iso3 = NA, pm25 = NA, gdppc = NA, country = miss,
-      pm25_per_gdp = mean(pm25_pergdp$pm25_per_gdp, na.rm = TRUE),
-      stringsAsFactors = FALSE
-    )
-  ) |>
-    dplyr::arrange(match(country, country_labels))
-}
-
-pm_gdp_vec <- setNames(log(pm25_pergdp$pm25_per_gdp + 1e-12), pm25_pergdp$country)
-D_pm25_gdp <- abs(outer(pm_gdp_vec, pm_gdp_vec, FUN = "-"))
-dimnames(D_pm25_gdp) <- list(country_labels, country_labels)
-
-build_dyadic_pm25_gdp <- function(W_outcome) {
-  expand.grid(
-    sender = seq_len(N), receiver = seq_len(N),
-    KEEP.OUT.ATTRS = FALSE
-  ) |>
-    dplyr::filter(sender != receiver) |>
-    dplyr::mutate(
-      sender   = factor(country_labels[sender], levels = country_labels),
-      receiver = factor(country_labels[receiver], levels = country_labels),
-      w_hat    = W_outcome[cbind(as.integer(sender), as.integer(receiver))],
-      edge     = as.integer(abs(w_hat) > 1e-5),
-      d_econ   = abs(D_gdppc_fp[cbind(as.integer(sender), as.integer(receiver))]),
-      d_envir  = D_pm25_gdp[cbind(as.integer(sender), as.integer(receiver))],
-      d_cult   = D_cul[cbind(as.integer(sender), as.integer(receiver))],
-      d_geo    = log_dist[cbind(as.integer(sender), as.integer(receiver))],
-      l_fdi    = log_fdi[cbind(as.integer(sender), as.integer(receiver))]
-    )
-}
-
-dz_q_pmg <- build_dyadic_pm25_gdp(W_q)
-dz_e_pmg <- build_dyadic_pm25_gdp(W_e)
-dz_qabc_pmg <- build_dyadic_pm25_gdp(W_geotrade)
-dz_eabc_pmg <- build_dyadic_pm25_gdp(W_geoculture)
-
-f_ols_fe <- w_hat ~ d_econ + d_envir + d_cult + d_geo + l_fdi | sender + receiver
-f_ols_nofe <- w_hat ~ d_econ + d_envir + d_cult + d_geo + l_fdi
-
-dict_pmg <- c(
-  d_econ   = "Economic distance",
-  d_envir  = "PM2.5/GDP asymmetry",
-  d_cult   = "Cultural distance",
-  d_geo    = "Geographic distance",
-  l_fdi    = "Bilateral FDI",
-  sender   = "Sender FE ($\\alpha_i^{\\text{out}}$)",
-  receiver = "Receiver FE ($\\alpha_j^{\\text{in}}$)"
-)
-
-# ---- RECOVERED with FE ---------------------------------------------------
-fit_ols_q_rec_fe <- feols(f_ols_fe,
-  data = dz_q_pmg,
-  cluster = ~ sender + receiver
-)
-fit_ols_e_rec_fe <- feols(f_ols_fe,
-  data = dz_e_pmg,
-  cluster = ~ sender + receiver
-)
-
-etable(
-  list(
-    fit_ols_q_rec_fe, fit_ols_e_rec_fe
-  ),
-  depvar = FALSE,
-  headers = list(
-    " " = c("Quality", "Environment"),
-    "Specification" = c("OLS", "OLS")
-  ),
-  style.tex = style.tex("base",
-    model.title = "", fixef.suffix = ":",
-    tablefoot = FALSE
-  ),
-  dict = dict_pmg,
-  signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10),
-  fitstat = ~ n + r2,
-  tex = TRUE,
-  title = "Robustness: dyadic regression of recovered network weights with sender and receiver fixed effects, PM2.5 standardised by GDP per capita (WDI NY.GDP.PCAP.KD, full-period 1993-2017) as environmental-policy proxy.",
-  label = "tab:dyadic_recovered_pm25gdp_fp_fe",
-  notes = "*Notes* The environmental-policy proxy is PM2.5 ambient concentration (WDI EN.ATM.PM25.MC.M3, population-weighted exposure) divided by GDP per capita in constant 2015 USD (WDI NY.GDP.PCAP.KD), averaged over 1993--2017. The dyadic measure is the absolute log-difference. The transformation follows the pollution-per-output logic of the Environmental Kuznets Curve literature (Grossman \\& Krueger 1995; Copeland \\& Taylor 2004). All other conventions follow Tab. 3."
-)
-
-# ---- RECOVERED without FE ------------------------------------------------
-fit_ols_q_rec_nf <- feols(f_ols_nofe,
-  data = dz_q_pmg,
-  cluster = ~ sender + receiver
-)
-fit_ols_e_rec_nf <- feols(f_ols_nofe,
-  data = dz_e_pmg,
-  cluster = ~ sender + receiver
-)
-
-etable(
-  list(
-    fit_ols_q_rec_nf, fit_ols_e_rec_nf
-  ),
-  depvar = FALSE,
-  headers = list(
-    " " = c("Quality", "Environment"),
-    "Specification" = c("OLS", "OLS")
-  ),
-  style.tex = style.tex("base",
-    model.title = "",
-    tablefoot = FALSE
-  ),
-  dict = dict_pmg,
-  signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10),
-  fitstat = ~ n + r2,
-  tex = TRUE,
-  title = "Robustness: dyadic regression of recovered network weights, pooled specification without fixed effects, PM2.5 standardised by GDP per capita (full-period 1993-2017) as environmental-policy proxy.",
-  label = "tab:dyadic_recovered_pm25gdp_fp_nofe",
-  notes = "*Notes* The table follows the same format and sample as the corresponding FE specification but with a pooled specification without sender and receiver fixed effects."
-)
-
-# ---- Albuquerque with FE ---------------------------------------------------------
-fit_ols_q_abc_fe <- feols(f_ols_fe,
-  data = dz_qabc_pmg,
-  cluster = ~ sender + receiver
-)
-fit_ols_e_abc_fe <- feols(f_ols_fe,
-  data = dz_eabc_pmg,
-  cluster = ~ sender + receiver
-)
-
-etable(
-  list(
-    fit_ols_q_abc_fe, fit_ols_e_abc_fe
-  ),
-  depvar = FALSE,
-  headers = list(
-    " " = c("Quality", "Environment"),
-    "Specification" = c("OLS", "OLS")
-  ),
-  style.tex = style.tex("base",
-    model.title = "", fixef.suffix = ":",
-    tablefoot = FALSE
-  ),
-  dict = dict_pmg,
-  signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10),
-  fitstat = ~ n + r2,
-  tex = TRUE,
-  title = "Robustness: dyadic regression of Albuquerque two-channel network weights with sender and receiver fixed effects, PM2.5 standardised by GDP per capita (full-period 1993-2017) as environmental-policy proxy.",
-  label = "tab:dyadic_abc_pm25gdp_fp_fe",
-  notes = "*Notes* The table follows the same conventions as the recovered-network counterpart but uses the Albuquerque two-channel network (Albuquerque, Bronnenberg \\& Corbett 2007)."
-)
-
-# ---- Albuquerque without FE ------------------------------------------------------
-fit_ols_q_abc_nf <- feols(f_ols_nofe,
-  data = dz_qabc_pmg,
-  cluster = ~ sender + receiver
-)
-fit_ols_e_abc_nf <- feols(f_ols_nofe,
-  data = dz_eabc_pmg,
-  cluster = ~ sender + receiver
-)
-
-etable(
-  list(
-    fit_ols_q_abc_nf, fit_ols_e_abc_nf
-  ),
-  depvar = FALSE,
-  headers = list(
-    " " = c("Quality", "Environment"),
-    "Specification" = c("OLS", "OLS")
-  ),
-  style.tex = style.tex("base",
-    model.title = "",
-    tablefoot = FALSE
-  ),
-  dict = dict_pmg,
-  signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10),
-  fitstat = ~ n + r2,
-  tex = TRUE,
-  title = "Robustness: dyadic regression of Albuquerque two-channel network weights, pooled specification without fixed effects, PM2.5 standardised by GDP per capita (full-period 1993-2017) as environmental-policy proxy.",
-  label = "tab:dyadic_abc_pm25gdp_fp_nofe",
-  notes = "*Notes* The table follows the same format and sample as the corresponding FE specification but with a pooled specification without sender and receiver fixed effects."
-)
-```
 ```{r}
 #| label: bdf-logdiff-lag-asymmetric-drop
 #| echo: false
 #| results: asis
-#| cache: true
+#| include: false
 # Peer effect on log-differences, restricted Quality network
 # specification (where it is a structural isolate, in/out-degree = 0).
 # All other three specifications retain Slovenia, since it is connected
@@ -1847,10 +1511,10 @@ colnames(tab) <- c(
 print(
   print_kbl(
     tab,
-    "Asymmetric Slovenia drop: peer effect on log-differences, recovered vs Albuquerque two-channel networks (Slovenia dropped only for Quality recovered, where it is a structural isolate; retained elsewhere)",
+    "Peer effect on log-differences, recovered vs Albuquerque two-channel networks",
     "tab:bdf_logdiff_lag_asym_drop"
   ) |> add_note(sprintf(
-    "This table follows the same conventions as Tab.7, however Slovenia was only dropped for the recovered Quality network.",
+    "This table compares the estimated peer effect coefficients ($\\hat\\beta$) from Bramoullé et al. (2009) method when using the recovered networks versus the exogenous Albuquerque et al. (2007) two-channel networks based on  geography and trade for Quality and geography and culture for Environment. The dependent variable is the log-difference of certifications, and the regressions include a one-year lag in the peer effect. The independent variables were log-standardised (log (1+x)). Standard errors are clustered at the country level. The sample includes all EU countries but Slovenia, dropped as isolated and incompatible with Bramoullé et al. (2009) methodology.",
     connected_q_rec, connected_e_rec, connected_q_abc, connected_e_abc
   ))
 )
