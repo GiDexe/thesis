@@ -85,399 +85,8 @@ rownames(W_q) <- colnames(W_q) <- country_labels
 rownames(W_e) <- colnames(W_e) <- country_labels
 ```
 
-# EU: Quality (ISO 9001) versus Environment (ISO 14001)
-
-## Descriptive Statistics
-
 ```{r}
-#| label: descriptive-stats
-#| echo: false
-#| results: asis
-f9001 <- readRDS(file.path(clean_dir, "f9001.rds"))
-f14001 <- readRDS(file.path(clean_dir, "f14001.rds"))
-
-desc_years <- c(1993, 1999, 2017)
-
-desc_tab <- function(df, countries, years) {
-  df |>
-    dplyr::filter(country %in% countries, year %in% years) |>
-    dplyr::group_by(year) |>
-    dplyr::summarise(
-      total_cert     = sum(n_cert, na.rm = TRUE),
-      mean_cert      = mean(n_cert, na.rm = TRUE),
-      sd_cert        = sd(n_cert, na.rm = TRUE),
-      min_cert       = min(n_cert, na.rm = TRUE),
-      max_cert       = max(n_cert, na.rm = TRUE),
-      mean_intensity = mean(n_cert / gdp_pc * 1000, na.rm = TRUE),
-      n_countries    = dplyr::n(),
-      .groups        = "drop"
-    )
-}
-
-d9 <- desc_tab(f9001, country_labels, desc_years)
-d14 <- desc_tab(f14001, country_labels, desc_years)
-
-f0 <- function(x) formatC(x, format = "d", big.mark = ",")
-f1 <- function(x) formatC(x, format = "f", digits = 1, big.mark = ",")
-f2 <- function(x) formatC(x, format = "f", digits = 2)
-
-# Note string for this table. Replace "SAMPLE NOTE" with the actual text.
-desc_stats_note <- "This table summarises the distribution of certifications across the 27 EU countries in the three selected years. The first row reports the number of countries with non-missing data in each year, which is the basis for all subsequent statistics. The second row reports the total number of certifications across all countries, while the third and fourth rows report the mean and standard deviation of certifications per country, respectively. The fifth row reports the minimum and maximum number of certifications across countries. Finally, the sixth row reports the mean certification intensity, defined as the number of certifications per thousand dollars of GDP per capita, averaged across countries. Environment 1993 is empty as its adoption started in 1997.
-Sources: ISO Survey, World Bank."
-
-tex <- c(
-  "\\begin{table}[H]\\centering",
-  "\\caption{Descriptive statistics}",
-  "\\label{tab:desc_stats}",
-  "\\begin{tabular}{lcccccc}\\hline\\hline",
-  "& \\multicolumn{3}{c}{Quality (ISO 9001)} & \\multicolumn{3}{c}{Environment (ISO 14001)} \\\\",
-  "\\cmidrule(lr){2-4} \\cmidrule(lr){5-7}",
-  "& 1993 & 1999 & 2017 & 1993 & 1999 & 2017 \\\\\\hline",
-  sprintf(
-    "Countries Number & %d & %d & %d & & %d & %d \\\\",
-    d9$n_countries[1], d9$n_countries[2], d9$n_countries[3],
-    d14$n_countries[1], d14$n_countries[2]
-  ),
-  sprintf(
-    "Total & %s & %s & %s & & %s & %s \\\\",
-    f0(d9$total_cert[1]), f0(d9$total_cert[2]), f0(d9$total_cert[3]),
-    f0(d14$total_cert[1]), f0(d14$total_cert[2])
-  ),
-  sprintf(
-    "Mean & %s & %s & %s & & %s & %s \\\\",
-    f1(d9$mean_cert[1]), f1(d9$mean_cert[2]), f1(d9$mean_cert[3]),
-    f1(d14$mean_cert[1]), f1(d14$mean_cert[2])
-  ),
-  sprintf(
-    "Std.\\ Dev. & %s & %s & %s & & %s & %s \\\\",
-    f1(d9$sd_cert[1]), f1(d9$sd_cert[2]), f1(d9$sd_cert[3]),
-    f1(d14$sd_cert[1]), f1(d14$sd_cert[2])
-  ),
-  sprintf(
-    "Min--Max & %s--%s & %s--%s & %s--%s & & %s--%s & %s--%s \\\\",
-    f0(d9$min_cert[1]), f0(d9$max_cert[1]),
-    f0(d9$min_cert[2]), f0(d9$max_cert[2]),
-    f0(d9$min_cert[3]), f0(d9$max_cert[3]),
-    f0(d14$min_cert[1]), f0(d14$max_cert[1]),
-    f0(d14$min_cert[2]), f0(d14$max_cert[2])
-  ),
-  sprintf(
-    "Cert./GDP p.c. & %s & %s & %s & & %s & %s \\\\",
-    f2(d9$mean_intensity[1]), f2(d9$mean_intensity[2]), f2(d9$mean_intensity[3]),
-    f2(d14$mean_intensity[1]), f2(d14$mean_intensity[2])
-  ),
-  "\\hline\\hline",
-  sprintf(
-    "\\multicolumn{7}{p{0.92\\textwidth}}{\\footnotesize \\textit{Notes:} %s} \\\\",
-    desc_stats_note
-  ),
-  "\\end{tabular}",
-  "\\end{table}"
-)
-writeLines(tex, file.path(tab_dir, "desc_stats.tex"))
-cat(tex, sep = "\n")
-```
-
-## Network Recovery and Dyadic Analysis
-
-\subsection*{Methodology}
-
-De Paula, Rasul \& Souza (2025) extend the peer-effects literature (Manski 1993; Bramoullé et al., 2009) to the case in which the network of interactions is unknown. Their structural model
-\begin{equation}
-y_{it} = \rho_0 \sum_{j=1}^{N} W_{0,ij}\, y_{jt} + \beta_0 x_{it} + \gamma_0 \sum_{j=1}^{N} W_{0,ij}\, x_{jt} + \alpha_i + \alpha_t + \varepsilon_{it}
-\label{eq:structural}
-\end{equation}
-admits the compact form $y_t = \rho_0 W_0 y_t + \beta_0 x_t + \gamma_0 W_0 x_t + \varepsilon_t$, which rearranges into the reduced form
-\begin{equation}
-y_t = \Pi_0 x_t + \nu_t, \qquad \Pi_0 = (I - \rho_0 W_0)^{-1}(\beta_0 I + \gamma_0 W_0).
-\label{eq:reduced}
-\end{equation}
-If $W_0$ were known, equation~\eqref{eq:reduced} would directly identify the structural parameters $(\rho_0,\beta_0,\gamma_0)$ from a reduced-form regression of outcomes on covariates (Bramoullé et al., 2009). The contribution of De Paula, Rasul \& Souza is to show that, when $W_0$ is unknown, $\Pi_0$ still contains enough information to recover both the network and the parameters jointly.
-
-The intuition is the one that underlies any diffusion process. If a contagious disease spreads through a population, the people who fall ill at the same time tend to be the ones who interact: knowing who got sick when, and what their characteristics are, one can work backwards to who must have been in contact with whom. The same logic applies here. If four countries adopt a standard in synchronous patterns that cannot be explained by their own characteristics alone, the synchrony itself is evidence of a link between them. Cross-country covariation in $y$, conditional on $x$, identifies who is connected to whom, and the strength of the covariation, suitably disentangled, identifies how strong the link is.
-
-In practice, $W_0$ is an unknown matrix and $\Pi_0$ is observable. De Paula, Rasul \& Souza exploit the adaptive elastic net (Caner \& Zhang 2014), which simultaneously selects the non-zero entries of $\hat W$ and estimates their values together with $(\hat\rho,\hat\beta,\hat\gamma)$. The result is an interaction network identified directly from observable cross-sectional spillovers, without requiring a priori commitment to any specific weighting scheme.
-
-```{r}
-#| label: network-stats-table
-#| echo: false
-#| results: asis
-s_q <- net_stats(W_q)
-s_e <- net_stats(W_e)
-
-B_q <- (abs(W_q) > 1e-5) * 1
-B_e <- (abs(W_e) > 1e-5) * 1
-common <- sum(B_q & B_e)
-only_q <- sum(B_q & !B_e)
-only_e <- sum(!B_q & B_e)
-
-f3 <- function(x) formatC(x, format = "f", digits = 3)
-p1 <- function(x) paste0(formatC(100 * x, format = "f", digits = 1), "\\%")
-dg <- function(m, s) paste0(f3(m), " (", f3(s), ")")
-
-rho_q <- best[["9001_eu"]]$rn$unpenalisedgmm$rho
-rho_e <- best[["14001_eu"]]$rn$unpenalisedgmm$rho
-lam_q <- best[["9001_eu"]]$lambda
-lam_e <- best[["14001_eu"]]$lambda
-bic_q <- best[["9001_eu"]]$bic
-bic_e <- best[["14001_eu"]]$bic
-
-# Note string for this table. Replace "SAMPLE NOTE" with the actual text.
-network_stats_note <- "This table reports summary statistics of the two recovered networks, selected by BIC. The first row reports the number of edges in each network, while the second and third rows report how many edges are shared by both networks and how many are unique to each network, respectively. A shared link is intended when there is a link between the same two nodes in the same direction in both networks. The fourth and fifth rows report the clustering coefficient (share of closed triplets) and reciprocity (bidirectional edges) of each network, respectively. The sixth to ninth rows report the mean and standard deviation of out-degrees and in-degrees across nodes (countries) for each network. Finally, the tenth to twelfth rows report the GMM estimates of the structural parameters $\\hat{\\rho}$ (endogenous peer effects) and $\\hat{\\lambda}$ (penalties for the Adaptive Elastic Net) and the BIC values for each network.
-Sources: Elaboration on ISO Survey Data, the World Bank Data and the Worldwide Governance Indicators. The network estimation relies on GDP per capita (WDI: NY.GDP.PCAP.KD), Trade (\\% of GDP; WDI: NE.TRD.GNFS.ZS), Rule of Law estimate (WGI: RL.EST)*, Total Natural Resources Rents (\\% of GDP; WDI: NY.GDP.TOTL.RT.ZS), and Share of Renewables in Total Final Energy Consumption (\\% ; WDI: EG.FEC.RNEW.ZS). All the covariates were log linearised (log (1+x))."
-
-tex <- c(
-  "\\begin{table}[H]\\centering",
-  "\\caption{BIC-selected networks}",
-  "\\label{tab:network_eu}",
-  "\\begin{tabular}{lcc}\\hline\\hline",
-  "& Quality & Environment \\\\\\hline",
-  sprintf("Number of edges & %d & %d \\\\", s_q$edges, s_e$edges),
-  sprintf("Edges in both networks & %d & %d \\\\", common, common),
-  sprintf("Edges in $W_{\\text{Quality}}$ only & %d & \\\\", only_q),
-  sprintf("Edges in $W_{\\text{Environment}}$ only & & %d \\\\", only_e),
-  sprintf("Clustering & %s & %s \\\\", f3(s_q$clustering), f3(s_e$clustering)),
-  sprintf("Reciprocated edges & %s & %s \\\\", p1(s_q$reciprocity), p1(s_e$reciprocity)),
-  "Degree distribution across nodes (countries) & & \\\\",
-  sprintf(
-    "\\quad Out-degree & %s & %s \\\\",
-    dg(s_q$out_mean, s_q$out_sd), dg(s_e$out_mean, s_e$out_sd)
-  ),
-  sprintf(
-    "\\quad In-degree & %s & %s \\\\",
-    dg(s_q$in_mean, s_q$in_sd), dg(s_e$in_mean, s_e$in_sd)
-  ),
-  "\\hline",
-  sprintf(
-    "$\\hat{\\rho}$ (GMM) & %s & %s \\\\",
-    formatC(rho_q, format = "f", digits = 4),
-    formatC(rho_e, format = "f", digits = 4)
-  ),
-  sprintf(
-    "$\\lambda$ & (%s) & (%s) \\\\",
-    paste(formatC(lam_q, format = "f", digits = 3), collapse = ", "),
-    paste(formatC(lam_e, format = "f", digits = 3), collapse = ", ")
-  ),
-  sprintf(
-    "BIC & %s & %s \\\\",
-    formatC(bic_q, format = "f", digits = 2),
-    formatC(bic_e, format = "f", digits = 2)
-  ),
-  "\\hline\\hline",
-  sprintf(
-    "\\multicolumn{3}{p{0.95\\textwidth}}{\\footnotesize \\textit{Notes:} %s} \\\\",
-    network_stats_note
-  ),
-  "\\end{tabular}",
-  "\\end{table}"
-)
-writeLines(tex, file.path(tab_dir, "network_stats.tex"))
-cat(tex, sep = "\n")
-```
-
-```{r}
-#| label: fig-degree-hist
-#| echo: false
-#| fig-width: 9
-#| fig-height: 3.5
-#| fig-cap: "Unweighted degree distributions of recovered networks"
-eps <- 1e-5
-B_q <- (W_q > eps) * 1
-diag(B_q) <- 0
-B_e <- (W_e > eps) * 1
-diag(B_e) <- 0
-
-deg_df <- dplyr::bind_rows(
-  data.frame(
-    standard = "Quality (ISO 9001)",
-    direction = "Out-degree", value = rowSums(B_q)
-  ),
-  data.frame(
-    standard = "Quality (ISO 9001)",
-    direction = "In-degree", value = colSums(B_q)
-  ),
-  data.frame(
-    standard = "Environment (ISO 14001)",
-    direction = "Out-degree", value = rowSums(B_e)
-  ),
-  data.frame(
-    standard = "Environment (ISO 14001)",
-    direction = "In-degree", value = colSums(B_e)
-  )
-) |>
-  dplyr::mutate(
-    standard = factor(standard,
-      levels = c("Quality (ISO 9001)", "Environment (ISO 14001)")
-    ),
-    direction = factor(direction, levels = c("Out-degree", "In-degree"))
-  )
-
-p <- ggplot(deg_df, aes(x = value, fill = standard)) +
-  geom_histogram(
-    position = "identity", alpha = 0.55,
-    colour = "white", linewidth = 0.3, bins = 12
-  ) +
-  geom_rug(aes(colour = standard),
-    sides = "b",
-    length = unit(0.03, "npc"), alpha = 0.7
-  ) +
-  facet_wrap(~direction, scales = "free", ncol = 2) +
-  scale_fill_manual(values = c(
-    "Quality (ISO 9001)"      = "#3182bd",
-    "Environment (ISO 14001)" = "#31a354"
-  )) +
-  scale_colour_manual(values = c(
-    "Quality (ISO 9001)"      = "#08519c",
-    "Environment (ISO 14001)" = "#006d2c"
-  )) +
-  scale_x_continuous(expand = expansion(mult = c(0, 0.02))) +
-  labs(x = "Degree", y = "Count", fill = NULL, colour = NULL) +
-  theme_minimal(base_size = 10) +
-  theme(
-    legend.position  = "bottom",
-    strip.text       = element_text(face = "bold"),
-    panel.grid.minor = element_blank()
-  )
-
-
-ggsave(file.path(fig_dir, "degree_hist.pdf"), p, width = 9, height = 3.5)
-print(p)
-```
-
-```{r}
-#| label: jaccard-compute
-#| include: false
-eps <- 1e-5
-B_q <- (abs(W_q) > eps) * 1
-B_e <- (abs(W_e) > eps) * 1
-diag(B_q) <- diag(B_e) <- 0
-
-n_q <- sum(B_q)
-n_e <- sum(B_e)
-n_inter <- sum(B_q & B_e)
-n_union <- sum(B_q | B_e)
-jaccard <- n_inter / n_union
-
-jaccard_pct <- formatC(100 * jaccard, format = "f", digits = 1)
-jaccard_val <- formatC(jaccard, format = "f", digits = 3)
-```
-
-### Network similarity
-
-To assess how closely the two recovered networks $\hat W^Q$ and $\hat W^E$ overlap, we summarise their structural similarity through the **Jaccard index** (Jaccard 1901; Wasserman \& Faust 1994, Sec.\ 11.4), the share of directed edges shared by both networks relative to the union of their edge sets:
-
-\begin{equation}
-J(\hat W^Q, \hat W^E) = \frac{|E_Q \cap E_E|}{|E_Q \cup E_E|},
-\label{eq:jaccard}
-\end{equation}
-
-where $E_Q = \{(i, j) : |\hat w^Q_{ij}| > 10^{-5}\}$ and $E_E$ is defined analogously. Edges are treated as directed, so that a link $i \to j$ and the reciprocal $j \to i$ count as distinct elements of the edge sets. The index ranges in $[0, 1]$, with $J = 0$ for disjoint networks (no edges in common) and $J = 1$ for identical edge sets.
-
-For the BIC-selected recovered networks, $|E_Q| = `r n_q`$, $|E_E| = `r n_e`$, $|E_Q \cap E_E| = `r n_inter`$, and $|E_Q \cup E_E| = `r n_union`$, yielding $J = `r jaccard_val`$.
-
-### Network visualisation
-
-```{r}
-#| label: fig-networks-weighted-full
-#| echo: false
-#| fig-width: 13
-#| fig-height: 13
-#| fig-cap: "Recovered networks"
-make_full_weighted_graph <- function(W, labels, eps = 1e-5) {
-  W2 <- W
-  W2[abs(W2) < eps] <- 0
-  g <- igraph::graph_from_adjacency_matrix(W2, mode = "directed", weighted = TRUE)
-  igraph::V(g)$name <- labels
-  g
-}
-
-g_q_full <- make_full_weighted_graph(W_q, country_labels)
-g_e_full <- make_full_weighted_graph(W_e, country_labels)
-
-w_max <- max(c(
-  abs(igraph::E(g_q_full)$weight),
-  abs(igraph::E(g_e_full)$weight)
-), 1e-9)
-
-set.seed(1861)
-layout_q <- igraph::layout_with_fr(g_q_full)
-set.seed(1861)
-layout_e <- igraph::layout_with_fr(g_e_full)
-rownames(layout_q) <- rownames(layout_e) <- country_labels
-
-plot_net_gg <- function(g, lo, title, w_max) {
-  lo_ordered <- lo[igraph::V(g)$name, , drop = FALSE]
-
-  ggraph(g, layout = lo_ordered) +
-    geom_edge_arc(
-      aes(
-        alpha = abs(weight),
-        colour = abs(weight) > 0.9
-      ),
-      width = 0.5,
-      arrow = arrow(
-        length = unit(2, "mm"),
-        type = "closed", angle = 22
-      ),
-      end_cap = circle(5, "mm"),
-      start_cap = circle(5, "mm"),
-      strength = 0.12
-    ) +
-    geom_node_point(aes(colour = igraph::degree(g) > 0),
-      size = 4.5, show.legend = FALSE
-    ) +
-    geom_node_text(aes(label = name),
-      repel = TRUE,
-      size = 2.6,
-      bg.colour = "white", bg.r = 0.18,
-      segment.colour = "grey55",
-      segment.size = 0.25,
-      segment.alpha = 0.7,
-      max.overlaps = Inf,
-      force = 3, force_pull = 0.5,
-      point.padding = unit(0.6, "lines"),
-      box.padding = unit(0.45, "lines"),
-      min.segment.length = 0
-    ) +
-    scale_edge_alpha(range = c(0.35, 0.9), limits = c(0, w_max), guide = "none") +
-    scale_edge_colour_manual(
-      values = c(
-        `TRUE` = "#67000D",
-        `FALSE` = "grey60"
-      ),
-      labels = c(`TRUE` = "Strong ties", `FALSE` = "Weak ties"),
-      guide = guide_legend(
-        title = NULL,
-        override.aes = list(width = 2, alpha = 0.7),
-        position = "bottom"
-      )
-    ) +
-    scale_colour_manual(values = c(`TRUE` = "steelblue", `FALSE` = "grey85")) +
-    ggtitle(title) +
-    theme_void(base_size = 11) +
-    theme(
-      plot.title = element_text(hjust = 0.5, face = "bold"),
-      legend.position = "bottom",
-      plot.margin = margin(8, 8, 8, 8)
-    )
-}
-
-p_qq <- plot_net_gg(g_q_full, layout_q, "Quality - Quality layout", w_max)
-p_eq <- plot_net_gg(g_e_full, layout_q, "Environment - Quality layout", w_max)
-p_qe <- plot_net_gg(g_q_full, layout_e, "Quality - Environment layout", w_max)
-p_ee <- plot_net_gg(g_e_full, layout_e, "Environment - Environment layout", w_max)
-
-panel <- (p_qq | p_eq) / (p_qe | p_ee)
-
-ggsave(file.path(fig_dir, "networks_weighted_full.pdf"), panel,
-  width = 13, height = 13
-)
-print(panel)
-```
-
-### Dyadic regression
-```{r}
-#| label: dyadic-build-covariates
+#| label: dyadic-build-and-exogenous-build
 #| echo: false
 #| include: false
 # Build all dyadic covariates AND all exogenous networks (Albuquerque single-
@@ -755,6 +364,429 @@ for (i in seq_len(N)) {
   W_geoculture[i, nbrs_i] <- 1 / length(nbrs_i)
 }
 ```
+# EU: Quality (ISO 9001) versus Environment (ISO 14001)
+
+## Descriptive Statistics
+
+```{r}
+#| label: descriptive-stats
+#| echo: false
+#| results: asis
+f9001 <- readRDS(file.path(clean_dir, "f9001.rds"))
+f14001 <- readRDS(file.path(clean_dir, "f14001.rds"))
+
+desc_years <- c(1993, 1999, 2017)
+
+desc_tab <- function(df, countries, years) {
+  df |>
+    dplyr::filter(country %in% countries, year %in% years) |>
+    dplyr::group_by(year) |>
+    dplyr::summarise(
+      total_cert     = sum(n_cert, na.rm = TRUE),
+      mean_cert      = mean(n_cert, na.rm = TRUE),
+      sd_cert        = sd(n_cert, na.rm = TRUE),
+      min_cert       = min(n_cert, na.rm = TRUE),
+      max_cert       = max(n_cert, na.rm = TRUE),
+      mean_intensity = mean(n_cert / gdp_pc * 1000, na.rm = TRUE),
+      n_countries    = dplyr::n(),
+      .groups        = "drop"
+    )
+}
+
+d9 <- desc_tab(f9001, country_labels, desc_years)
+d14 <- desc_tab(f14001, country_labels, desc_years)
+
+f0 <- function(x) formatC(x, format = "d", big.mark = ",")
+f1 <- function(x) formatC(x, format = "f", digits = 1, big.mark = ",")
+f2 <- function(x) formatC(x, format = "f", digits = 2)
+
+# Note string for this table. Replace "SAMPLE NOTE" with the actual text.
+desc_stats_note <- "This table summarises the distribution of certifications across the 27 EU countries in the three selected years. The first row reports the number of countries with non-missing data in each year, which is the basis for all subsequent statistics. The second row reports the total number of certifications across all countries, while the third and fourth rows report the mean and standard deviation of certifications per country, respectively. The fifth row reports the minimum and maximum number of certifications across countries. Finally, the sixth row reports the mean certification intensity, defined as the number of certifications per thousand dollars of GDP per capita, averaged across countries. Environment 1993 is empty as its adoption started in 1997.
+Sources: ISO Survey, World Bank."
+
+tex <- c(
+  "\\begin{table}[H]\\centering",
+  "\\caption{Descriptive statistics}",
+  "\\label{tab:desc_stats}",
+  "\\begin{tabular}{lcccccc}\\hline\\hline",
+  "& \\multicolumn{3}{c}{Quality (ISO 9001)} & \\multicolumn{3}{c}{Environment (ISO 14001)} \\\\",
+  "\\cmidrule(lr){2-4} \\cmidrule(lr){5-7}",
+  "& 1993 & 1999 & 2017 & 1993 & 1999 & 2017 \\\\\\hline",
+  sprintf(
+    "Countries Number & %d & %d & %d & & %d & %d \\\\",
+    d9$n_countries[1], d9$n_countries[2], d9$n_countries[3],
+    d14$n_countries[1], d14$n_countries[2]
+  ),
+  sprintf(
+    "Total & %s & %s & %s & & %s & %s \\\\",
+    f0(d9$total_cert[1]), f0(d9$total_cert[2]), f0(d9$total_cert[3]),
+    f0(d14$total_cert[1]), f0(d14$total_cert[2])
+  ),
+  sprintf(
+    "Mean & %s & %s & %s & & %s & %s \\\\",
+    f1(d9$mean_cert[1]), f1(d9$mean_cert[2]), f1(d9$mean_cert[3]),
+    f1(d14$mean_cert[1]), f1(d14$mean_cert[2])
+  ),
+  sprintf(
+    "Std.\\ Dev. & %s & %s & %s & & %s & %s \\\\",
+    f1(d9$sd_cert[1]), f1(d9$sd_cert[2]), f1(d9$sd_cert[3]),
+    f1(d14$sd_cert[1]), f1(d14$sd_cert[2])
+  ),
+  sprintf(
+    "Min--Max & %s--%s & %s--%s & %s--%s & & %s--%s & %s--%s \\\\",
+    f0(d9$min_cert[1]), f0(d9$max_cert[1]),
+    f0(d9$min_cert[2]), f0(d9$max_cert[2]),
+    f0(d9$min_cert[3]), f0(d9$max_cert[3]),
+    f0(d14$min_cert[1]), f0(d14$max_cert[1]),
+    f0(d14$min_cert[2]), f0(d14$max_cert[2])
+  ),
+  sprintf(
+    "Cert./GDP p.c. & %s & %s & %s & & %s & %s \\\\",
+    f2(d9$mean_intensity[1]), f2(d9$mean_intensity[2]), f2(d9$mean_intensity[3]),
+    f2(d14$mean_intensity[1]), f2(d14$mean_intensity[2])
+  ),
+  "\\hline\\hline",
+  sprintf(
+    "\\multicolumn{7}{p{0.92\\textwidth}}{\\footnotesize \\textit{Notes:} %s} \\\\",
+    desc_stats_note
+  ),
+  "\\end{tabular}",
+  "\\end{table}"
+)
+writeLines(tex, file.path(tab_dir, "desc_stats.tex"))
+cat(tex, sep = "\n")
+```
+
+## Network Recovery and Dyadic Analysis
+
+\subsection*{Methodology}
+
+De Paula, Rasul \& Souza (2025) extend the peer-effects literature (Manski 1993; Bramoullé et al., 2009) to the case in which the network of interactions is unknown. Their structural model
+\begin{equation}
+y_{it} = \rho_0 \sum_{j=1}^{N} W_{0,ij}\, y_{jt} + \beta_0 x_{it} + \gamma_0 \sum_{j=1}^{N} W_{0,ij}\, x_{jt} + \alpha_i + \alpha_t + \varepsilon_{it}
+\label{eq:structural}
+\end{equation}
+admits the compact form $y_t = \rho_0 W_0 y_t + \beta_0 x_t + \gamma_0 W_0 x_t + \varepsilon_t$, which rearranges into the reduced form
+\begin{equation}
+y_t = \Pi_0 x_t + \nu_t, \qquad \Pi_0 = (I - \rho_0 W_0)^{-1}(\beta_0 I + \gamma_0 W_0).
+\label{eq:reduced}
+\end{equation}
+If $W_0$ were known, equation~\eqref{eq:reduced} would directly identify the structural parameters $(\rho_0,\beta_0,\gamma_0)$ from a reduced-form regression of outcomes on covariates (Bramoullé et al., 2009). The contribution of De Paula, Rasul \& Souza is to show that, when $W_0$ is unknown, $\Pi_0$ still contains enough information to recover both the network and the parameters jointly.
+
+The intuition is the one that underlies any diffusion process. If a contagious disease spreads through a population, the people who fall ill at the same time tend to be the ones who interact: knowing who got sick when, and what their characteristics are, one can work backwards to who must have been in contact with whom. The same logic applies here. If four countries adopt a standard in synchronous patterns that cannot be explained by their own characteristics alone, the synchrony itself is evidence of a link between them. Cross-country covariation in $y$, conditional on $x$, identifies who is connected to whom, and the strength of the covariation, suitably disentangled, identifies how strong the link is.
+
+In practice, $W_0$ is an unknown matrix and $\Pi_0$ is observable. De Paula, Rasul \& Souza exploit the adaptive elastic net (Caner \& Zhang 2014), which simultaneously selects the non-zero entries of $\hat W$ and estimates their values together with $(\hat\rho,\hat\beta,\hat\gamma)$. The result is an interaction network identified directly from observable cross-sectional spillovers, without requiring a priori commitment to any specific weighting scheme.
+
+```{r}
+#| label: network-stats-table
+#| echo: false
+#| results: asis
+s_q <- net_stats(W_q)
+s_e <- net_stats(W_e)
+
+B_q <- (abs(W_q) > 1e-5) * 1
+B_e <- (abs(W_e) > 1e-5) * 1
+common <- sum(B_q & B_e)
+only_q <- sum(B_q & !B_e)
+only_e <- sum(!B_q & B_e)
+
+f3 <- function(x) formatC(x, format = "f", digits = 3)
+p1 <- function(x) paste0(formatC(100 * x, format = "f", digits = 1), "\\%")
+dg <- function(m, s) paste0(f3(m), " (", f3(s), ")")
+
+rho_q <- best[["9001_eu"]]$rn$unpenalisedgmm$rho
+rho_e <- best[["14001_eu"]]$rn$unpenalisedgmm$rho
+lam_q <- best[["9001_eu"]]$lambda
+lam_e <- best[["14001_eu"]]$lambda
+bic_q <- best[["9001_eu"]]$bic
+bic_e <- best[["14001_eu"]]$bic
+
+# Note string for this table. Replace "SAMPLE NOTE" with the actual text.
+network_stats_note <- "This table reports summary statistics of the two recovered networks, selected by BIC. The first row reports the number of edges in each network, while the second and third rows report how many edges are shared by both networks and how many are unique to each network, respectively. A shared link is intended when there is a link between the same two nodes in the same direction in both networks. The fourth and fifth rows report the clustering coefficient (share of closed triplets) and reciprocity (bidirectional edges) of each network, respectively. The sixth to ninth rows report the mean and standard deviation of out-degrees and in-degrees across nodes (countries) for each network. Finally, the tenth to twelfth rows report the GMM estimates of the structural parameters $\\hat{\\rho}$ (endogenous peer effects) and $\\hat{\\lambda}$ (penalties for the Adaptive Elastic Net) and the BIC values for each network.
+Sources: Elaboration on ISO Survey Data, the World Bank Data and the Worldwide Governance Indicators. The network estimation relies on GDP per capita (WDI: NY.GDP.PCAP.KD), Trade (\\% of GDP; WDI: NE.TRD.GNFS.ZS), Rule of Law estimate (WGI: RL.EST)*, Total Natural Resources Rents (\\% of GDP; WDI: NY.GDP.TOTL.RT.ZS), and Share of Renewables in Total Final Energy Consumption (\\% ; WDI: EG.FEC.RNEW.ZS). All the covariates were log linearised (log (1+x))."
+
+tex <- c(
+  "\\begin{table}[H]\\centering",
+  "\\caption{BIC-selected networks}",
+  "\\label{tab:network_eu}",
+  "\\begin{tabular}{lcc}\\hline\\hline",
+  "& Quality & Environment \\\\\\hline",
+  sprintf("Number of edges & %d & %d \\\\", s_q$edges, s_e$edges),
+  sprintf("Edges in both networks & %d & %d \\\\", common, common),
+  sprintf("Edges in $W_{\\text{Quality}}$ only & %d & \\\\", only_q),
+  sprintf("Edges in $W_{\\text{Environment}}$ only & & %d \\\\", only_e),
+  sprintf("Clustering & %s & %s \\\\", f3(s_q$clustering), f3(s_e$clustering)),
+  sprintf("Reciprocated edges & %s & %s \\\\", p1(s_q$reciprocity), p1(s_e$reciprocity)),
+  "Degree distribution across nodes (countries) & & \\\\",
+  sprintf(
+    "\\quad Out-degree & %s & %s \\\\",
+    dg(s_q$out_mean, s_q$out_sd), dg(s_e$out_mean, s_e$out_sd)
+  ),
+  sprintf(
+    "\\quad In-degree & %s & %s \\\\",
+    dg(s_q$in_mean, s_q$in_sd), dg(s_e$in_mean, s_e$in_sd)
+  ),
+  "\\hline",
+  sprintf(
+    "$\\hat{\\rho}$ (GMM) & %s & %s \\\\",
+    formatC(rho_q, format = "f", digits = 4),
+    formatC(rho_e, format = "f", digits = 4)
+  ),
+  sprintf(
+    "$\\lambda$ & (%s) & (%s) \\\\",
+    paste(formatC(lam_q, format = "f", digits = 3), collapse = ", "),
+    paste(formatC(lam_e, format = "f", digits = 3), collapse = ", ")
+  ),
+  sprintf(
+    "BIC & %s & %s \\\\",
+    formatC(bic_q, format = "f", digits = 2),
+    formatC(bic_e, format = "f", digits = 2)
+  ),
+  "\\hline\\hline",
+  sprintf(
+    "\\multicolumn{3}{p{0.95\\textwidth}}{\\footnotesize \\textit{Notes:} %s} \\\\",
+    network_stats_note
+  ),
+  "\\end{tabular}",
+  "\\end{table}"
+)
+writeLines(tex, file.path(tab_dir, "network_stats.tex"))
+cat(tex, sep = "\n")
+```
+
+```{r}
+#| label: fig-degree-hist
+#| echo: false
+#| fig-width: 9
+#| fig-height: 3.5
+#| fig-cap: "Unweighted degree distributions of recovered networks"
+eps <- 1e-5
+B_q <- (W_q > eps) * 1
+diag(B_q) <- 0
+B_e <- (W_e > eps) * 1
+diag(B_e) <- 0
+
+deg_df <- dplyr::bind_rows(
+  data.frame(
+    standard = "Quality (ISO 9001)",
+    direction = "Out-degree", value = rowSums(B_q)
+  ),
+  data.frame(
+    standard = "Quality (ISO 9001)",
+    direction = "In-degree", value = colSums(B_q)
+  ),
+  data.frame(
+    standard = "Environment (ISO 14001)",
+    direction = "Out-degree", value = rowSums(B_e)
+  ),
+  data.frame(
+    standard = "Environment (ISO 14001)",
+    direction = "In-degree", value = colSums(B_e)
+  )
+) |>
+  dplyr::mutate(
+    standard = factor(standard,
+      levels = c("Quality (ISO 9001)", "Environment (ISO 14001)")
+    ),
+    direction = factor(direction, levels = c("Out-degree", "In-degree"))
+  )
+
+p <- ggplot(deg_df, aes(x = value, fill = standard)) +
+  geom_histogram(
+    position = "dodge", alpha = 0.55,
+    colour = "white", linewidth = 0.3, bins = 12
+  ) +
+  geom_rug(aes(colour = standard),
+    sides = "b",
+    length = unit(0.03, "npc"), alpha = 0.7
+  ) +
+  facet_wrap(~direction, scales = "free", ncol = 2) +
+  scale_fill_manual(values = c(
+    "Quality (ISO 9001)"      = "#3182bd",
+    "Environment (ISO 14001)" = "#31a354"
+  )) +
+  scale_colour_manual(values = c(
+    "Quality (ISO 9001)"      = "#08519c",
+    "Environment (ISO 14001)" = "#006d2c"
+  )) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.02))) +
+  labs(x = "Degree", y = "Count", fill = NULL, colour = NULL) +
+  theme_minimal(base_size = 10) +
+  theme(
+    legend.position  = "bottom",
+    strip.text       = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+
+
+ggsave(file.path(fig_dir, "degree_hist.pdf"), p, width = 9, height = 3.5)
+print(p)
+```
+
+```{r}
+#| label: jaccard-compute
+#| include: false
+eps <- 1e-5
+B_q <- (abs(W_q) > eps) * 1
+B_e <- (abs(W_e) > eps) * 1
+diag(B_q) <- diag(B_e) <- 0
+
+n_q <- sum(B_q)
+n_e <- sum(B_e)
+n_inter <- sum(B_q & B_e)
+n_union <- sum(B_q | B_e)
+jaccard <- n_inter / n_union
+
+jaccard_pct <- formatC(100 * jaccard, format = "f", digits = 1)
+jaccard_val <- formatC(jaccard, format = "f", digits = 3)
+```
+
+
+### Network similarity
+
+To assess how closely the two recovered networks $\hat W^Q$ and $\hat W^E$ overlap, we summarise their structural similarity through the **Jaccard index** (Jaccard 1901; Wasserman \& Faust 1994, Sec.\ 11.4), the share of directed edges shared by both networks relative to the union of their edge sets:
+
+\begin{equation}
+J(\hat W^Q, \hat W^E) = \frac{|E_Q \cap E_E|}{|E_Q \cup E_E|},
+\label{eq:jaccard}
+\end{equation}
+
+where $E_Q = \{(i, j) : |\hat w^Q_{ij}| > 10^{-5}\}$ and $E_E$ is defined analogously. Edges are treated as directed, so that a link $i \to j$ and the reciprocal $j \to i$ count as distinct elements of the edge sets. The index ranges in $[0, 1]$, with $J = 0$ for disjoint networks (no edges in common) and $J = 1$ for identical edge sets.
+
+For the BIC-selected recovered networks, $|E_Q| = `r n_q`$, $|E_E| = `r n_e`$, $|E_Q \cap E_E| = `r n_inter`$, and $|E_Q \cup E_E| = `r n_union`$, yielding $J = `r jaccard_val`$.
+
+```{r}
+#| label: jaccard-exogenous
+#| include: false
+# Compute Jaccard indices between recovered networks and Albuquerque two-channel
+# reference networks. Used inline in the Network similarity paragraph below.
+
+eps <- 1e-5
+binarise <- function(W, eps = 1e-5) {
+  B <- (abs(W) > eps) * 1
+  diag(B) <- 0
+  B
+}
+
+B_q <- binarise(W_q)
+B_e <- binarise(W_e)
+B_gt <- binarise(W_geotrade)
+B_gc <- binarise(W_geoculture)
+
+jaccard_pair <- function(A, B) {
+  inter <- sum(A & B)
+  un <- sum(A | B)
+  if (un == 0) NA_real_ else inter / un
+}
+
+f3 <- function(x) formatC(x, format = "f", digits = 3)
+
+jac_q_gt <- f3(jaccard_pair(B_q, B_gt))
+jac_e_gc <- f3(jaccard_pair(B_e, B_gc))
+```
+
+The same index computed between each recovered network and the corresponding exogenous reference network of Albuquerque, Bronnenberg \& Corbett (2007) yields $J(\hat W^Q, W^{\text{Geo+Trade}}) = `r jac_q_gt`$ and $J(\hat W^E, W^{\text{Geo+Culture}}) = `r jac_e_gc`$.
+### Network visualisation
+
+```{r}
+#| label: fig-networks-weighted-full
+#| echo: false
+#| fig-width: 13
+#| fig-height: 13
+#| fig-cap: "Recovered networks"
+make_full_weighted_graph <- function(W, labels, eps = 1e-5) {
+  W2 <- W
+  W2[abs(W2) < eps] <- 0
+  g <- igraph::graph_from_adjacency_matrix(W2, mode = "directed", weighted = TRUE)
+  igraph::V(g)$name <- labels
+  g
+}
+
+g_q_full <- make_full_weighted_graph(W_q, country_labels)
+g_e_full <- make_full_weighted_graph(W_e, country_labels)
+
+w_max <- max(c(
+  abs(igraph::E(g_q_full)$weight),
+  abs(igraph::E(g_e_full)$weight)
+), 1e-9)
+
+set.seed(1861)
+layout_q <- igraph::layout_with_fr(g_q_full)
+set.seed(1861)
+layout_e <- igraph::layout_with_fr(g_e_full)
+rownames(layout_q) <- rownames(layout_e) <- country_labels
+
+plot_net_gg <- function(g, lo, title, w_max) {
+  lo_ordered <- lo[igraph::V(g)$name, , drop = FALSE]
+
+  ggraph(g, layout = lo_ordered) +
+    geom_edge_arc(
+      aes(
+        alpha = abs(weight),
+        colour = abs(weight) > 0.9
+      ),
+      width = 0.5,
+      arrow = arrow(
+        length = unit(2, "mm"),
+        type = "closed", angle = 22
+      ),
+      end_cap = circle(5, "mm"),
+      start_cap = circle(5, "mm"),
+      strength = 0.12
+    ) +
+    geom_node_point(aes(colour = igraph::degree(g) > 0),
+      size = 4.5, show.legend = FALSE
+    ) +
+    geom_node_text(aes(label = name),
+      repel = TRUE,
+      size = 2.6,
+      bg.colour = "white", bg.r = 0.18,
+      segment.colour = "grey55",
+      segment.size = 0.25,
+      segment.alpha = 0.7,
+      max.overlaps = Inf,
+      force = 3, force_pull = 0.5,
+      point.padding = unit(0.6, "lines"),
+      box.padding = unit(0.45, "lines"),
+      min.segment.length = 0
+    ) +
+    scale_edge_alpha(range = c(0.35, 0.9), limits = c(0, w_max), guide = "none") +
+    scale_edge_colour_manual(
+      values = c(
+        `TRUE` = "#67000D",
+        `FALSE` = "grey60"
+      ),
+      labels = c(`TRUE` = "Strong ties", `FALSE` = "Weak ties"),
+      guide = guide_legend(
+        title = NULL,
+        override.aes = list(width = 2, alpha = 0.7),
+        position = "bottom"
+      )
+    ) +
+    scale_colour_manual(values = c(`TRUE` = "steelblue", `FALSE` = "grey85")) +
+    ggtitle(title) +
+    theme_void(base_size = 11) +
+    theme(
+      plot.title = element_text(hjust = 0.5, face = "bold"),
+      legend.position = "bottom",
+      plot.margin = margin(8, 8, 8, 8)
+    )
+}
+
+p_qq <- plot_net_gg(g_q_full, layout_q, "Quality - Quality layout", w_max)
+p_eq <- plot_net_gg(g_e_full, layout_q, "Environment - Quality layout", w_max)
+p_qe <- plot_net_gg(g_q_full, layout_e, "Quality - Environment layout", w_max)
+p_ee <- plot_net_gg(g_e_full, layout_e, "Environment - Environment layout", w_max)
+
+panel <- (p_qq | p_eq) / (p_qe | p_ee)
+
+ggsave(file.path(fig_dir, "networks_weighted_full.pdf"), panel,
+  width = 13, height = 13
+)
+print(panel)
+```
+
+### Dyadic regression
 
 
 ```{r}
@@ -1298,224 +1330,8 @@ print(
     tab,
     "Peer effect on log-differences, recovered vs Albuquerque two-channel networks",
     "tab:bdf_logdiff_lag_noslo"
-  ) |> add_note("N = 26 This table compares the estimated peer effect coefficients ($\\hat\\beta$) from Bramoullé et al. (2009) method when using the recovered networks versus the exogenous Albuquerque et al. (2007) two-channel networks based on  geography and trade for Quality and geography and culture for Environment. The dependent variable is the log-difference of certifications, and the regressions include a one-year lag in the peer effect. The independent variables were log-standardised (log (1+x)). Standard errors are clustered at the country level. The sample includes all EU countries but Slovenia, dropped as isolated.")
+  ) |> add_note(" This table compares the estimated peer effect coefficients ($\\hat\\beta$) from Bramoullé et al. (2009) method when using the recovered networks versus the exogenous Albuquerque et al. (2007) two-channel networks based on  geography and trade for Quality and geography and culture for Environment. The dependent variable is the log-difference of certifications, and the regressions include a one-year lag in the peer effect. The independent variables were log-standardised (log (1+x)). Standard errors are clustered at the country level. The sample includes all EU countries but Slovenia, dropped as isolated.")
 )
 ```
 
-```{r}
-#| label: bdf-logdiff-lag
-#| echo: false
-#| results: asis
-#| include: false
-set.seed(1861)
-panel_q <- keep_full(attach_y_logdiff(
-  readRDS(file.path(clean_dir, "panel_9001_eu.rds")), f9001
-))
-panel_e <- keep_full(attach_y_logdiff(
-  readRDS(file.path(clean_dir, "panel_14001_eu.rds")), f14001
-))
 
-# print(
-#  print_kbl(
-#    table_rec_vs_abc(panel_q, panel_e, use_lag = TRUE),
-#    "One-year lag: peer effect on log-differences of certifications, recovered vs Albuquerque two-channel networks",
-#    "tab:bdf_logdiff_lag_rec"
-#  ) |> add_note("This table compares the estimated peer effect coefficients ($\\hat\\beta$) from Bramoullé et al. (2009) method when using the recovered network versus the Albuquerque et al. (2007)two-channel network (based on geography and trade for Quality and geography and culture for Environment). The dependent variable is the log-difference of certifications, and the regressions include a one-year lag in the peer effect. The independent variables were log-standardised (log (1+x)). Standard errors are clustered at the country level. The sample includes all countries with full data for the relevant period.")
-# )
-# cat("\n\n")
-print(
-  print_kbl(
-    table_abc_single(panel_q, panel_e, use_lag = TRUE),
-    "One-year lag: peer effect on log-differences of certifications, Albuquerque single-channel networks",
-    "tab:bdf_logdiff_lag_single"
-  ) |> add_note("This table reports the estimated endogenous peer effect for both standards computed across the 3 exogenous networks considered by Albuquerque et al. (2007). The table follows the same conventions as Tab. 3")
-)
-```
-
-```{r}
-#| label: bdf-logdiff-lag-strongties-noslo
-#| echo: false
-#| results: asis
-#| include: false
-# Robustness: trim recovered networks to w > 0.3, drop Slovenia and
-# any further isolates.
-
-set.seed(1861)
-eps <- 1e-5
-threshold <- 0.3
-
-trim_abs <- function(W, threshold = 0.3, eps = 1e-5) {
-  W2 <- W
-  diag(W2) <- 0
-  W2[abs(W2) < threshold] <- 0
-  dimnames(W2) <- dimnames(W)
-  W2
-}
-W_q_strong <- trim_abs(W_q, threshold = threshold)
-W_e_strong <- trim_abs(W_e, threshold = threshold)
-
-cat(sprintf(
-  "Threshold |w| > %.2f. Edges retained: Quality %d/%d, Environment %d/%d\n",
-  threshold,
-  sum(abs(W_q_strong) > eps), sum(abs(W_q) > eps),
-  sum(abs(W_e_strong) > eps), sum(abs(W_e) > eps)
-))
-
-out_q <- rowSums(abs(W_q_strong) > eps)
-out_e <- rowSums(abs(W_e_strong) > eps)
-iso_either <- union(country_labels[out_q == 0], country_labels[out_e == 0])
-to_drop <- union(iso_either, "Slovenia")
-country_keep <- setdiff(country_labels, to_drop)
-keep_idx <- match(country_keep, country_labels)
-
-cat(sprintf("Dropped: %s\n", paste(to_drop, collapse = ", ")))
-cat(sprintf("Surviving: %d countries\n", length(country_keep)))
-
-W_q_sub <- W_q_strong[keep_idx, keep_idx]
-W_e_sub <- W_e_strong[keep_idx, keep_idx]
-W_geotrade_sub <- W_geotrade[keep_idx, keep_idx]
-W_geoculture_sub <- W_geoculture[keep_idx, keep_idx]
-
-keep_full_local <- function(d, n_target) {
-  full_years <- d |>
-    dplyr::count(year) |>
-    dplyr::filter(n == n_target) |>
-    dplyr::pull(year)
-  dplyr::filter(d, year %in% full_years)
-}
-panel_q <- attach_y_logdiff(
-  readRDS(file.path(clean_dir, "panel_9001_eu.rds")), f9001
-) |>
-  dplyr::filter(country %in% country_keep) |>
-  keep_full_local(length(country_keep))
-panel_e <- attach_y_logdiff(
-  readRDS(file.path(clean_dir, "panel_14001_eu.rds")), f14001
-) |>
-  dplyr::filter(country %in% country_keep) |>
-  keep_full_local(length(country_keep))
-
-fit_one_sub <- function(panel, W, B = 999) {
-  d <- build_bdf(panel, W, x_vars, use_lag = TRUE)
-  fit_nofe <- tryCatch(
-    feols(f_nofe, data = d, cluster = ~country, warn = FALSE, notes = FALSE),
-    error = function(e) NULL
-  )
-  nofe <- if (is.null(fit_nofe)) {
-    list(b = NA, se = NA, p = NA)
-  } else {
-    extract_nofe(fit_nofe)
-  }
-  cfe <- tryCatch(
-    extract_cfe(cluster_boot(d, f_cfe, "country", B = B)),
-    error = function(e) list(b = NA, se = NA, p = NA)
-  )
-  list(nofe = nofe, cfe = cfe)
-}
-
-q_rec <- fit_one_sub(panel_q, W_q_sub)
-q_abc <- fit_one_sub(panel_q, W_geotrade_sub)
-e_rec <- fit_one_sub(panel_e, W_e_sub)
-e_abc <- fit_one_sub(panel_e, W_geoculture_sub)
-
-tab <- rbind(
-  rb("Quality", "Recovered (w > 0.3)", q_rec),
-  rb("Quality", "Exogenous, Geo + Trade", q_abc),
-  rb("Environment", "Recovered (w > 0.3)", e_rec),
-  rb("Environment", "Exogenous, Geo + Culture", e_abc)
-)
-tab <- as.data.frame(tab, stringsAsFactors = FALSE)
-colnames(tab) <- c(
-  "Panel", "Network",
-  "$\\hat\\beta$ (no FE)", "$\\hat\\beta$ (country FE)"
-)
-
-cap <- sprintf(
-  "Robustness (one-year lag, recovered network filtered to $|\\hat w_{ij}| > 0.3$, Slovenia excluded; %d countries): peer effect on log-differences",
-  length(country_keep)
-)
-print(
-  print_kbl(tab, cap, "tab:bdf_logdiff_lag_strongties_noslo") |>
-    add_note("This table follows the same conventions as Tab.7 with the difference that only strong ties (w > 0.3) in the recovered network are retained, and Slovenia is dropped since it is an isolate in the recovered network.")
-)
-```
-
-```{r}
-#| label: bdf-logdiff-lag-asymmetric-drop
-#| echo: false
-#| results: asis
-#| include: false
-# Peer effect on log-differences, restricted Quality network
-# specification (where it is a structural isolate, in/out-degree = 0).
-# All other three specifications retain Slovenia, since it is connected
-# in the Environment recovered network and in both Albuquerque
-# exogenous networks (geography always gives Slovenia neighbours).
-# This makes each regression use the largest valid sample given its
-# own network, at the cost of cross-row sample comparability.
-
-set.seed(1861)
-
-# Connectivity diagnostics
-eps <- 1e-5
-deg_W_q <- rowSums(abs(W_q) > eps) + colSums(abs(W_q) > eps)
-deg_W_e <- rowSums(abs(W_e) > eps) + colSums(abs(W_e) > eps)
-deg_W_qabc <- rowSums(W_geotrade > eps) + colSums(W_geotrade > eps)
-deg_W_eabc <- rowSums(W_geoculture > eps) + colSums(W_geoculture > eps)
-
-connected_q_rec <- sum(deg_W_q > 0)
-connected_e_rec <- sum(deg_W_e > 0)
-connected_q_abc <- sum(deg_W_qabc > 0)
-connected_e_abc <- sum(deg_W_eabc > 0)
-
-cat(sprintf(
-  "Connected nodes per network: Quality recovered = %d/27; Environment recovered = %d/27; Quality exogenous (Geo+Trade) = %d/27; Environment exogenous (Geo+Culture) = %d/27.\n\n",
-  connected_q_rec, connected_e_rec, connected_q_abc, connected_e_abc
-))
-
-# ---- Quality recovered: drop Slovenia (isolate) -------------------------
-keep_q_rec <- which(country_labels != "Slovenia")
-country_q_rec <- country_labels[keep_q_rec]
-W_q_sub <- W_q[keep_q_rec, keep_q_rec]
-
-panel_q_rec <- attach_y_logdiff(
-  readRDS(file.path(clean_dir, "panel_9001_eu.rds")), f9001
-) |>
-  dplyr::filter(country %in% country_q_rec) |>
-  keep_full_local(length(country_q_rec))
-
-# ---- Other three specifications: keep all 27 countries ------------------
-panel_q_full <- attach_y_logdiff(
-  readRDS(file.path(clean_dir, "panel_9001_eu.rds")), f9001
-) |> keep_full_local(length(country_labels))
-
-panel_e_full <- attach_y_logdiff(
-  readRDS(file.path(clean_dir, "panel_14001_eu.rds")), f14001
-) |> keep_full_local(length(country_labels))
-
-q_rec <- fit_one_sub(panel_q_rec, W_q_sub)
-q_abc <- fit_one_sub(panel_q_full, W_geotrade)
-e_rec <- fit_one_sub(panel_e_full, W_e)
-e_abc <- fit_one_sub(panel_e_full, W_geoculture)
-
-tab <- rbind(
-  rb("Quality (N=26)", "Recovered", q_rec),
-  rb("Quality (N=27)", "Exogenous, Geo + Trade", q_abc),
-  rb("Environment (N=27)", "Recovered", e_rec),
-  rb("Environment (N=27)", "Exogenous, Geo + Culture", e_abc)
-)
-tab <- as.data.frame(tab, stringsAsFactors = FALSE)
-colnames(tab) <- c(
-  "Panel", "Network",
-  "$\\hat\\beta$ (no FE)", "$\\hat\\beta$ (country FE)"
-)
-
-print(
-  print_kbl(
-    tab,
-    "Peer effect on log-differences, recovered vs Albuquerque two-channel networks",
-    "tab:bdf_logdiff_lag_asym_drop"
-  ) |> add_note(sprintf(
-    "This table compares the estimated peer effect coefficients ($\\hat\\beta$) from Bramoullé et al. (2009) method when using the recovered networks versus the exogenous Albuquerque et al. (2007) two-channel networks based on  geography and trade for Quality and geography and culture for Environment. The dependent variable is the log-difference of certifications, and the regressions include a one-year lag in the peer effect. The independent variables were log-standardised (log (1+x)). Standard errors are clustered at the country level. The sample includes all EU countries but Slovenia, dropped as isolated and incompatible with Bramoullé et al. (2009) methodology.",
-    connected_q_rec, connected_e_rec, connected_q_abc, connected_e_abc
-  ))
-)
-```
