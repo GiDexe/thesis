@@ -1,0 +1,163 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{pdflscape}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{amsmath}
+\usepackage{threeparttable}
+\usepackage{geometry}
+\usepackage[table]{xcolor}
+\usepackage{chngcntr}
+\geometry{margin=2.5cm}
+
+\title{ISOs Diffusion in the EU: an Endogenous Network Recovery for
+       Environmental and Quality Management Systems}
+\author{Gianluigi De Rubertis}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+    Your abstract text here.
+\end{abstract}
+
+\newpage
+
+\tableofcontents
+
+\newpage
+
+\section {Introduction}
+The study identifies political and techincal standards, represented by ISO 14001 (Environmental Management) and ISO 9001 (Quality Management) respectively, as paradigmatic cases of policy diffusion in the EU. It applies the De Paula, Rasul \& Souza (2025) method to recover peer effects and networks of influence from panel data on ISO certifications across 27 EU countries over 1993--2017. The recovered networks are compared to exogenous benchmarks based on geography, trade, culture and institutional similarity, and used to estimate peer effects via IV-2SLS with country FE. The paper contributes to the literature on peer effects and network formation (Manski 1993; Bramoullé et al., 2009; De Paula, Rasul \& Souza 2025), policy diffusion (Berliner \& Prakash 2013) and ISO standards diffusion (Guler et al., 2002; Albuquerque et al., 2007).
+
+\subsection{Literature Review}
+
+\begin{itemize}
+    \item \textbf{Peer effects and network formation:} Manski (1993) establishes the reflection problem in identifying social effects; Bramoullé et al. (2009) show identification via network exclusion restrictions; De Paula, Rasul \& Souza (2025) extend this to unknown networks via penalised GMM.
+    \item \textbf{Policy diffusion:} Berliner \& Prakash (2013) document the role of weak governance in driving voluntary standard adoption as a signalling device.
+    \item \textbf{ISO standards diffusion:} Guler et al. (2002) identify trade and foreign investment as channels of ISO 9001 diffusion; Albuquerque et al. (2007) provide spatiotemporal evidence of cross-country spillovers for both ISO 9001 and ISO 14001.
+\end{itemize}
+
+\section {Data and Methodology}
+\subsection{Data} \textit{Data.} Country-level annual counts of valid ISO 9001 and ISO 14001 certificates from the ISO Survey, covering 27 EU countries over 1993--2017 for Quality and 1997--2017 for Environment ($N=27$, $T=25$ and $T=21$ respectively). Covariates from the World Bank WDI: GDP per capita, Trade (\% of GDP), Renewables (\%), Natural Resources Rents (\% of GDP); Rule of Law from the Worldwide Governance Indicators (WGI).
+\subsection{Methodology} De Paula, Rasul \& Souza (2025) extend the peer-effects literature (Manski 1993; Bramoullé et al., 2009) to the case in which the network of interactions is unknown. Their structural model \begin{equation} y_{it} = \rho_0 \sum_{j=1}^{N} W_{0,ij}\, y_{jt} + \beta_0 x_{it} + \gamma_0 \sum_{j=1}^{N} W_{0,ij}\, x_{jt} + \alpha_i + \alpha_t + \varepsilon_{it} \label{eq:structural} \end{equation} admits the compact form $y_t = \rho_0 W_0 y_t + \beta_0 x_t + \gamma_0 W_0 x_t + \varepsilon_t$, which rearranges into the reduced form \begin{equation} y_t = \Pi_0 x_t + \nu_t, \qquad \Pi_0 = (I - \rho_0 W_0)^{-1}(\beta_0 I + \gamma_0 W_0). \label{eq:reduced} \end{equation} If $W_0$ were known, equation~\eqref{eq:reduced} would directly identify the structural parameters $(\rho_0,\beta_0,\gamma_0)$ from a reduced-form regression of outcomes on covariates (Bramoullé et al., 2009). The contribution of De Paula, Rasul \& Souza is to show that, when $W_0$ is unknown, $\Pi_0$ still contains enough information to recover both the network and the parameters jointly. The intuition is the one that underlies any diffusion process. If a contagious disease spreads through a population, the people who fall ill at the same time tend to be the ones who interact: knowing who got sick when, and what their characteristics are, one can work backwards to who must have been in contact with whom. The same logic applies here. If four countries adopt a standard in synchronous patterns that cannot be explained by their own characteristics alone, the synchrony itself is evidence of a link between them. Cross-country covariation in $y$, conditional on $x$, identifies who is connected to whom, and the strength of the covariation, suitably disentangled, identifies how strong the link is. In principle, $\Pi_0$ is identified as the linear projection of $y$ on $x$ and could be recovered by ordinary least squares whenever the panel is long enough relative to the number of parameters. In typical short panels this is infeasible. De Paula, Rasul \& Souza recover the network $\hat W$ jointly with the structural parameters $(\hat\rho, \hat\beta, \hat\gamma)$ via an adaptive elastic-net GMM (Caner \& Zhang 2014) defined directly on the moment conditions implied by the structural model. Sparsity in $\hat W$ regularises the high-dimensional problem and restores consistency in short panels, estimating the network from observed spillovers without requiring a priori commitment to any specific weighting scheme.
+% =============================================================================
+\section{EU: Quality (ISO 9001) versus Environment (ISO 14001)}
+% =============================================================================
+
+\subsection{Descriptive Statistics}
+
+\input{assets/tables/desc_stats}
+
+% =============================================================================
+\subsection{Network Recovery}
+% =============================================================================
+
+% --- methodology prose here ---
+
+\input{assets/tables/network_stats}
+
+% =============================================================================
+\subsection{Recovered Networks}
+% =============================================================================
+
+\begin{figure}[H]
+    \centering
+    \caption{Recovered networks}
+    \label{fig:networks}
+    \includegraphics[width=\textwidth]{assets/figures/networks_weighted_full}
+    \par\vspace{0.5em}
+    {\footnotesize \textit{Notes.} Quality and Environment networks recovered via De Paula, Rasul \& Souza (2025). Networks are weighted and directed. Each is shown in its own Fruchterman--Reingold layout (Quality--Quality and Environment--Environment) and in the other standard's layout (Quality--Environment and Environment--Quality) to facilitate visual comparison of topology.}
+\end{figure}
+
+
+% =============================================================================
+\subsection{Peer Effects: Recovered vs Exogenous Networks}
+% =============================================================================
+
+\begin{figure}[H]
+    \centering
+    \caption{Peer-effect estimates across network specifications.}
+    \label{fig:bdf_combined}
+    \includegraphics[width=\textwidth]{assets/figures/bdf_forest_combined}
+    \par\vspace{0.5em}
+    {\footnotesize \textit{Notes.} \textit{Observations:} Quality $N \times T = 624$ (simultaneous), $598$ (lagged); Environment $N \times T = 468$ (simultaneous), $442$ (lagged). The figure reports IV-2SLS peer-effect estimates ($\hat\beta$) and 95\% confidence intervals from the Bramoullé, Djebbari \& Fortin (2009) linear-in-means specification, estimated on the recovered networks (De Paula, Rasul \& Souza 2025) and on the exogenous benchmark networks of Albuquerque et al.\ (2007). Error bars are cluster-bootstrapped (999 draws, country clusters). Within-$R^2$ labelled above each point estimate. The two panels show results with and without a one year lag. Slovenia dropped (isolated node in the recovered Quality network).}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \caption{Simulation Results, Adaptive Elastic-Net GMM}
+    \label{fig:depaula_appendix}
+    \includegraphics[width=\textwidth]{assets/figures/depaula_appendix_figure.png}
+    \par\vspace{0.5em}
+    {\footnotesize \textit{Notes.} \textit{Source:} De Paula, Rasul \& Souza (2025), Figure A1. Results from 1000 Monte Carlo iterations under various true networks and time periods $T = 25, 50, 75, 100, 125, 150$, with true parameters $\rho_0 = 0.3$, $\beta_0 = 0.4$, $\gamma_0 = 0.5$. Panel A: share of true zero elements in $W$ estimated below $0.05$. Panel B: share of true non-zero elements above $0.3$ estimated as non-zero. Panels C--D: mean absolute deviation of the estimated network from the true $W$ and reduced-form matrix respectively. Panels E--F: recovered parameters averaged across iterations; true values marked by horizontal red lines. All specifications include time and node fixed effects.}
+\end{figure}
+
+\clearpage
+
+% =============================================================================
+\subsection{Network Similarity}
+% =============================================================================
+To assess how closely the two recovered networks $\hat W^Q$ and $\hat W^E$ overlap, we summarise their structural similarity through the \textbf{Jaccard index} (Jaccard 1901; Wasserman \& Faust 1994, Sec.\ 11.4): \begin{equation} J(\hat W^Q, \hat W^E) = \frac{|E_Q \cap E_E|}{|E_Q \cup E_E|}, \label{eq:jaccard} \end{equation} where $E_Q = \{(i, j) : |\hat w^Q_{ij}| > 10^{-5}\}$ and $E_E$ is defined analogously. The index ranges in $[0, 1]$, with $J = 0$ for disjoint networks and $J = 1$ for identical edge sets. For the BIC-selected recovered networks, $|E_Q| = `r n_q`$, $|E_E| = `r n_e`$, $|E_Q \cap E_E| = `r n_inter`$, and $|E_Q \cup E_E| = `r n_union`$, yielding $J = `r jaccard_val`$.
+
+\input{assets/tables/network_jaccard_summary}
+
+\input{assets/tables/jaccard_similarity_quality}
+
+\input{assets/tables/jaccard_similarity_environment}
+
+\clearpage
+
+% =============================================================================
+\subsection{Dyadic Regression}
+% =============================================================================
+
+% --- prose motivating the dyadic regression here ---
+
+\input{assets/tables/dyadic_recovered_fp_fe}
+
+
+\clearpage
+
+% =============================================================================
+\appendix
+\section{Appendix}
+\renewcommand{\thefigure}{A\arabic{figure}}
+\renewcommand{\thetable}{A\arabic{table}}
+\setcounter{figure}{0}
+\setcounter{table}{0}
+% =============================================================================
+
+\subsection{Grid Search Results}
+
+\input{assets/tables/grid_search_summary}
+
+
+\subsection{Degree Distributions}
+
+\begin{figure}[H]
+    \centering
+    \caption{Degree distributions of recovered networks}
+    \label{fig:degree_hist}
+    \includegraphics[width=\textwidth]{assets/figures/degree_hist}
+    \par\vspace{0.5em}
+    {\footnotesize \textit{Notes.} This figure shows the in- and out-degree distributions of the recovered Quality and Environment networks. Degree is defined as the number of non-zero entries in each row (out-degree) or column (in-degree) of the recovered weight matrix $\hat W$.}
+\end{figure}
+
+\subsection{GMM Parameter Estimates}
+
+\begin{figure}[H]
+    \centering
+    \caption{GMM parameter estimates}
+    \label{fig:gmm_ci}
+    \includegraphics[width=0.85\textwidth]{assets/figures/gmm_ci}
+    \par\vspace{0.5em}
+    {\footnotesize \textit{Notes.} This figure shows the point estimates and 95\% confidence intervals for the GMM parameters $(\rho, \beta, \gamma)$ from the network recovery step. Estimates are shown separately for the Quality and Environment standards. Error bars are based on the asymptotic sandwich variance estimator that conditions on the recovered network $\hat W$ (De Paula, Rasul \& Souza 2025).}
+\end{figure}
+
+\end{document}

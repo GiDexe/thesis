@@ -1,0 +1,39 @@
+
+\begin{table}[htbp]
+   \caption{\label{tab:dyadic_recovered_fp_fe} Dyadic regression of recovered network weights with sender and receiver fixed effects, full-period averages (1993--2017).}
+   \centering
+   \begin{tabular}{lcc}
+      \tabularnewline \midrule \midrule
+                                              & Quality       & Environment \\   
+      Specification & \multicolumn{2}{c}{OLS} \\ 
+                                              & (1)           & (2)\\  
+      \midrule
+      \emph{Variables}\\
+      Economic distance                       & -0.0338       & -0.0360$^{*}$\\   
+                                              & (0.0244)      & (0.0207)\\   
+      Env. policy asymmetry                   & 0.0190        & 0.0381$^{**}$\\   
+                                              & (0.0215)      & (0.0178)\\   
+      Cultural distance                       & 0.0009        & 0.0002\\   
+                                              & (0.0006)      & (0.0004)\\   
+      Geographic distance                     & -0.0173       & -0.0037\\   
+                                              & (0.0169)      & (0.0179)\\   
+      Bilateral FDI                           & 0.0143$^{**}$ & 0.0018\\   
+                                              & (0.0064)      & (0.0067)\\   
+      Bilateral Trade (log)                   & 0.0031        & -0.0031\\   
+                                              & (0.0042)      & (0.0049)\\   
+      \midrule
+      \emph{Fixed-effects}\\
+      Sender FE ($\alpha_i^{\text{out}}$):    & Yes           & Yes\\  
+      Receiver FE ($\alpha_j^{\text{in}}$):   & Yes           & Yes\\  
+      \midrule
+      \emph{Fit statistics}\\
+      Observations                            & 702           & 702\\  
+      R$^2$                                   & 0.08855       & 0.06667\\  
+      \midrule \midrule & \tabularnewline
+   \end{tabular}
+   
+   \par \raggedright 
+   \textit{Notes} OLS estimates of $\hat w_{ij}$ on dyadic covariates. Sample: 702 directed pairs, 27 EU countries, full-period (1993--2017) averages. Two-way clustered SE (sender $\times$ receiver). Significance: $^{***}$ $p<0.01$, $^{**}$ $p<0.05$, $^{*}$ $p<0.10$.
+\end{table}
+
+

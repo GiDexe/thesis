@@ -245,6 +245,7 @@ attach_y_logdiff <- function(dp_raw, certs) {
     dplyr::filter(country %in% country_labels)
 }
 
+
 #' Build the BDF (2009) regression panel from a country-year panel and a
 #' network W.
 #'
@@ -252,66 +253,64 @@ attach_y_logdiff <- function(dp_raw, certs) {
 #' G2_xk = W^2 %*% xk and G3_xk = W^3 %*% xk (BDF instruments under
 #' intransitivity).
 #'
-#' If use_lag = TRUE, applies a one-year lag uniformly to ALL regressors
-#' and instruments: {Gy, x_1..x_K, G_x*, G2_x*, G3_x*}. This matches the
-#' predetermined-regressor assumption E[eps_t | z_{t-1}] = 0 (Liu,
-#' Patacchini & Zenou 2014, Quant. Econ. 5(1): 91-140) and avoids the
-#' inconsistency of lagging only the peer outcome while leaving own and
-#' contextual regressors contemporaneous. One period is lost; the effective
-#' sample is T - 1.
-#'
-#' The contemporaneous specification (use_lag = FALSE) matches BDF (2009)
+#' If use_lag = TRUE, applies a one-year lag to Gy and the instruments
+#' G2_x*, G3_x*. The lagged specification corresponds to predeterminedness
+#' E[eps_t | Gy_{t-1}] = 0 (Liu, Patacchini & Zenou 2014, Quant. Econ. 5(1):
+#' 91-140); the contemporaneous specification corresponds to BDF (2009)
 #' Proposition 1 under intransitivity.
 #'
 #' @param panel data frame with country, year, y, x1..x5
 #' @param W N x N network matrix (will be row-normalised inside)
 #' @param x_vars character vector of exogenous-variable names
-#' @param use_lag logical; if TRUE applies one-year lag to ALL regressors
-#'   and instruments
+#' @param use_lag logical; if TRUE applies one-year lag to Gy and instruments
 #' @return data frame with Gy, G_x*, G2_x*, G3_x* columns added
 build_bdf <- function(panel, W, x_vars, use_lag) {
   G <- row_normalise(W)
   G2 <- G %*% G
   G3 <- G2 %*% G
-
   d <- panel[order(panel$year, match(panel$country, rownames(G))), ]
   yrs <- sort(unique(d$year))
-
-  # --- peer outcome ---
   d$Gy <- unlist(lapply(yrs, function(t) {
     as.numeric(G %*% d$y[d$year == t])
   }))
-
-  # --- contextual regressors and instruments ---
   for (v in x_vars) {
-    Xt <- matrix(d[[v]], nrow = nrow(G), ncol = length(yrs))
+    Xt <- matrix(d[[v]], ncol = length(yrs))
     d[[paste0("G_", v)]] <- as.numeric(G %*% Xt)
     d[[paste0("G2_", v)]] <- as.numeric(G2 %*% Xt)
     d[[paste0("G3_", v)]] <- as.numeric(G3 %*% Xt)
   }
-
   d <- d[order(d$country, d$year), ]
-
+  # if (use_lag) {
+  #  d <- d |>
+  #    dplyr::group_by(country) |>
+  #    dplyr::mutate(
+  #      Gy = dplyr::lag(Gy, n = 1, order_by = year),
+  #      dplyr::across(
+  #        dplyr::all_of(c(paste0("G2_", x_vars), paste0("G3_", x_vars))),
+  #        \(z) dplyr::lag(z, n = 1, order_by = year)
+  #      )
+  #    ) |>
+  #    dplyr::ungroup() |>
+  #    tidyr::drop_na(Gy)
+  # }
   if (use_lag) {
-    lag_cols <- c(
-      "Gy",
-      x_vars, # own regressors x_{t-1}
-      paste0("G_", x_vars), # contextual Gx_{t-1}
-      paste0("G2_", x_vars), # instruments G²x_{t-1}
-      paste0("G3_", x_vars) # instruments G³x_{t-1}
-    )
     d <- d |>
       dplyr::group_by(country) |>
       dplyr::mutate(
+        Gy = dplyr::lag(Gy, n = 1, order_by = year),
         dplyr::across(
-          dplyr::all_of(lag_cols),
+          dplyr::all_of(c(
+            x_vars,
+            paste0("G_", x_vars),
+            paste0("G2_", x_vars),
+            paste0("G3_", x_vars)
+          )),
           \(z) dplyr::lag(z, n = 1, order_by = year)
         )
       ) |>
       dplyr::ungroup() |>
-      tidyr::drop_na(dplyr::all_of(lag_cols))
+      tidyr::drop_na(Gy)
   }
-
   d
 }
 
@@ -539,6 +538,40 @@ print_kbl <- function(tab, caption, label) {
     caption = caption, label = label
   ) |>
     kable_styling(latex_options = "hold_position", font_size = 10)
+}
+
+
+## =============================================================================
+## Output saving helpers
+## =============================================================================
+
+#' Save a figure as PDF in ./assets/figures
+save_figure <- function(name, width = 6.3, height = 4, units = "in") {
+  if (!dir.exists("./assets/figures")) {
+    dir.create("./assets/figures", recursive = TRUE)
+  }
+
+  ggplot2::ggsave(
+    filename = paste0("./assets/figures/", name, ".pdf"),
+    width = width,
+    height = height,
+    units = units
+  )
+}
+
+
+#' Save a LaTeX table in ./assets/tables
+save_table <- function(table, name) {
+  if (!dir.exists("./assets/tables")) {
+    dir.create("./assets/tables", recursive = TRUE)
+  }
+
+  kableExtra::save_kable(
+    table,
+    file = paste0("./assets/tables/", name, ".tex")
+  )
+
+  invisible(table)
 }
 
 
