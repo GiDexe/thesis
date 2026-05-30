@@ -22,6 +22,7 @@ renv/cache/
 *.qmd_cache/
 _cache/
 *_files/
+.vdoc.*
 
 # ==== LaTeX ====
 *.aux

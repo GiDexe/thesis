@@ -20,7 +20,7 @@
   "postStartCommand": "Rscript /startup_scripts/check_dev_dependencies.R",
   "mounts": [
     "source=devcontainer-renv-cache,target=/renv/cache,type=volume",
-    "source= INSERT PATH TO DROPBOX FOLDER HERE,target=/workspaces/thesis/data,type=bind",
-    "source= INSERT PATH TO /startup_scripts,target=/startup_scripts,type=bind"
+    "source=INSERT PATH TO DROPBOX FOLDER HERE,target=/workspaces/thesis/data,type=bind",
+    "source=INSERT PATH TO /startup_scripts,target=/startup_scripts,type=bind"
   ]
 }

@@ -1,0 +1,29 @@
+\begin{table}[!h]
+\centering
+\caption{\label{tab:tab:grid_search}Top-5 BIC grid search results per standard. BIC-selected specification in bold.}
+\centering
+\fontsize{9}{11}\selectfont
+\begin{threeparttable}
+\begin{tabular}[t]{lcccrrr}
+\toprule
+Panel & $\lambda_1$ & $\lambda_2$ & $\lambda_1^*$ & Edges & $\hat\rho_{GMM}$ & BIC\\
+\midrule
+\cellcolor[HTML]{FFF9C4}{\textbf{Environment}} & \cellcolor[HTML]{FFF9C4}{\textbf{0.050}} & \cellcolor[HTML]{FFF9C4}{\textbf{0.050}} & \cellcolor[HTML]{FFF9C4}{\textbf{0.100}} & \cellcolor[HTML]{FFF9C4}{\textbf{30}} & \cellcolor[HTML]{FFF9C4}{\textbf{0.286}} & \cellcolor[HTML]{FFF9C4}{\textbf{14.57}}\\
+Environment & 0.050 & 0.050 & 0.150 & 30 & 0.287 & 14.57\\
+Environment & 0.050 & 0.050 & 0.200 & 30 & 0.288 & 14.57\\
+Environment & 0.050 & 0.100 & 0.100 & 31 & 0.277 & 14.62\\
+Environment & 0.050 & 0.150 & 0.050 & 31 & 0.276 & 14.62\\
+\addlinespace
+\cellcolor[HTML]{FFF9C4}{\textbf{Quality}} & \cellcolor[HTML]{FFF9C4}{\textbf{0.100}} & \cellcolor[HTML]{FFF9C4}{\textbf{0.150}} & \cellcolor[HTML]{FFF9C4}{\textbf{0.200}} & \cellcolor[HTML]{FFF9C4}{\textbf{28}} & \cellcolor[HTML]{FFF9C4}{\textbf{0.203}} & \cellcolor[HTML]{FFF9C4}{\textbf{13.96}}\\
+Quality & 0.150 & 0.100 & 0.150 & 29 & 0.276 & 14.25\\
+Quality & 0.150 & 0.100 & 0.200 & 29 & 0.280 & 14.26\\
+Quality & 0.150 & 0.150 & 0.200 & 30 & 0.255 & 14.30\\
+Quality & 0.100 & 0.150 & 0.150 & 31 & 0.181 & 14.31\\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}[para]
+\item \textit{Notes:} 
+\item Top 5 penalisation parameter combinations by BIC, from a grid search over the adaptive elastic-net GMM estimator of De Paula, Rasul and Souza (2025). The BIC-selected specification is highlighted in yellow. Convergence failures are denoted by ---.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}

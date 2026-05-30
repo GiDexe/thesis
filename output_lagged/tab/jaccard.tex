@@ -1,0 +1,23 @@
+\begin{table}[!h]
+\centering
+\caption{\label{tab:tab:jaccard}Jaccard index: Recovered vs Exogenous networks}
+\centering
+\fontsize{10}{12}\selectfont
+\begin{threeparttable}
+\begin{tabular}[t]{lcc}
+\toprule
+Comparison & $J(\hat W^Q, \cdot)$ & $J(\hat W^E, \cdot)$\\
+\midrule
+Recovered (own) & 1.000 & 1.000\\
+Exogenous, two-channel & 0.025 & 0.025\\
+Exogenous, Geography & 0.019 & 0.029\\
+Exogenous, Trade & 0.019 & 0.038\\
+Exogenous, Cultural dist. & 0.028 & 0.009\\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}[para]
+\item \textit{Notes:} 
+\item Jaccard index $J(A,B)=|E_Acap E_B|/|E_Acup E_B|$ on binarised directed edge sets (threshold $10^{-5}$). The two-channel Albuquerque benchmark uses geography + trade for Quality and geography + culture for Environment.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}

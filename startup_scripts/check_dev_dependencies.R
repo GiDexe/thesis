@@ -16,12 +16,13 @@ pinned_pkgs <- c(
   "devtools@2.4.6", "usethis@3.2.1", "WDI@2.7.9", "janitor@2.2.1",
   "lubridate@1.9.4", "forcats@1.0.1", "stringr@1.5.2", "dplyr@1.1.4",
   "purrr@1.1.0", "readr@2.1.5", "tidyr@1.3.1", "tibble@3.3.0",
-  "ggplot2@4.0.0", "tidyverse@2.0.0", "readxl@1.4.5", "countrycode@1.6.1", "igraph@2.2.2"
+  "ggplot2@4.0.0", "tidyverse@2.0.0", "readxl@1.4.5", "countrycode@1.6.1", "igraph@2.2.2","zoo", "ggraph", "patchwork"
 )
 
 # Install pinned packages
 # renv is smart: if the version is already there, it skips it instantly
 renv::install(pinned_pkgs)
+
 
 # --- VS CODE / DEV TOOLS ---
 if (!requireNamespace("desc", quietly = TRUE)) renv::install("desc")
@@ -39,6 +40,8 @@ if (vscode) {
   )
   renv::install(vscode_deps)
 }
+
+devtools::install_github("pedroclsouza/recovernetwork")
 
 # --- DESCRIPTION FILE CHECK ---
 # Check if there are any other dependencies in the DESCRIPTION file
