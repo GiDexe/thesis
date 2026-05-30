@@ -56,6 +56,12 @@ set.seed(1861)
 setwd("/workspaces/thesis")
 options(readr.show_col_types = FALSE)
 
+# Edge-detection threshold for the recovered (numerically-solved) W.
+# Entries with |w_ij| <= EPS_EDGE reflect solver tolerance and are treated as
+# exact zeros. Applied once at load time (see load-best), so every downstream
+# edge-based statistic uses the same support.
+EPS_EDGE <- 1e-5
+
 out_dir <- "output"
 if (!dir.exists(out_dir)) dir.create(out_dir)
 fig_dir <- "./assets/figures"
@@ -80,8 +86,10 @@ add_note <- function(k, note = "SAMPLE NOTE") {
 best <- readRDS(file.path(out_dir, "best_per_panel.rds"))
 W_q <- as.matrix(best[["9001_eu"]]$rn$unpenalisedgmm$W)
 diag(W_q) <- 0
+W_q[abs(W_q) <= EPS_EDGE] <- 0
 W_e <- as.matrix(best[["14001_eu"]]$rn$unpenalisedgmm$W)
 diag(W_e) <- 0
+W_e[abs(W_e) <= EPS_EDGE] <- 0
 
 sync_eu <- readRDS(file.path(clean_dir, "sync_eu.rds"))
 country_labels <- sort(sync_eu)
@@ -398,8 +406,8 @@ In principle, $\Pi_0$ is identified as the linear projection of $y$ on $x$ and c
 #| results: asis
 s_q <- net_stats(W_q)
 s_e <- net_stats(W_e)
-B_q <- (abs(W_q) > 1e-5) * 1
-B_e <- (abs(W_e) > 1e-5) * 1
+B_q <- (W_q != 0) * 1
+B_e <- (W_e != 0) * 1
 common <- sum(B_q & B_e)
 only_q <- sum(B_q & !B_e)
 only_e <- sum(!B_q & B_e)
@@ -462,10 +470,9 @@ cat(tex, sep = "\n")
 #| fig-width: 9
 #| fig-height: 3.5
 #| fig-cap: "Unweighted degree distributions of recovered networks"
-eps <- 1e-5
-B_q_d <- (W_q > eps) * 1
+B_q_d <- (W_q != 0) * 1
 diag(B_q_d) <- 0
-B_e_d <- (W_e > eps) * 1
+B_e_d <- (W_e != 0) * 1
 diag(B_e_d) <- 0
 deg_df <- dplyr::bind_rows(
   data.frame(standard = "Quality (ISO 9001)", direction = "Out-degree", value = rowSums(B_q_d)),
@@ -495,9 +502,8 @@ print(p_deg)
 ```{r}
 #| label: jaccard-compute
 #| include: false
-eps <- 1e-5
-B_q <- (abs(W_q) > eps) * 1
-B_e <- (abs(W_e) > eps) * 1
+B_q <- (W_q != 0) * 1
+B_e <- (W_e != 0) * 1
 diag(B_q) <- diag(B_e) <- 0
 n_q <- sum(B_q)
 n_e <- sum(B_e)
@@ -524,8 +530,8 @@ For the BIC-selected recovered networks, $|E_Q| = `r n_q`$, $|E_E| = `r n_e`$, $
 #| echo: false
 #| results: asis
 jaccard_similarity_mat <- function(M1, M2) {
-  b1 <- as.numeric(M1[row(M1) != col(M1)] > 0)
-  b2 <- as.numeric(M2[row(M2) != col(M2)] > 0)
+  b1 <- as.numeric(M1[row(M1) != col(M1)] != 0)
+  b2 <- as.numeric(M2[row(M2) != col(M2)] != 0)
   union_count <- sum(b1 | b2)
   if (union_count == 0) {
     return(0)
@@ -579,7 +585,7 @@ tab_jaccard_q <- kbl(
     font_size = 9
   ) |>
   add_note(
-    "This table shows the lower triangle only of the similarity matrix based on the Jaccard index for all the Quality networks considered in this paper. A link is active if $w_{ij} > 0$."
+    "This table shows the lower triangle only of the similarity matrix based on the Jaccard index for all the Quality networks considered in this paper. A link is active if $w_{ij} \\neq 0$."
   )
 
 save_table(tab_jaccard_q, "jaccard_similarity_quality")
@@ -601,7 +607,7 @@ tab_jaccard_e <- kbl(
     font_size = 9
   ) |>
   add_note(
-    "This table shows the lower triangle only of the similarity matrix based on the Jaccard index for all the Environment networks considered in this paper. A link is active if $w_{ij} > 0$."
+    "This table shows the lower triangle only of the similarity matrix based on the Jaccard index for all the Environment networks considered in this paper. A link is active if $w_{ij} \\neq 0$."
   )
 
 save_table(tab_jaccard_e, "jaccard_similarity_environment")
@@ -616,10 +622,8 @@ tab_jaccard_e |> print()
 #| fig-width: 13
 #| fig-height: 13
 #| fig-cap: "Recovered networks"
-make_full_weighted_graph <- function(W, labels, eps = 1e-5) {
-  W2 <- W
-  W2[abs(W2) < eps] <- 0
-  g <- igraph::graph_from_adjacency_matrix(W2, mode = "directed", weighted = TRUE)
+make_full_weighted_graph <- function(W, labels) {
+  g <- igraph::graph_from_adjacency_matrix(W, mode = "directed", weighted = TRUE)
   igraph::V(g)$name <- labels
   g
 }
@@ -668,6 +672,7 @@ print(panel)
 ```
 
 ### Dyadic regression
+
 
 ```{r}
 #| label: dyadic-fullperiod-robustness
