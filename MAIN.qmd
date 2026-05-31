@@ -19,8 +19,14 @@ format:
 ```{r}
 #| label: setup
 #| include: false
-data_dir <- "/workspaces/thesis/data"
-clean_dir <- "/workspaces/thesis/data/cleaned_data"
+
+# --- set root BEFORE any relative path is used ---
+proj_dir <- "/workspaces/thesis"
+setwd(proj_dir)
+
+data_dir  <- "/workspaces/thesis/data"
+clean_dir <- file.path(data_dir, "cleaned_data")
+if (!dir.exists(clean_dir)) dir.create(clean_dir, recursive = TRUE)
 
 library(kableExtra)
 library(dplyr)
@@ -43,39 +49,30 @@ library(maps)
 library(countrycode)
 library(fixest)
 library(knitr)
-library(magrittr)
-library(stringr)
 library(parallel)
-library(dplyr)
-library(ggplot2)
 library(cowplot)
 
-source("/workspaces/thesis/thesis_helpers_refactored.r")
+source(file.path(proj_dir, "thesis_helpers_refactored.r"))
 
 set.seed(1861)
-setwd("/workspaces/thesis")
 options(readr.show_col_types = FALSE)
 
-# Edge-detection threshold for the recovered (numerically-solved) W.
-# Entries with |w_ij| <= EPS_EDGE reflect solver tolerance and are treated as
-# exact zeros. Applied once at load time (see load-best), so every downstream
-# edge-based statistic uses the same support.
 EPS_EDGE <- 1e-5
 
-out_dir <- "output"
-if (!dir.exists(out_dir)) dir.create(out_dir)
-fig_dir <- "./assets/figures"
-tab_dir <- "./assets/tables"
+out_dir <- file.path(data_dir, "output")   # was file.path(proj_dir, "output")
+out_rerun <- file.path(data_dir, "output_rerun")    # gitignored scratch
+dir.create(out_rerun, showWarnings = FALSE)
+
+read_dir <- if (Sys.getenv("USE_RERUN") == "true") out_rerun else out_dir
+
+fig_dir <- file.path(proj_dir, "assets/figures")
+tab_dir <- file.path(proj_dir, "assets/tables")
 for (d in c(fig_dir, tab_dir)) if (!dir.exists(d)) dir.create(d, recursive = TRUE)
 
 add_note <- function(k, note = "SAMPLE NOTE") {
   kableExtra::footnote(
-    k,
-    general = note,
-    general_title = "Notes:",
-    threeparttable = TRUE,
-    footnote_as_chunk = TRUE,
-    escape = FALSE
+    k, general = note, general_title = "Notes:",
+    threeparttable = TRUE, footnote_as_chunk = TRUE, escape = FALSE
   )
 }
 ```
@@ -83,7 +80,7 @@ add_note <- function(k, note = "SAMPLE NOTE") {
 ```{r}
 #| label: load-best
 #| include: false
-best <- readRDS(file.path(out_dir, "best_per_panel.rds"))
+best <- readRDS(file.path(read_dir, "best_per_panel.rds"))
 W_q <- as.matrix(best[["9001_eu"]]$rn$unpenalisedgmm$W)
 diag(W_q) <- 0
 W_q[abs(W_q) <= EPS_EDGE] <- 0
@@ -289,7 +286,7 @@ diag(log_trade) <- 0
 W_geo <- top_n_network(D_geo, top_n = TOP_N, similarity = FALSE)
 W_trade <- top_n_network(T_trade, top_n = TOP_N, similarity = TRUE)
 W_cul <- top_n_network(D_cul, top_n = TOP_N, similarity = FALSE)
-saveRDS(list(geo = W_geo, trade = W_trade, culture = W_cul), file.path(out_dir, "exogenous_networks.rds"))
+saveRDS(list(geo = W_geo, trade = W_trade, culture = W_cul), file.path(out_rerun, "exogenous_networks.rds"))
 
 W_geotrade <- matrix(0, N, N, dimnames = list(country_labels, country_labels))
 for (i in seq_len(N)) {
@@ -1381,7 +1378,7 @@ print(p_bdf_combined)
 #| label: grid-search-summary
 #| echo: false
 #| results: asis
-grid_meta <- readRDS(file.path(out_dir, "grid_search_meta.rds"))
+grid_meta <- readRDS(file.path(read_dir, "grid_search_meta.rds"))
 
 grid_df <- do.call(rbind, lapply(grid_meta, function(r) {
   data.frame(

@@ -1,60 +1,27 @@
-.PHONY: all clean
+.PHONY: results paper rerun clean protect unprotect
 
-# =============================================================================
-# ALL
-# =============================================================================
+paper: results
+	latexmk -pdf -interaction=nonstopmode paper.tex
 
-all: output/preliminary_results.pdf
+results:
+	quarto render MAIN.qmd
 
-# =============================================================================
-# CLEANING
-# =============================================================================
+rerun:
+	RERUN=true Rscript estimation.r
+	USE_RERUN=true quarto render MAIN.qmd
+	latexmk -pdf -interaction=nonstopmode paper.tex
 
-data/output_data/data_balanced_37001.rds \
-data/output_data/data_balanced_45001.rds: cleaning_no_LOCF.r
-	Rscript cleaning_no_LOCF.r
-
-data/output_data/data_balanced_37001_lf.rds \
-data/output_data/data_balanced_45001_lf.rds: cleaning_standardisation.r \
-    data/output_data/data_balanced_37001.rds \
-    data/output_data/data_balanced_45001.rds
-	Rscript cleaning_standardisation.r
-
-# =============================================================================
-# GRID SEARCH
-# =============================================================================
-
-data/output_data/grid_search_ISO37001.RData \
-data/output_data/grid_search_ISO45001.RData: grid_search_32.r \
-    data/output_data/data_balanced_37001.rds \
-    data/output_data/data_balanced_45001.rds
-	Rscript grid_search_32.r
-
-data/output_data/grid_search_ISO37001_standardised.RData \
-data/output_data/grid_search_ISO45001_standardised.RData: gird_search_standardised.r \
-    data/output_data/data_balanced_37001_lf.rds \
-    data/output_data/data_balanced_45001_lf.rds
-	Rscript gird_search_standardised.r
-
-# =============================================================================
-# TABS + OUTPUT
-# =============================================================================
-
-output/tabs/: preliminary_results_tabs.r \
-    data/output_data/grid_search_ISO37001.RData \
-    data/output_data/grid_search_ISO45001.RData \
-    data/output_data/grid_search_ISO37001_standardised.RData \
-    data/output_data/grid_search_ISO45001_standardised.RData
-	Rscript preliminary_results_tabs.r
-
-output/preliminary_results.pdf: preliminary_results.qmd \
-    output/tabs/
-	quarto render preliminary_results.qmd --output-dir output
-
-# =============================================================================
-# CLEAN
-# =============================================================================
-
+# Delete generated artifacts only — never output/ or output_lagged/
 clean:
-	rm -f output/tabs/*.tex output/tabs/*.pdf output/preliminary_results.pdf
-	rm -f data/output_data/grid_search_*.RData
+	rm -rf output_rerun
+	rm -f  assets/tables/*.tex assets/figures/*.pdf assets/figures/*.png
+	rm -f  results.pdf MAIN.pdf
+	latexmk -C paper.tex 2>/dev/null || rm -f paper.pdf paper.aux paper.log paper.out
+	rm -rf MAIN_files MAIN_cache .quarto
+
+# Lock / unlock the reference estimates
+protect:
+	chmod -R a-w output output_lagged
+
+unprotect:
+	chmod -R u+w output output_lagged

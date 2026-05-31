@@ -12,6 +12,7 @@ Thumbs.db
 # ==== R packages cache ====
 renv/library/
 renv/cache/
+output_rerun/
 
 # ==== R Markdown / Quarto ====
 *.utf8.md

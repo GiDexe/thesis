@@ -25,11 +25,12 @@ set.seed(1861)
 setwd("/workspaces/thesis")
 options(readr.show_col_types = FALSE)
 
-out_dir <- "output"
-if (!dir.exists(out_dir)) dir.create(out_dir)
+out_dir <- if (Sys.getenv("RERUN") == "true") "output_rerun" else "output"
+dir.create(out_dir, showWarnings = FALSE)
 
-data_dir <- "/workspaces/thesis/data"
-
+data_dir  <- "/workspaces/thesis/data"
+clean_dir <- file.path(data_dir, "cleaned_data")
+if (!dir.exists(clean_dir)) dir.create(clean_dir, recursive = TRUE)
 # ---- 1. Country groups ------------------------------------------------------
 eu <- c(
   "Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus",
