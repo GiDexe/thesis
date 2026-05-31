@@ -1437,7 +1437,7 @@ tab_grid |> print()
 
 rm(list = ls())
 
-relativepath <- "data/PACKAGE/"
+relativepath <- "data/depaula/PACKAGE/"
 source(paste(relativepath, "loadpackage.R", sep = ""))
 
 # function to create the tibble with simulation performance
@@ -1510,7 +1510,7 @@ evaluate <- function(setting = NA, summarise = 1, path) {
 }
 
 # evaluate simulations
-path <- "/workspaces/thesis/data/simulations/main/iterations/"
+path <- "/workspaces/thesis/data/depaula/simulations/main/iterations/"
 out_path <- "/workspaces/thesis/assets/figures/"
 r <- evaluate(path = path)
 
