@@ -2,8 +2,6 @@
 
 **An Endogenous Network Recovery for Environmental and Quality Management Systems**
 
-Gianluigi De Rubertis — Aix-Marseille School of Economics
-
 ## 📖 Overview
 
 Do voluntary standards diffuse across countries through a network of mutual
