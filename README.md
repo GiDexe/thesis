@@ -42,7 +42,7 @@ everything from the WSL shell. macOS works too (ARM64 supported). You need:
 - 🐳 **Docker** (Engine on Linux/WSL2, or Docker Desktop)
 - 🧩 **VS Code** + the **Dev Containers** extension
 - 🌿 **git**
-- 💾 the [**`data/`** folder](https://www.dropbox.com/scl/fo/wmldg06aek2m7xekbjr09/AG8_2z6wtD2aoNHxZwyc5BI?rlkey=ap8zxcg5ij4lp0mkgm5lzenlm&st=cmaov3l8&dl=0) (from Dropbox)
+- 💾 the [**`data/`** Dropbox folder](https://www.dropbox.com/scl/fo/o3j4ujunptfftkh7hnqe1/AFIeSplEySf8z6k-cL0FbiU?rlkey=d9mlehnjfk37p4v4nnvczuckz&st=8vh3b88c&dl=0)
   
 Everything else lives inside the container, built on
 [**Academic Docker**](https://github.com/rferrali/AcademicDocker) 🎓 — a
