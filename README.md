@@ -2,8 +2,6 @@
 
 **An Endogenous Network Recovery for Environmental and Quality Management Systems**
 
-Gianluigi De Rubertis — Aix-Marseille School of Economics
-
 ## 📖 Overview
 
 Do voluntary standards diffuse across countries through a network of mutual
@@ -44,8 +42,8 @@ everything from the WSL shell. macOS works too (ARM64 supported). You need:
 - 🐳 **Docker** (Engine on Linux/WSL2, or Docker Desktop)
 - 🧩 **VS Code** + the **Dev Containers** extension
 - 🌿 **git**
-- 💾 the **`data/`** folder from Dropbox
-
+- 💾 the [**`data/`** folder](https://www.dropbox.com/scl/fo/wmldg06aek2m7xekbjr09/AG8_2z6wtD2aoNHxZwyc5BI?rlkey=ap8zxcg5ij4lp0mkgm5lzenlm&st=cmaov3l8&dl=0) (from Dropbox)
+  
 Everything else lives inside the container, built on
 [**Academic Docker**](https://github.com/rferrali/AcademicDocker) 🎓 — a
 reproducible image bundling R (rig + renv), Quarto, and TeXLive 2025.
