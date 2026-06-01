@@ -28,9 +28,12 @@ data/                          NOT in git — provided via Dropbox
 ## 💾 Data
 
 The `data/` folder is **not** tracked by git. It is bind-mounted from a Dropbox
-folder and contains the raw inputs, the cleaned panels, and the precomputed
-estimates (`data/output/`). Since recovery runs ~72h, those estimates are the
-canonical artefacts the paper is built from. Request the Dropbox link to obtain it.
+folder (link below) and contains the raw inputs, the cleaned panels, and the precomputed
+estimates (`data/output/`). 
+
+Full estimation (network recovery + GMM peer-effect estimation) took
+approximately 72 hours on a Dell Inspiron 14 5440 (Intel Core i5-1334U,
+16 GB RAM, Ubuntu 24.04).
 
 ## 🔁 Replication
 
