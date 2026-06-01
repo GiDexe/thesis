@@ -25,6 +25,7 @@ proj_dir <- "/workspaces/thesis"
 setwd(proj_dir)
 
 data_dir  <- "/workspaces/thesis/data"
+raw_dir <- file.path(data_dir, "data_raw")
 clean_dir <- file.path(data_dir, "cleaned_data")
 if (!dir.exists(clean_dir)) dir.create(clean_dir, recursive = TRUE)
 
@@ -133,7 +134,7 @@ for (i in seq_len(N)) {
 log_dist <- log(D_geo + 1)
 diag(log_dist) <- 0
 
-hofstede_path <- "/workspaces/thesis/data/6-dimensions-for-website-2015-08-16(1).csv"
+hofstede_path <- file.path(raw_dir, "6-dimensions-for-website-2015-08-16(1).csv")
 hof_raw <- tryCatch(
   readr::read_csv2(hofstede_path, show_col_types = FALSE) |> janitor::clean_names(),
   error = function(e) readr::read_csv(hofstede_path, show_col_types = FALSE) |> janitor::clean_names()
@@ -182,11 +183,11 @@ rownames(H_mat) <- hof$country
 D_cul <- as.matrix(dist(H_mat, method = "euclidean"))[country_labels, country_labels]
 
 D_gdppc <- build_dist_wdi(
-  file.path(data_dir, "API_NY.GDP.PCAP.KD_DS2_en_csv_v2_234.csv"),
+  file.path(raw_dir, "API_NY.GDP.PCAP.KD_DS2_en_csv_v2_234.csv"),
   c("x1996", "x1997", "x1998", "x1999", "x2000")
 )
 
-envtax_raw <- readr::read_csv(file.path(data_dir, "estat_env_ac_taxind2_en.csv.gz"),
+envtax_raw <- readr::read_csv(file.path(raw_dir, "estat_env_ac_taxind2_en.csv.gz"),
   show_col_types = FALSE
 )
 envtax <- envtax_raw |>
@@ -208,7 +209,7 @@ if (nrow(envtax) < N) {
 }
 envtax <- envtax |> dplyr::arrange(match(country, country_labels))
 
-lab_raw <- readr::read_csv(file.path(data_dir, "API_SL.TLF.TOTL.IN_DS2_en_csv_v2_196.csv"),
+lab_raw <- readr::read_csv(file.path(raw_dir, "API_SL.TLF.TOTL.IN_DS2_en_csv_v2_196.csv"),
   skip = 4, show_col_types = FALSE
 ) |>
   janitor::clean_names() |>
@@ -242,7 +243,7 @@ pw_vec <- setNames(log(envtax_pw$envtax_per_worker + 1e-12), envtax_pw$country)
 D_envtax_pw <- abs(outer(pw_vec, pw_vec, FUN = "-"))
 dimnames(D_envtax_pw) <- list(country_labels, country_labels)
 
-fdi_raw <- readr::read_csv(file.path(data_dir, "estat_bop_fdi6_pos_en.csv.gz"), show_col_types = FALSE)
+fdi_raw <- readr::read_csv(file.path(raw_dir, "estat_bop_fdi6_pos_en.csv.gz"), show_col_types = FALSE)
 fdi <- fdi_raw |>
   dplyr::filter(
     counterp == "IMM", nace_r2 == "FDI", stk_flow == "ASS", entity == "TOTAL",
@@ -260,8 +261,8 @@ for (k in seq_len(nrow(fdi))) F_fdi[fdi$sender[k], fdi$receiver[k]] <- pmax(fdi$
 log_fdi <- log1p(F_fdi)
 diag(log_fdi) <- 0
 
-baci_path <- "/workspaces/thesis/data/BACI_HS92_Y1996_V202601.csv"
-ccodes_path <- "/workspaces/thesis/data/country_codes_V202601.csv"
+baci_path <- file.path(raw_dir, "BACI_HS92_Y1996_V202601.csv")
+ccodes_path <- file.path(raw_dir, "country_codes_V202601.csv")
 TOP_N <- 3
 baci <- readr::read_csv(baci_path, show_col_types = FALSE)
 ccodes <- readr::read_csv(ccodes_path, show_col_types = FALSE)
@@ -683,7 +684,7 @@ dict_full <- c(
 full_years_wdi <- paste0("x", 1993:2017)
 full_years_estat <- 1993:2017
 D_gdppc_fp <- build_dist_wdi(
-  file.path(data_dir, "API_NY.GDP.PCAP.KD_DS2_en_csv_v2_234.csv"), full_years_wdi
+  file.path(raw_dir, "API_NY.GDP.PCAP.KD_DS2_en_csv_v2_234.csv"), full_years_wdi
 )
 envtax_fp <- envtax_raw |>
   dplyr::filter(tax == "ENV", unit == "MIO_EUR", nace_r2 == "TOTAL", TIME_PERIOD %in% full_years_estat) |>
@@ -703,7 +704,7 @@ if (nrow(envtax_fp) < N) {
   )
 }
 envtax_fp <- envtax_fp |> dplyr::arrange(match(country, country_labels))
-lab_raw_fp <- readr::read_csv(file.path(data_dir, "API_SL.TLF.TOTL.IN_DS2_en_csv_v2_196.csv"),
+lab_raw_fp <- readr::read_csv(file.path(raw_dir, "API_SL.TLF.TOTL.IN_DS2_en_csv_v2_196.csv"),
   skip = 4, show_col_types = FALSE
 ) |>
   janitor::clean_names() |>
@@ -776,7 +777,7 @@ N <- length(country_labels)
 x_vars <- c("x1", "x2", "x3", "x4", "x5")
 id_to_country <- setNames(country_labels, seq_along(country_labels))
 load_sbs_2017 <- function() {
-  raw <- readxl::read_excel(file.path(data_dir, "enterprises_eu.xlsx"),
+  raw <- readxl::read_excel(file.path(raw_dir, "enterprises_eu.xlsx"),
     sheet = "Sheet 1", skip = 9, col_names = FALSE
   )
   tibble::tibble(country = raw[[1]], n_firms_17 = suppressWarnings(as.numeric(raw[[26]]))) |>

@@ -25,12 +25,14 @@ set.seed(1861)
 setwd("/workspaces/thesis")
 options(readr.show_col_types = FALSE)
 
-out_dir <- if (Sys.getenv("RERUN") == "true") "output_rerun" else "output"
-dir.create(out_dir, showWarnings = FALSE)
-
 data_dir  <- "/workspaces/thesis/data"
+raw_dir   <- file.path(data_dir, "data_raw")
 clean_dir <- file.path(data_dir, "cleaned_data")
 if (!dir.exists(clean_dir)) dir.create(clean_dir, recursive = TRUE)
+
+out_dir <- if (Sys.getenv("RERUN") == "true") file.path(data_dir, "output_rerun") else file.path(data_dir, "output")
+dir.create(out_dir, showWarnings = FALSE)
+
 # ---- 1. Country groups ------------------------------------------------------
 eu <- c(
   "Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus",
@@ -58,7 +60,7 @@ harmonise_names <- function(df) {
 }
 
 read_iso_hist <- function(file_name, sheets_idx, my_names) {
-  f_path <- file.path(data_dir, file_name)
+  f_path <- file.path(raw_dir, file_name)
   if (!file.exists(f_path)) stop(paste("File not found:", f_path))
   sheets <- purrr::map(sheets_idx, ~ readxl::read_excel(f_path, sheet = .x))
   expected_cols <- length(my_names)
@@ -74,38 +76,9 @@ read_iso_hist <- function(file_name, sheets_idx, my_names) {
     dplyr::summarise(n_cert = sum(n_cert, na.rm = TRUE), .groups = "drop")
 }
 
-extract_recent <- function(iso_code) {
-  files <- list.files(data_dir,
-    pattern = "ISO Survey 20(1[8-9]|2[0-9]).*\\.xlsx$",
-    full.names = TRUE
-  )
-  purrr::map_dfr(files, function(f) {
-    yr <- as.numeric(stringr::str_extract(basename(f), "20\\d{2}"))
-    sheets <- readxl::excel_sheets(f)
-    target <- sheets[grepl(iso_code, sheets)][1]
-    if (!is.na(target)) {
-      df <- readxl::read_excel(f, sheet = target)
-      start_row <- which(apply(df, 1, function(x) any(grepl("Afghanistan|Albania", x))))[1]
-      df_clean <- df %>%
-        dplyr::slice(start_row:dplyr::n()) %>%
-        dplyr::rename(country = 1) %>%
-        dplyr::mutate(dplyr::across(-1, ~ suppressWarnings(as.numeric(.)))) %>%
-        dplyr::select(country, tidyselect::where(is.numeric)) %>%
-        dplyr::mutate(n_cert = rowSums(dplyr::select(., -country), na.rm = TRUE)) %>%
-        dplyr::select(country, n_cert) %>%
-        dplyr::mutate(year = yr)
-      return(df_clean)
-    }
-    return(NULL)
-  }) %>%
-    harmonise_names() %>%
-    dplyr::group_by(country, year) %>%
-    dplyr::summarise(n_cert = sum(n_cert, na.rm = TRUE), .groups = "drop")
-}
-
 make_covs <- function(start_yr) {
   load_w <- function(f, v) {
-    readr::read_csv(file.path(data_dir, f), skip = 4, show_col_types = FALSE) %>%
+    readr::read_csv(file.path(raw_dir, f), skip = 4, show_col_types = FALSE) %>%
       dplyr::select(country = 1, as.character(start_yr):"2024") %>%
       tidyr::pivot_longer(-country, names_to = "year", values_to = v) %>%
       dplyr::mutate(
@@ -130,7 +103,7 @@ make_covs <- function(start_yr) {
 }
 
 load_sbs_2017 <- function() {
-  file_path <- file.path(data_dir, "enterprises_eu.xlsx")
+  file_path <- file.path(raw_dir, "enterprises_eu.xlsx")
   raw <- readxl::read_excel(file_path, sheet = "Sheet 1", skip = 9, col_names = FALSE)
   tibble::tibble(
     country    = raw[[1]],
@@ -176,19 +149,17 @@ finalize_panel <- function(iso_full, filter_list, label) {
 # ---- 3. Build panels --------------------------------------------------------
 sbs_firms <- load_sbs_2017()
 
-h9001 <- read_iso_hist(
+f9001 <- read_iso_hist(
   "01. ISO 9001 - Number of certificates per country and industry sectors - 1993 to 2017.xlsm",
   4:8, c("country", as.character(1993:2017))
 )
-r9001 <- extract_recent("9001")
-f9001 <- dplyr::bind_rows(h9001, r9001)
 
-h14001 <- read_iso_hist(
+
+f14001 <- read_iso_hist(
   "02. ISO 14001 - Number of certificates per country and industry sectors - 1999 to 2017.xlsm",
   4:8, c("country", as.character(1999:2017))
 )
-r14001 <- extract_recent("14001")
-f14001 <- dplyr::bind_rows(h14001, r14001)
+
 
 covs9001 <- make_covs(1993)
 covs14001 <- make_covs(1999)
