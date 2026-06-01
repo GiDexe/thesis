@@ -659,10 +659,11 @@ plot_net_gg <- function(g, lo, title, w_max) {
       plot.margin = margin(8, 8, 8, 8)
     )
 }
-p_qq <- plot_net_gg(g_q_full, layout_q, "Quality - Quality layout", w_max)
-p_eq <- plot_net_gg(g_e_full, layout_q, "Environment - Quality layout", w_max)
-p_qe <- plot_net_gg(g_q_full, layout_e, "Quality - Environment layout", w_max)
-p_ee <- plot_net_gg(g_e_full, layout_e, "Environment - Environment layout", w_max)
+p_qq <- plot_net_gg(g_q_full, layout_q, "Quality (own layout)", w_max)
+p_eq <- plot_net_gg(g_e_full, layout_q, "Environment (Quality layout)", w_max)
+p_qe <- plot_net_gg(g_q_full, layout_e, "Quality (Environment layout)", w_max)
+p_ee <- plot_net_gg(g_e_full, layout_e, "Environment (own layout)", w_max)
+
 panel <- (p_qq | p_eq) / (p_qe | p_ee)
 print(panel)
 save_figure("networks_weighted_full", width = 13, height = 13)
