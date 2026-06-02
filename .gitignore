@@ -61,3 +61,11 @@ data/
 # ==== Other ====
 *.sqlite
 *.RData
+
+# ==== Generated assets (regenerated on render) ====
+assets/figures/
+assets/tables/
+# keep only the expensive simulation figure
+!assets/figures/
+!assets/figures/depaula_fig_sim.pdf
+!assets/figures/depaula_fig_sim.png
