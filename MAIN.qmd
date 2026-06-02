@@ -19,12 +19,11 @@ format:
 ```{r}
 #| label: setup
 #| include: false
-
 # --- set root BEFORE any relative path is used ---
 proj_dir <- "/workspaces/thesis"
 setwd(proj_dir)
 
-data_dir  <- "/workspaces/thesis/data"
+data_dir <- "/workspaces/thesis/data"
 raw_dir <- file.path(data_dir, "data_raw")
 clean_dir <- file.path(data_dir, "cleaned_data")
 if (!dir.exists(clean_dir)) dir.create(clean_dir, recursive = TRUE)
@@ -60,8 +59,8 @@ options(readr.show_col_types = FALSE)
 
 EPS_EDGE <- 1e-5
 
-out_dir <- file.path(data_dir, "output")   # was file.path(proj_dir, "output")
-out_rerun <- file.path(data_dir, "output_rerun")    # gitignored scratch
+out_dir <- file.path(data_dir, "output") # was file.path(proj_dir, "output")
+out_rerun <- file.path(data_dir, "output_rerun") # gitignored scratch
 dir.create(out_rerun, showWarnings = FALSE)
 
 read_dir <- if (Sys.getenv("USE_RERUN") == "true") out_rerun else out_dir
@@ -72,7 +71,8 @@ for (d in c(fig_dir, tab_dir)) if (!dir.exists(d)) dir.create(d, recursive = TRU
 
 add_note <- function(k, note = "SAMPLE NOTE") {
   kableExtra::footnote(
-    k, general = note, general_title = "Notes:",
+    k,
+    general = note, general_title = "Notes:",
     threeparttable = TRUE, footnote_as_chunk = TRUE, escape = FALSE
   )
 }
@@ -541,7 +541,7 @@ jaccard_similarity_mat <- function(M1, M2) {
 # Focus is the comparison recovered Quality vs recovered Environment.
 jacc_col <- function(W_self, W_other) {
   c(
-    sprintf("%.3f", jaccard_similarity_mat(W_self, W_other)),     # vs other recovered net
+    sprintf("%.3f", jaccard_similarity_mat(W_self, W_other)), # vs other recovered net
     sprintf("%.3f", jaccard_similarity_mat(W_self, W_geo)),
     sprintf("%.3f", jaccard_similarity_mat(W_self, W_trade)),
     sprintf("%.3f", jaccard_similarity_mat(W_self, W_cul)),
@@ -551,10 +551,12 @@ jacc_col <- function(W_self, W_other) {
 }
 
 jaccard_merged <- data.frame(
-  `Recovered Quality`     = jacc_col(W_q, W_e),
+  `Recovered Quality` = jacc_col(W_q, W_e),
   `Recovered Environment` = jacc_col(W_e, W_q),
-  row.names = c("Recovered (other standard)", "Geography", "Trade",
-                "Cultural dist.", "Geo + Trade", "Geo + Culture"),
+  row.names = c(
+    "Recovered (other standard)", "Geography", "Trade",
+    "Cultural dist.", "Geo + Trade", "Geo + Culture"
+  ),
   check.names = FALSE,
   stringsAsFactors = FALSE
 )
@@ -1144,10 +1146,8 @@ ci_nolag <-
     est_rows <- tab_nolag[seq(1, nrow(tab_nolag), by = 2), ]
     se_rows <- tab_nolag[seq(2, nrow(tab_nolag), by = 2), ]
     data.frame(
-      panel = est_rows$V1,
-      network = est_rows$V2,
-      estimate = parse_est(est_rows$V4),
-      se = parse_se(se_rows$V4),
+      panel = est_rows$V1, network = est_rows$V2,
+      estimate = parse_est(est_rows$V4), se = parse_se(se_rows$V4),
       stringsAsFactors = FALSE
     )
   } |>
@@ -1161,18 +1161,19 @@ ci_nolag <-
       "Exogenous, Trade"          = "Trade",
       "Exogenous, Cultural dist." = "Culture"
     ),
-    network = factor(network,
-      levels = rev(c("Recovered", "Geo + Trade", "Geo + Culture", "Geography", "Trade", "Culture"))
-    ),
     panel = factor(panel, levels = c("Quality", "Environment"))
   ) |>
   dplyr::left_join(wr2_lookup_nolag, by = c("panel", "network")) |>
   dplyr::mutate(
-    wr2_label = ifelse(
-      is.na(wr2),
-      "",
-      sprintf("%.3f (R²=%.3f)", estimate, wr2)
-    )
+    network = forcats::fct_relevel(
+      factor(network, levels = c(
+        "Recovered", "Geo + Trade", "Geo + Culture",
+        "Geography", "Trade", "Culture"
+      )),
+      "Recovered",
+      after = Inf
+    ),
+    wr2_label = ifelse(is.na(wr2), "", sprintf("%.3f", estimate))
   )
 
 dodge_width <- 0.5
@@ -1248,18 +1249,19 @@ ci_lag <-
       "Exogenous, Trade"          = "Trade",
       "Exogenous, Cultural dist." = "Culture"
     ),
-    network = factor(network,
-      levels = rev(c("Recovered", "Geo + Trade", "Geo + Culture", "Geography", "Trade", "Culture"))
-    ),
     panel = factor(panel, levels = c("Quality", "Environment"))
   ) |>
   dplyr::left_join(wr2_lookup_lag, by = c("panel", "network")) |>
   dplyr::mutate(
-    wr2_label = ifelse(
-      is.na(wr2),
-      "",
-      sprintf("%.3f (R²=%.3f)", estimate, wr2)
-    )
+    network = forcats::fct_relevel(
+      factor(network, levels = c(
+        "Recovered", "Geo + Trade", "Geo + Culture",
+        "Geography", "Trade", "Culture"
+      )),
+      "Recovered",
+      after = Inf
+    ),
+    wr2_label = ifelse(is.na(wr2), "", sprintf("%.3f", estimate))
   )
 
 dodge_width <- 0.5
