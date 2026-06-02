@@ -1,0 +1,25 @@
+\begin{table}[!h]
+\centering
+\caption{\label{tab:jaccard_similarity}Jaccard similarity of recovered networks to benchmarks.}
+\centering
+\fontsize{9}{11}\selectfont
+\begin{threeparttable}
+\begin{tabular}[t]{llc}
+\toprule
+  & Recovered Quality & Recovered Environment\\
+\midrule
+Recovered (other standard) & 0.055 & 0.055\\
+Geography & 0.069 & 0.037\\
+Trade & 0.019 & 0.047\\
+Cultural dist. & 0.009 & 0.028\\
+Geo + Trade & 0.052 & 0.038\\
+\addlinespace
+Geo + Culture & 0.050 & 0.043\\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}[para]
+\item \textit{Notes:} 
+\item Each column reports the Jaccard index between a recovered network (Quality or Environment) and the network in the corresponding row. The first row reports the overlap between the two recovered networks, identical across columns by construction. Benchmark networks (geography, trade, cultural distance and the combined specifications) follow Albuquerque et al. (2007). A link is active if $w_{ij} neq 0$.
+\end{tablenotes}
+\end{threeparttable}
+\end{table}
