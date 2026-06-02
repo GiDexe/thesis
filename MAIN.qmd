@@ -1348,6 +1348,87 @@ print(p_bdf_combined)
 ```
 
 ```{r}
+#| label: fig-bdf-r2
+#| echo: false
+#| fig-width: 12
+#| fig-height: 6
+#| fig-cap: "Within-$R^2$ of the BDF country-fixed-effects regressions by network and standard"
+net_q <- c("Recovered", "Geo + Trade", "Geography", "Trade", "Culture")
+net_e <- c("Recovered", "Geo + Culture", "Geography", "Trade", "Culture")
+
+relevel_net <- function(df) {
+  df |>
+    dplyr::mutate(
+      network = forcats::fct_relevel(
+        factor(network, levels = c(
+          "Recovered", "Geo + Trade", "Geo + Culture",
+          "Geography", "Trade", "Culture"
+        )),
+        "Recovered",
+        after = Inf
+      ),
+      panel = factor(panel, levels = c("Quality", "Environment"))
+    )
+}
+
+r2_nolag <- data.frame(
+  panel = c(rep("Quality", 5), rep("Environment", 5)),
+  network = c(net_q, net_e), wr2 = wr2_nolag_vals, stringsAsFactors = FALSE
+) |> relevel_net()
+
+r2_lag <- data.frame(
+  panel = c(rep("Quality", 5), rep("Environment", 5)),
+  network = c(net_q, net_e), wr2 = wr2_lag_vals, stringsAsFactors = FALSE
+) |> relevel_net()
+
+r2_combined <- dplyr::bind_rows(
+  r2_nolag |> dplyr::mutate(spec = "Simultaneous"),
+  r2_lag |> dplyr::mutate(spec = "Lagged")
+) |>
+  dplyr::mutate(
+    network = forcats::fct_relevel(network, "Recovered", after = Inf),
+    spec    = factor(spec, levels = c("Simultaneous", "Lagged"))
+  )
+
+pd <- position_dodge(width = 0.7, preserve = "single")
+fill_vals <- c("Quality" = "#3182bd", "Environment" = "#31a354")
+
+r2_plot <- function(df, facet = NULL) {
+  p <- ggplot(df, aes(x = wr2, y = network, fill = panel)) +
+    geom_col(position = pd, width = 0.6, na.rm = TRUE) +
+    geom_text(aes(label = ifelse(is.na(wr2), "", sprintf("%.3f", wr2)), group = panel),
+      position = pd, hjust = -0.15, size = 2.3, na.rm = TRUE
+    ) +
+    scale_fill_manual(values = fill_vals) +
+    scale_x_continuous(expand = expansion(mult = c(0, 0.12))) +
+    labs(x = expression("Within-" * R^2), y = NULL, fill = NULL) +
+    theme_minimal(base_size = 10) +
+    theme(
+      legend.position = "bottom", panel.grid.minor = element_blank(),
+      panel.grid.major.y = element_blank(), strip.text = element_text(face = "bold")
+    )
+  if (!is.null(facet)) p <- p + facet_wrap(facet, ncol = 2)
+  p
+}
+
+# --- Simultaneous only
+p_r2_nolag <- r2_plot(r2_nolag)
+print(p_r2_nolag)
+save_figure("bdf_r2_nolag", width = 9, height = 6)
+
+# --- Lagged only
+p_r2_lag <- r2_plot(r2_lag)
+print(p_r2_lag)
+save_figure("bdf_r2_lag", width = 9, height = 6)
+
+# --- Combined (faceted by specification)
+p_r2_combined <- r2_plot(r2_combined, facet = ~spec)
+print(p_r2_combined)
+save_figure("bdf_r2_combined", width = 12, height = 6)
+print(p_r2_combined)
+```
+
+```{r}
 #| label: grid-search-summary
 #| echo: false
 #| results: asis
