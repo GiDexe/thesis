@@ -1,0 +1,213 @@
+
+```{r}
+# This chunk can be executed to generate the adaptation of the original depaula et al. simulation. It was omitted for computational convenience. Results are included in the repo as pdf directly.To replicate it, follow the depaula et al replication package from Zenodo. The script below adds dotted lines for my sample size and restricts the analysed samples to "erdosrenyi" only, the specification being the closest to this paper's case.
+
+#| label: depaula-appendix-figure-simulation
+#| echo: false
+#| results: asis
+# Code adapted from de Paula et al.'s replication package for their 2023 AER paper "Social Learning and Incentives in Organizations: Evidence from a Field Experiment" (
+#
+# rm(list = ls())
+#
+# relativepath <- "data/depaula/PACKAGE/"
+# source(paste(relativepath, "loadpackage.R", sep = ""))
+#
+## function to create the tibble with simulation performance
+#
+# evaluate <- function(setting = NA, summarise = 1, path) {
+#  # scan for existing files
+#  if (is.na(setting)) {
+#    settingtext <- ""
+#    files <- list.files(path = paste(path, settingtext, sep = ""), recursive = TRUE)
+#  } else {
+#    settingtext <- paste("setting_", str_pad(setting, 3, pad = "0"), sep = "")
+#    files <- list.files(path = paste(path, settingtext, sep = ""), recursive = TRUE)
+#    files <- paste("setting_", str_pad(setting, 3, pad = "0"), "/", files, sep = "")
+#  }
+#
+#  # build tibble to host the results
+#  results <- tibble()
+#
+#  # loop over iterations
+#  for (i in 1:length(files)) {
+#    # load file
+#    rf <- readRDS(paste(path, files[i], sep = ""))
+#
+#    for (j in 1:length(rf)) {
+#      tryCatch(
+#        {
+#          r <- rf[[j]]
+#
+#          # find locations of the elements of W
+#          iX1Strong <- which(r$simparams$true$W0 > 0.3)
+#          iX1Weak <- which(r$simparams$true$W0 <= 0.3 & r$true$W0 > 0)
+#          iX0 <- which(r$simparams$true$W0 == 0)
+#
+#          # sensitivity and specificity
+#          shNonZeroStrong <- mean(r$unpenalisedgmm$W[iX1Strong] != 0)
+#          shNonZeroWeak <- mean(r$unpenalisedgmm$W[iX1Weak] != 0)
+#          shZero <- mean(r$unpenalisedgmm$W[iX0] < 0.05)
+#
+#          # mad
+#          madW <- mean(abs(r$unpenalisedgmm$W - r$simparams$true$W0))
+#
+#          I <- diag(dim(r$unpenalisedgmm$W)[1])
+#          Pi <- solve(I - r$unpenalisedgmm$rho * r$unpenalisedgmm$W) %*% (I * r$unpenalisedgmm$beta + r$adaen$W * r$unpenalisedgmm$gamma)
+#          Pi0 <- solve(I - r$simparams$true$rho * r$simparams$true$W0) %*% (I * r$simparams$true$beta + r$simparams$true$W0 * r$simparams$true$gamma)
+#          madPi <- mean(abs(Pi - Pi0))
+#
+#          # create tibble
+#          resultsi <- tibble(setting = r$simparams$setting, seed = r$simparams$seed, rho = r$unpenalisedgmm$rho, beta = r$unpenalisedgmm$beta, gamma = r$unpenalisedgmm$gamma, shNonZeroStrong = shNonZeroStrong, shZero = shZero, madW = madW, madPi = madPi, lambdaL1 = r$simparams$lambda[1], lambdaL2 = r$simparams$lambda[2], lambdaL1Star = r$simparams$lambda[3])
+#
+#          # filter out the ones without convergence
+#          resultsi <- resultsi %>% filter(!is.na(rho))
+#
+#          # concatenate
+#          results <- rbind(results, resultsi)
+#        },
+#        error = function(cond) {}
+#      )
+#    }
+#  }
+#
+#  if (summarise == 1) {
+#    # return
+#    results <- results %>%
+#      group_by(setting) %>%
+#      dplyr::summarise(rho = mean(rho), beta = mean(beta), gamma = mean(gamma), shNonZeroStrong = mean(shNonZeroStrong), shZero = mean(shZero), madW = mean(madW), madPi = mean(madPi), lambdaL1 = mean(lambdaL1), lambdaL1Star = mean(lambdaL1Star), lambdaL2 = mean(lambdaL2), n = n())
+#  }
+#
+#  # return
+#  return(results)
+# }
+#
+## evaluate simulations
+# path <- "/workspaces/thesis/data/depaula/simulations/main/iterations/"
+# out_path <- "/workspaces/thesis/assets/figures/"
+# r <- evaluate(path = path)
+#
+## join with the settings configurations
+# s <- tibble(loadsettings())
+# s$W0 <- factor(s$W0, levels = c("erdosrenyi", "politicalparty", "highschool", "duflo"))
+# r <- left_join(r, s, by = "setting")
+# r <- r %>% filter(W0 == "erdosrenyi")
+#
+## filter only for the settings that are relevant to this plot
+# setting_list <- c(11, 12, 13, 14, 15, 16, 17, 18, 19, 51, 52, 53, 54, 55, 56, 57, 58, 59, 111, 112, 113, 114, 115, 116, 117, 118, 119, 151, 152, 153, 154, 155, 156, 157, 158, 159)
+# r <- r %>% filter(setting %in% setting_list)
+#
+## --- Sample sizes for this thesis
+# T_qual <- 25 # ISO 9001  (1993-2017)
+# T_env <- 21 # ISO 14001 (1997-2017)
+#
+# vline_df <- data.frame(
+#  T = c(T_qual, T_env),
+#  lab = factor(c("Quality (T=25)", "Environment (T=21)"),
+#    levels = c("Quality (T=25)", "Environment (T=21)")
+#  )
+# )
+#
+# mark_layer <- list(
+#  geom_vline(
+#    data = vline_df,
+#    aes(xintercept = T, colour = lab),
+#    linetype = "dashed", linewidth = 0.5, inherit.aes = FALSE
+#  ),
+#  scale_colour_manual(
+#    name = NULL,
+#    values = c(
+#      "Quality (T=25)" = "#3182bd",
+#      "Environment (T=21)" = "#31a354"
+#    )
+#  )
+# )
+#
+# base_theme <- theme_bw() +
+#  theme(
+#    axis.title = element_blank(),
+#    axis.text = element_text(size = 5),
+#    plot.title = element_text(size = 10),
+#    legend.position = "none"
+#  )
+# xbreaks <- c(5, 10, 15, 25, 50, 75, 100, 125, 150)
+#
+## --- Panels
+# p11 <- r %>%
+#  filter(T <= 250) %>%
+#  ggplot(aes(T, shZero)) +
+#  geom_line(aes(linetype = W0)) +
+#  mark_layer +
+#  scale_x_continuous(breaks = xbreaks) +
+#  coord_cartesian(ylim = c(0.6, 1)) +
+#  base_theme +
+#  ggtitle("A. % of zeros")
+# p12 <- r %>%
+#  filter(T <= 250) %>%
+#  ggplot(aes(T, shNonZeroStrong)) +
+#  geom_line(aes(linetype = W0)) +
+#  mark_layer +
+#  scale_x_continuous(breaks = xbreaks) +
+#  coord_cartesian(ylim = c(0.6, 1)) +
+#  base_theme +
+#  ggtitle("B. % of non-zeros")
+# p21 <- r %>%
+#  filter(T <= 250) %>%
+#  ggplot(aes(T, madW)) +
+#  geom_line(aes(linetype = W0)) +
+#  mark_layer +
+#  scale_x_continuous(breaks = xbreaks) +
+#  coord_cartesian(ylim = c(0, .12)) +
+#  base_theme +
+#  ggtitle("C. Mean Absolute Deviation of" ~ hat(W))
+# p22 <- r %>%
+#  filter(T <= 250) %>%
+#  ggplot(aes(T, madPi)) +
+#  geom_line(aes(linetype = W0)) +
+#  mark_layer +
+#  scale_x_continuous(breaks = xbreaks) +
+#  coord_cartesian(ylim = c(0, .12)) +
+#  base_theme +
+#  ggtitle("D. Mean Absolute Deviation of" ~ hat(Pi))
+# p31 <- r %>%
+#  filter(T <= 250) %>%
+#  ggplot(aes(T, rho.x)) +
+#  geom_line(aes(linetype = W0)) +
+#  mark_layer +
+#  scale_x_continuous(breaks = xbreaks) +
+#  coord_cartesian(ylim = c(0, 1)) +
+#  geom_hline(yintercept = 0.3, colour = "red") +
+#  base_theme +
+#  ggtitle("E. Endogenous Social Effect," ~ hat(rho))
+# p32 <- r %>%
+#  filter(T <= 250) %>%
+#  ggplot(aes(T, gamma.x)) +
+#  geom_line(aes(linetype = W0)) +
+#  mark_layer +
+#  scale_x_continuous(breaks = xbreaks) +
+#  coord_cartesian(ylim = c(0, 1)) +
+#  geom_hline(yintercept = 0.5, colour = "red") +
+#  base_theme +
+#  ggtitle("F. Exogenous Social Effect," ~ hat(gamma))
+#
+## --- Single shared legend (both W0 linetypes and the two N lines)
+# pLegend <- get_legend(
+#  p11 + theme(legend.position = "bottom", legend.box = "vertical")
+# )
+#
+# pMain <- plot_grid(p11, p12, p21, p22, p31, p32, ncol = 2)
+# pFull <- plot_grid(pMain, pLegend, ncol = 1, rel_heights = c(1, .12))
+#
+## --- Save to your folder
+# out_path <- "/workspaces/thesis/assets/figures/"
+# dir.create(out_path, recursive = TRUE, showWarnings = FALSE)
+# ggsave(file.path(out_path, "depaula_fig_sim.pdf"),
+#  pFull,
+#  width = 15, height = 20, units = "cm"
+# )
+# ggsave(file.path(out_path, "depaula_fig_sim.png"),
+#  pFull,
+#  width = 15, height = 20, units = "cm", dpi = 300
+# )
+#
+# pFull
+# ```
