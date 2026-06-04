@@ -35,10 +35,8 @@
 \newpage
 
 \section{Introduction}
-
-Countries do not adopt policies in isolation. Adoption in one country raises the
-probability of adoption elsewhere, and this interdependence is not a purely technocratic
-matter. As \citet{gilardi2019} argue, diffusion is a political process, driven by the
+Countries mutual influence in policy adoption has sparked increasing interest among policymakers and researchers.
+As \citet{gilardi2019} argue, diffusion is a political process, driven by the
 strategic incentives of decision makers rather than by the intrinsic quality of the policy
 itself. A direct implication is that not only welfare-improving policies spread:
 ineffective or even counterproductive ones can diffuse just as widely when they serve
@@ -119,6 +117,8 @@ diffusion for the technical standard.
 The work is organised as follows. Section~\ref{sec:data-and-methodology} describes the
 data and the estimation strategy, Section~\ref{sec:results} presents the results, and
 Section~\ref{sec:discussion} discusses limitations and concludes.
+
+\clearpage
 \section{Data and Methodology}
 \label{sec:data-and-methodology}
 
@@ -156,7 +156,7 @@ The two standards show different adoption levels. The older one (Quality) is mor
 \subsection{Methodology}
 \label{sec:methodology}
 
-De Paula, Rasul \& Souza (2025) extend the peer-effects literature (Manski 1993; Bramoullé et al., 2009) to the case in which the network of interactions is unknown. Their structural model
+\citet{depaula2025} extend the peer-effects literature (\citet{manski1993}; \citet{bramoulle2009}) to the case in which the network of interactions is unknown. Their structural model
 
 \begin{equation}
     y_{it} = \rho_0 \sum_{j=1}^{N} W_{0,ij}\, y_{jt} + \beta_0 x_{it} + \gamma_0 \sum_{j=1}^{N} W_{0,ij}\, x_{jt} + \alpha_i + \alpha_t + \varepsilon_{it} \label{eq:structural}
@@ -169,7 +169,7 @@ admits the compact form $y_t = \rho_0 W_0 y_t + \beta_0 x_t + \gamma_0 W_0 x_t +
 
 where $y_t, x_t \in \mathbb{R}^{N}$ collect the outcome and the covariate across the $N$ countries in year $t$, $W_0 \in \mathbb{R}^{N\times N}$, and
 $(\rho_0,\beta_0,\gamma_0)$ are scalars, so that the multiplier
-$\Pi_0 = (I-\rho_0 W_0)^{-1}(\beta_0 I + \gamma_0 W_0)$ is an $N\times N$ matrix. If $W_0$ were known, equation~\eqref{eq:reduced} would directly identify the structural parameters $(\rho_0,\beta_0,\gamma_0)$ from a reduced-form regression of outcomes on covariates. This is essentially the approach of Bramoullé et al. (2009), who show how it is possible to recover peer effects from a social network using the Manski (1993) linear in means model. The contribution of De Paula, Rasul \& Souza is to show that, when $W_0$ is unknown, $\Pi_0$ still contains enough information to recover both the network and the parameters jointly. The intuition is the one that underlies any diffusion process. If a contagious disease spreads through a population, the people who fall ill at the same time tend to be the ones who interact: knowing who got sick when, and what their characteristics are, one can work backwards to who must have been in contact with whom. The same logic applies here. If four countries adopt a standard in synchronous patterns that cannot be explained by their own characteristics alone, the synchrony itself is evidence of a link between them. Cross-country covariation in $y$, conditional on $x$, identifies who is connected to whom, and the strength of the covariation, suitably disentangled, identifies how strong the link is. In principle, $\Pi_0$ is identified as the linear projection of $y$ on $x$ and could be recovered by ordinary least squares whenever the panel is long enough relative to the number of parameters. In typical short panels this is infeasible. De Paula, Rasul \& Souza recover the network $\hat W$ jointly with the structural parameters $(\hat\rho, \hat\beta, \hat\gamma)$ via an adaptive elastic-net GMM (Caner \& Zhang 2014) defined directly on the moment conditions implied by the structural model. Sparsity in $\hat W$ regularises the high-dimensional problem and restores consistency in short panels, estimating the network from observed spillovers without requiring a priori commitment to any specific weighting scheme.
+$\Pi_0 = (I-\rho_0 W_0)^{-1}(\beta_0 I + \gamma_0 W_0)$ is an $N\times N$ matrix. If $W_0$ were known, equation~\eqref{eq:reduced} would directly identify the structural parameters $(\rho_0,\beta_0,\gamma_0)$ from a reduced-form regression of outcomes on covariates. This is essentially the approach of \citet{bramoulle2009}, who show how it is possible to recover peer effects from a social network using the \citet{manski1993} linear in means model. The contribution of \citet{depaula2025} is to show that, when $W_0$ is unknown, $\Pi_0$ still contains enough information to recover both the network and the parameters jointly. The intuition is the one that underlies any diffusion process. If a contagious disease spreads through a population, the people who fall ill at the same time tend to be the ones who interact: knowing who got sick when, and what their characteristics are, one can work backwards to who must have been in contact with whom. The same logic applies here. If four countries adopt a standard in synchronous patterns that cannot be explained by their own characteristics alone, the synchrony itself is evidence of a link between them. Cross-country covariation in $y$, conditional on $x$, identifies who is connected to whom, and the strength of the covariation, suitably disentangled, identifies how strong the link is. In principle, $\Pi_0$ is identified as the linear projection of $y$ on $x$ and could be recovered by ordinary least squares whenever the panel is long enough relative to the number of parameters. In typical short panels this is infeasible. \citet{depaula2025} recover the network $\hat W$ jointly with the structural parameters $(\hat\rho, \hat\beta, \hat\gamma)$ via an adaptive elastic-net GMM (\citet{caner2014}) defined directly on the moment conditions implied by the structural model. Sparsity in $\hat W$ regularises the high-dimensional problem and restores consistency in short panels, estimating the network from observed spillovers without requiring a priori commitment to any specific weighting scheme.
 
 
 My work applies this framework to recover the latent network underlying ISO certification diffusion across the $N=27$ EU member states, estimating it separately for the two standards: ISO~9001 (\emph{Quality}, $T=25$, 1993--2017) and ISO~14001 (\emph{Environment}, $T=21$, 1997--2017). For each standard I obtain a distinct recovered network $\hat W$ together with its structural parameters $(\hat\rho,\hat\beta,\hat\gamma)$.
@@ -181,21 +181,24 @@ Two features of the data require adaptation. Annual certificate counts are highl
 \end{equation}
 where the outcome is the year-on-year log-difference in certificates, $\tilde y_{it} = \log(1+n_{it}) - \log(1+n_{i,t-1})$, with $n_{it}$ the number of valid certificates held in country $i$ in year $t$, and $\tilde x_{it}^{(k)} = \log(1+x_{it}^{(k)})$ is the $k$-th of the $K=5$ covariates: GDP per capita, Trade (\% of GDP), the Rule of Law estimate, Total Natural Resource Rents (\% of GDP), and the Share of Renewables in Total Final Energy Consumption.
 
-I estimate equation~\eqref{eq:empirical} via the adaptive elastic-net GMM of De Paula, Rasul \& Souza (2025), which returns $\hat W$ jointly with $(\hat\rho,\hat\beta,\hat\gamma)$; the three penalty parameters are selected by BIC over a grid (Appendix~\ref{app:grid}).
+I estimate equation~\eqref{eq:empirical} via the adaptive elastic-net GMM of \citet{depaula2025}, which returns $\hat W$ jointly with $(\hat\rho,\hat\beta,\hat\gamma)$; the three penalty parameters are selected by BIC over a grid (Appendix~\ref{app:grid}).
 
 
-
+\clearpage
 \section{Results}
 \label{sec:results}
 
 % =============================================================================
 \subsection{Network Recovery}
 \label{sec:network-recovery}
-Table~\ref{tab:network_stats} reports the structural summary of the two networks selected
+
+\input{assets/tables/network_stats.tex}
+
+Table~\ref{tab:network_eu} reports the structural summary of the two networks selected
 by BIC. Three features stand out. First, both recovered networks are \emph{sparse}: the
 Quality network retains $28$ directed edges and the Environment network $30$, out of
 $27\times 26 = 702$ possible ordered pairs, so fewer than one potential link in twenty is
-active. This is the regularisation at work --- the adaptive elastic-net penalty drives the
+active. This is the regularisation at work: the adaptive elastic-net penalty drives the
 overwhelming majority of off-diagonal entries of $\hat W$ to zero, which is precisely the
 property that restores consistency in a short panel. Second, the two structures are
 \emph{nearly disjoint}: of their respective $28$ and $30$ edges, only $3$ coincide in both
@@ -214,19 +217,13 @@ and their confidence intervals, including the covariate coefficients, are shown 
 Figure~\ref{fig:gmm_ci}; notably, while $\hat\rho^{E}$ is the larger point estimate, its
 interval is much wider, a precision gap consistent with the shorter Environment panel and
 examined in Section~\ref{sec:peer-effects}.
-\input{assets/tables/network_stats}
-% =============================================================================
-
-% --- methodology prose here ---
-
-\input{assets/tables/network_stats}
 As disclosed by the table, the recovered networks are sparse and do show little similarity, only sharing 3 edges. This can be better appreciated visually in Figure~\ref{fig:networks}, which also shows the different topologies of the two networks. The Quality network is disconnected ... More detailed commentary will follow.
 % =============================================================================
 \subsection{Recovered Networks}
 Figure~\ref{fig:networks} renders the two networks and makes their dissimilarity visible.
 The panels are arranged as a $2\times 2$ grid: the diagonal shows each network in its own
 Fruchterman--Reingold layout, while the off-diagonal panels redraw each network using the
-other standard's coordinates, so that a shared structure --- were one present --- would
+other standard's coordinates, so that a shared structure, if present, would
 appear as aligned edges across a row or column. It does not. The Quality network (top-left)
 breaks into several disconnected components, with Slovenia appearing as an isolated node
 (the reason it is dropped from the Quality peer-effect estimation in
@@ -234,13 +231,12 @@ Section~\ref{sec:peer-effects}), alongside a chain through Italy--Spain--Malta--
 a separate cluster around Austria, Germany and the Netherlands. The Environment network
 (bottom-right) is organised differently, with the Netherlands and Portugal acting as
 high-in-degree hubs and the directed, unreciprocated edges noted in
-Table~\ref{tab:network_stats} producing a more star-like, hierarchical appearance. When
+Table~\ref{tab:network_eu} producing a more star-like, hierarchical appearance. When
 either network is forced into the other's layout (off-diagonal panels), no common backbone
-emerges --- the edge sets simply do not line up --- which is the visual counterpart of the
+emerges which is the visual counterpart of the
 three shared edges and the Jaccard index of $0.055$ reported below. The in- and out-degree
 distributions underlying these layouts are given in Appendix~\ref{app:degree}
 (Figure~\ref{fig:degree_hist}).
-\input{}% (figure block unchanged — see below)
 % =============================================================================
 
 \begin{figure}[H]
@@ -249,19 +245,20 @@ distributions underlying these layouts are given in Appendix~\ref{app:degree}
     \label{fig:networks}
     \includegraphics[width=\textwidth]{assets/figures/networks_weighted_full}
     \par\vspace{0.5em}
-    {\footnotesize \textit{Notes.} Quality and Environment networks recovered via De Paula, Rasul \& Souza (2025); weighted and directed. Panels are arranged as a $2\times2$ grid: diagonal panels show each network in its own Fruchterman--Reingold layout (Quality, Environment), while off-diagonal panels redraw a network in the other standard's layout to facilitate visual comparison of topology.}
+    {\footnotesize \textit{Notes.} Quality and Environment networks recovered via \citet{depaula2025}; weighted and directed. Panels are arranged as a $2\times2$ grid: diagonal panels show each network in its own Fruchterman--Reingold layout (Quality, Environment), while off-diagonal panels redraw a network in the other standard's layout to facilitate visual comparison of topology.}
 \end{figure}
 
 
 % =============================================================================
 \subsection{Peer Effects: Recovered vs Exogenous Networks}
-Figure~\ref{fig:bdf_combined} reports the Bramoull\'e, Djebbari \& Fortin (2009)
+\label{sec:peer-effects}
+Figure~\ref{fig:bdf_combined} reports the \citet{bramoulle2009}
 peer-effect estimates across network specifications, for the recovered networks and for
 the exogenous benchmarks of Albuquerque et al.\ (2007). Two readings support the claim
 that Quality is recovered more successfully than Environment. First, the recovered
 \emph{Quality} network yields a positive and significant peer effect that is statistically
 indistinguishable from the estimate on Albuquerque's preferred Geo~$+$~Trade network, and
-this agreement survives the lagged specification --- where, by contrast, the Geo~$+$~Trade
+this agreement survives the lagged specification, where, by contrast, the Geo~$+$~Trade
 estimate collapses to a value not significantly different from zero. The recovered network
 is therefore at least as informative as the best-performing exogenous proxy, and more
 robust to the one-year lag. Second, the recovered \emph{Environment} network delivers a
@@ -272,7 +269,7 @@ $\hat\rho^{E}$ in Figure~\ref{fig:gmm_ci}. A caveat must be stated plainly: on w
 the single best fit for Quality is the pure Trade network, marginally ahead of the recovered
 one. The recovered network's value is therefore not that it dominates every proxy on fit,
 but that it matches the best proxy without being told in advance that trade is the relevant
-channel --- and, as the dyadic analysis shows, the structure it recovers is in fact shaped
+channel and, as the dyadic analysis shows, the structure it recovers is in fact shaped
 by foreign direct investment rather than by trade flows, a distinction no single exogenous
 network can draw.
 % =============================================================================
@@ -283,22 +280,31 @@ network can draw.
     \label{fig:bdf_combined}
     \includegraphics[width=\textwidth]{assets/figures/bdf_forest_combined}
     \par\vspace{0.5em}
-    {\footnotesize \textit{Notes.} \textit{Observations:} Quality $N \times T = 624$ (simultaneous), $598$ (lagged); Environment $N \times T = 468$ (simultaneous), $442$ (lagged). The figure reports IV-2SLS peer-effect estimates ($\hat\beta$) and 95\% confidence intervals from the Bramoull\'e, Djebbari \& Fortin (2009) linear-in-means specification, estimated on the recovered networks (De Paula, Rasul \& Souza 2025) and on the exogenous benchmark networks of Albuquerque et al.\ (2007). Error bars are cluster-bootstrapped (999 draws, country clusters). Each point estimate is labelled with its value and, in parentheses, the within-$R^2$. The two panels show results with and without a one-year lag. Slovenia is dropped (isolated node in the recovered Quality network).}
+    {\footnotesize \textit{Notes.} \textit{Observations:} Quality $N \times T = 624$ (simultaneous), $598$ (lagged); Environment $N \times T = 468$ (simultaneous), $442$ (lagged). The figure reports IV-2SLS peer-effect estimates ($\hat\beta$) and 95\% confidence intervals from the \citet{bramoulle2009} linear-in-means specification, estimated on the recovered networks (\citet{depaula2025}) and on the exogenous benchmark networks of Albuquerque et al.\ (2007). Error bars are cluster-bootstrapped (999 draws, country clusters). Each point estimate is labelled with its value and, in parentheses, the within-$R^2$. The two panels show results with and without a one-year lag. Slovenia is dropped (isolated node in the recovered Quality network).}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \caption{R squared of peer-effect estimates across network specifications.}
+    \label{fig:bdf_combined_r2}
+    \includegraphics[width=\textwidth]{assets/figures/bdf_r2_combined.pdf}
+    \par\vspace{0.5em}
+    {\footnotesize \textit{Notes.} \textit{Observations:} Quality $N \times T = 624$ (simultaneous), $598$ (lagged); Environment $N \times T = 468$ (simultaneous), $442$ (lagged). The figure reports IV-2SLS peer-effect R squared.}
 \end{figure}
 
 Recovered networks seem to show a better fit than de Paula's chosen specifications, even though the best fit for Quality is the pure Trade network.
 
-Figure \ref{fig:bdf_combined} shows peer effect estimates from the linear-in-means specification of Bramoullé, Djebbari \& Fortin (2009) across the different network specifications. The considered specifications are the recovered ones and the exogenous network specifications taken into account by Albuquerque et al.\ (2007): geographical proximity, trade intensity, cultural similarity and institutional similarity.
+
+Figure \ref{fig:bdf_combined} shows peer effect estimates from the linear-in-means specification of \citet{bramoulle2009} across the different network specifications. The considered specifications are the recovered ones and the exogenous network specifications taken into account by Albuquerque et al.\ (2007): geographical proximity, trade intensity, cultural similarity and institutional similarity.
 \begin{itemize}
     \item \textbf{Recovered Quality Networks} shows significant peer effect not statistically different from the one identified by Albuquerque et al. in their chosen specification (Geo + Trade). The validity of the recovered network is supported by the lagged specification, where the chosen Albuquerque network isn't statistically different form 0.
     \item \textbf{Recovered Environment Networks} shows a small peer-effect estimate, smaller than the Albuquerque specification and not statistically significant for both simultaneous and lagged specifications. This result is consistent with the shorter panel for Environment and is analysed in more detail in the next section.
 \end{itemize}
 
-Figure~\ref{fig:depaula_fig_sim} reproduces the Monte Carlo evidence of De Paula, Rasul \&
-Souza (2025) and locates the two empirical panels, $T=25$ (Quality) and $T=21$
+Figure~\ref{fig:depaula_fig_sim} reproduces the Monte Carlo evidence of \citet{depaula2025} and locates the two empirical panels, $T=25$ (Quality) and $T=21$
 (Environment), on the estimator's finite-sample performance curves. The simulations make
 the Quality--Environment asymmetry interpretable rather than anomalous. At the panel lengths
-available here, recovery of the network support is already good --- Panels~A and~B show that
+available here, recovery of the network support is already good. Panels~A and~B show that
 both true zeros and true non-zeros are correctly classified at high rates by $T=21$--$25$ ---
 but the structural parameters are recovered with bias at short $T$. Panel~E shows that the
 endogenous social effect $\hat\rho$ is attenuated below its true value of $0.3$ for both
@@ -318,10 +324,10 @@ specifications.
     \label{fig:depaula_fig_sim}
     \includegraphics[width=\textwidth]{assets/figures/depaula_fig_sim.pdf}
     \par\vspace{0.5em}
-    {\footnotesize \textit{Notes.} \textit{Source:} De Paula, Rasul \& Souza (2025), Figure A1. Results from 1000 Monte Carlo iterations under various true networks and time periods $T = 25, 50, 75, 100, 125, 150$, with true parameters $\rho_0 = 0.3$, $\beta_0 = 0.4$, $\gamma_0 = 0.5$. Panel A: share of true zero elements in $W$ estimated below $0.05$. Panel B: share of true non-zero elements above $0.3$ estimated as non-zero. Panels C--D: mean absolute deviation of the estimated network from the true $W$ and reduced-form matrix respectively. Panels E--F: recovered parameters averaged across iterations; true values marked by horizontal red lines. All specifications include time and node fixed effects.}
+    {\footnotesize \textit{Notes.} \textit{Source:} \citet{depaula2025}, Figure A1 (adaptation) Results from 1000 Monte Carlo iterations under various true networks and time periods $T = 25, 50, 75, 100, 125, 150$, with true parameters $\rho_0 = 0.3$, $\beta_0 = 0.4$, $\gamma_0 = 0.5$. Panel A: share of true zero elements in $W$ estimated below $0.05$. Panel B: share of true non-zero elements above $0.3$ estimated as non-zero. Panels C--D: mean absolute deviation of the estimated network from the true $W$ and reduced-form matrix respectively. Panels E--F: recovered parameters averaged across iterations; true values marked by horizontal red lines. All specifications include time and node fixed effects.}
 \end{figure}
 
-Figure \ref{fig:depaula_fig_sim} shows the results of the Monte Carlo simulations in De Paula, Rasul \& Souza (2025) for their adaptive elastic-net GMM estimator.
+Figure \ref{fig:depaula_fig_sim} shows the results of the Monte Carlo simulations in \citet{depaula2025} for their adaptive elastic-net GMM estimator.
 \begin{itemize}
     \item The method ideally would benefit from a longer panel for both standards, but the shorter panel for Environment is likely more problematic.
     \item Environment's panel recovers less true zeros
@@ -334,6 +340,7 @@ Figure \ref{fig:depaula_fig_sim} shows the results of the Monte Carlo simulation
 
 % =============================================================================
 \subsection{Network Similarity}
+\label{sec:network-similarity}
 % =============================================================================
 To assess how closely the two recovered networks $\hat W^Q$ and $\hat W^E$ overlap, we summarise their structural similarity through the \textbf{Jaccard index} (Jaccard 1901; Wasserman \& Faust 1994, Sec.\ 11.4): \begin{equation} J(\hat W^Q, \hat W^E) = \frac{|E_Q \cap E_E|}{|E_Q \cup E_E|}, \label{eq:jaccard} \end{equation} where $E_Q = \{(i, j) : |\hat w^Q_{ij}| > 10^{-5}\}$ and $E_E$ is defined analogously. The index ranges in $[0, 1]$, with $J = 0$ for disjoint networks and $J = 1$ for identical edge sets. For the BIC-selected recovered networks, $|E_Q| = 28$, $|E_E| = 30$, $|E_Q \cap E_E| = 3$, and $|E_Q \cup E_E| = 55$, yielding $J = 0.055$.
 \begin{itemize}
@@ -342,14 +349,14 @@ To assess how closely the two recovered networks $\hat W^Q$ and $\hat W^E$ overl
 
 The Jaccard index formalises the visual dissimilarity of Figure~\ref{fig:networks}. With
 $|E_Q|=28$, $|E_E|=30$ and only three shared directed edges, the two recovered structures
-overlap at $J=0.055$ --- close to the value expected of two essentially unrelated sparse
+overlap at $J=0.055$, close to the value expected of two essentially unrelated sparse
 networks on the same node set. Table~\ref{tab:jaccard_similarity} extends the comparison to
 the Albuquerque et al.\ (2007) benchmarks and delivers the same verdict for both standards:
 no exogenous proxy comes close to reproducing either recovered network. For Quality the
 highest overlap is with Geography ($0.069$) and with Geo~$+$~Trade ($0.052$), both far below
 unity; for Environment every benchmark overlap lies at or under $0.047$. Diffusion is
 therefore not reducible to geography, trade, or cultural distance taken singly or in the
-combinations the prior literature imposes --- the endogenous-recovery step is adding
+combinations the prior literature imposes, the endogenous-recovery step is adding
 structure that no fixed proxy encodes. The contrast between the two recovered networks is the
 substantive payoff: Quality and Environment do not merely load on the exogenous proxies to
 different degrees, they diffuse through almost disjoint sets of country-to-country links,
@@ -371,9 +378,8 @@ al.\ (2002) and Albuquerque et al.\ (2007) treat trade and FDI together, or trad
 the economic channel for ISO~9001, leaving open which of the two actually carries the
 diffusion. Conditioning on both within the same specification, only FDI survives. The
 recovered Quality network thus looks trade-like in aggregate fit (Figure~\ref{fig:bdf_combined})
-precisely because trade and FDI are correlated, but the structure underneath is investment-,
-not trade-, driven --- a decomposition the exogenous-network approach cannot perform, since
-it must commit to one weighting scheme ex ante. For Environment, neither economic variable
+precisely because trade and FDI are correlated, but the structure underneath is investment,
+not trade, driven. For Environment, neither economic variable
 is significant; the predictors that load instead are environmental-policy asymmetry
 ($0.0381$, significant at $5\%$) and economic distance ($-0.0360$, significant at $10\%$),
 consistent with a governance-homophily logic in which environmental certification travels
@@ -395,6 +401,7 @@ governance similarity, recovered less precisely because of its shorter panel.
 \end{itemize}
 
 
+\clearpage
 \section{Discussion}
 \label{sec:discussion}
 
@@ -443,7 +450,11 @@ governance similarity, recovered less precisely because of its shorter panel.
     \label{fig:gmm_ci}
     \includegraphics[width=0.85\textwidth]{assets/figures/gmm_ci}
     \par\vspace{0.5em}
-    {\footnotesize \textit{Notes.} This figure shows the point estimates and 95\% confidence intervals for the GMM peer-effect parameter $\rho$ and the covariate coefficients $\beta$ from the network recovery step. Estimates are shown separately for the Quality and Environment standards, with each point labelled by its value. Error bars are based on the asymptotic sandwich variance estimator that conditions on the recovered network $\hat W$ (De Paula, Rasul \& Souza 2025).}
+    {\footnotesize \textit{Notes.} This figure shows the point estimates and 95\% confidence intervals for the GMM peer-effect parameter $\rho$ and the covariate coefficients $\beta$ from the network recovery step. Estimates are shown separately for the Quality and Environment standards, with each point labelled by its value. Error bars are based on the asymptotic sandwich variance estimator that conditions on the recovered network $\hat W$ (\citet{depaula2025}).}
 \end{figure}
 
+\newpage
+
+\bibliographystyle{plainnat}
+\bibliography{references}
 \end{document}
