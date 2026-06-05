@@ -35,30 +35,22 @@
 \newpage
 
 \section{Introduction}
-Countries mutual influence in policy adoption has sparked increasing interest among policymakers and researchers.
-As \citet{gilardi2019} argue, diffusion is a political process, driven by the
-strategic incentives of decision makers rather than by the intrinsic quality of the policy
-itself. A direct implication is that not only welfare-improving policies spread:
-ineffective or even counterproductive ones can diffuse just as widely when they serve
-political ends. \citet{gilardi2019} organise this field around four mechanisms, namely
-learning, competition, coercion and emulation, while noting that the political dimension
-tends to recede into the background when attention is restricted to adoption outcomes. A
-recurring difficulty, emphasised by \citet{maggetti2016}, is that the empirical proxies
-most commonly used in this literature, such as the count of adopting countries, shared
-membership in international organisations, or adoption by leading states, rarely manage to
-separate emulation from learning or coercion. Related work shows that the framing of an
-issue conditions its spread, with \citet{boushey2016} finding that policies framed in ways
-consistent with prevailing stereotypes diffuse more quickly. The common thread is that the
-structure of influence is contested and unobserved, which counsels against committing in
-advance to a particular channel.
+Policies do not diffuse in a vacuum: they travel along structures of influence between
+countries that researchers must usually assume rather than observe. \citet{gilardi2019}
+organise this field around four mechanisms, namely learning, competition, coercion and
+emulation, while noting that the political dimension tends to recede into the background
+when attention is restricted to adoption outcomes. The channel along which a policy actually
+travels, however, is rarely visible in the data, which counsels against committing in advance
+to a particular metric of proximity. Establishing these channels nonetheless matters, because
+the policies that diffuse through them can have tangible effects. \citet{linsenmeier2023},
+for instance, show that the indirect emission reductions produced by the international diffusion
+of carbon pricing can exceed the direct domestic reductions.
 
 This logic is not confined to public regulation. It extends to private and voluntary
 standards, which increasingly operate as vehicles of policy transmission and which can
-generate substantial real effects. \citet{linsenmeier2023}, for instance, show that the
-indirect emission reductions produced by the international diffusion of carbon pricing can
-exceed the direct domestic reductions. Voluntary corporate standards are a clear case in
-point. They began spreading in the 1980s, and from the 1990s onward national accreditation
-schemes were progressively replaced by international ones recognised by the International
+generate substantial real effects. Voluntary corporate standards are a clear case in
+point. They began spreading internationally in the 1990s, when national accreditation
+schemes were progressively replaced by the international ones recognised by the International
 Organization for Standardization (ISO) and coordinated through the International
 Accreditation Forum (IAF), succeeded by Global Accreditation Cooperation Incorporated
 (Global ACI) from January 2026. In essence, an ISO standard is a set of practices and
@@ -69,54 +61,34 @@ relatively little work has done so, and most existing studies examine a single s
 isolation rather than contrasting standards with different objectives.
 
 ISO now offers a large and growing catalogue of such standards. Some are heavily technical,
-targeting operational efficiency, while others pursue objectives that transcend efficiency,
-such as anti-corruption or environmental management. This study asks whether these two
-classes of standards diffuse differently, focusing on the most widely held standard in each
-category within the European Union: ISO 9001 (Quality Management) as the technical case,
-mainly concerned with efficiency and operational processes, and ISO 14001 (Environmental
-Management) as the political case, whose adoption is shaped by governance norms and may
-serve to signal regulatory commitment. On the political side, \citet{berliner2013} provide
-the key result, showing that environmental certification is more prevalent in
-weak-governance environments, where adoption operates as a signalling device toward
-international audiences.
+targeting operational efficiency, while others pursue more political objectives that transcend
+efficiency, such as anti-bribery management systems or environmental management.
+This study asks whether these two classes of standards diffuse differently, focusing on the most
+widely held standard in each category within the European Union: ISO 9001 (Quality Management)
+as the technical case, mainly concerned with efficiency and operational processes, and ISO 14001
+(Environmental Management) as the political case. On the political side, \citet{berliner2013}
+show that environmental certification is more prevalent in weak-governance environments,
+suggesting that adoption operates as a signalling device toward international audiences.
 
-The closest contribution to the present paper is \citet{albuquerque2007}, who likewise
-compare ISO 9001 and ISO 14001 and identify distinct contagion channels for the two
-standards. They are right to take the network seriously, and right to suspect that the two
-standards travel along different routes. The problem is that their strategy cannot deliver
-what it promises. They estimate diffusion on networks fixed in advance from geography, trade
-and cultural similarity, and even considering several such networks, separately or jointly,
-does not rescue the exercise, because there is no guarantee that the network actually
-carrying diffusion is among the ones they happen to specify. The true structure of influence
-may load on variables none of their candidate networks encode. Once the imposed network is
-the wrong one, the contagion parameter is estimated on a misspecified interaction matrix,
-and the resulting estimate of $\rho$ is biased by construction. Their entire substantive
-conclusion, namely that the two standards diffuse through different channels, then rests on
-the assumption that those channels were correctly guessed at the outset, which is precisely
-what cannot be assumed. This is not a problem that more candidate networks can solve; it is
-a problem of the network being a free parameter that the data are never allowed to discipline.
+The closest contribution to the present paper is \citet{albuquerque2007}, who go beyond the
+single-standard focus and compare the diffusion of ISO 9001 and ISO 14001 across a set of
+selected countries, identifying distinct contagion channels for the two standards. They
+address the problem of the unobserved network by estimating a Bass diffusion model on a set of
+exogenous candidate networks, constructed from geography, trade and cultural similarity. They
+find that the two standards diffuse through different channels: Quality Management through
+geography and trade, and Environmental Management through geographical proximity and cultural
+distance. Such a methodology highlights the problem of the unobserved network but does not solve
+it: its conclusions hold only under the strong assumption that the true diffusion network is
+among those specified in advance, an assumption it cannot itself verify.
 
-This is what motivates the present paper. Rather than choosing a proximity metric and hoping
-it coincides with the true structure of influence, I recover the latent diffusion network
+This fragility is exactly what motivates the present work. Rather than choosing a proximity metric
+and hoping it coincides with the true structure of influence, we recover the latent diffusion network
 directly from the data, using the framework of \citet{depaula2025}, whose adaptive
 elastic-net GMM estimator recovers the network endogenously from panel data on a single
 standard over time. This lets the data, not an assumed metric, determine which countries
-influence which, removes the misspecification at the root of the bias in \citet{albuquerque2007},
-and is well suited to the richer and possibly asymmetric interactions that no single fixed
-network can represent. The approach differs from \citet{desmarais2015}, who also infer latent
-diffusion networks among U.S. states but identify them from the timing of adoption across
-many policies rather than from within-policy panel variation. Concretely, I recover the
-networks underlying ISO 9001 and ISO 14001 diffusion across 27 EU countries over 1993 to
-2017, benchmark the recovered structures against the standard exogenous networks based on
-geography, trade and cultural proximity, and then use the recovered networks both to estimate
-peer effects in the sense formalised by \citet{bramoulle2009} and to study the determinants
-of network formation through dyadic regressions. The analysis sits at the intersection of
-competition and coercion, with foreign direct investment emerging as a determinant of
-diffusion for the technical standard.
+influence which, removes the misspecification at the root of the bias in \citet{albuquerque2007}.
 
-The work is organised as follows. Section~\ref{sec:data-and-methodology} describes the
-data and the estimation strategy, Section~\ref{sec:results} presents the results, and
-Section~\ref{sec:discussion} discusses limitations and concludes.
+The work is organised as follows....
 
 \clearpage
 \section{Data and Methodology}
@@ -248,6 +220,42 @@ distributions underlying these layouts are given in Appendix~\ref{app:degree}
 
 % =============================================================================
 \subsection{Peer Effects: Recovered vs Exogenous Networks}
+
+Conditional on the recovered network $\hat W$, we estimate endogenous peer
+effects following \citet{bramoulle2009}. Let
+$G = \operatorname{rownorm}(\hat W)$ be the row-normalised recovered network,
+with $G_{ij} = \hat w_{ij} / \sum_{k} \hat w_{ik}$ and $G_{ii}=0$. The
+estimating equation is
+\begin{equation}
+    y_{it} = \beta \sum_{j=1}^{N} G_{ij}\, y_{jt}
+    + \sum_{k=1}^{K} \gamma_k\, x_{k,it}
+    + \sum_{k=1}^{K} \delta_k \sum_{j=1}^{N} G_{ij}\, x_{k,jt}
+    + \alpha_i + \varepsilon_{it},
+    \label{eq:bdf}
+\end{equation}
+or, in compact matrix form for period $t$,
+\begin{equation}
+    y_t = \beta\, G y_t + X_t \gamma + G X_t \delta + \alpha + \varepsilon_t,
+    \label{eq:bdf_matrix}
+\end{equation}
+where $y_{it} = \Delta \log(1+\text{cert}_{it})$ is the log-difference in
+certifications, $x_{k,it}$ are the $K=5$ covariates, and $\alpha_i$ are
+country fixed effects. The parameter $\beta$ (the BDF analogue of $\rho_0$
+in eq.~\eqref{eq:structural}) measures the endogenous peer effect, $\gamma_k$
+the own effect, and $\delta_k$ the contextual effect.
+
+The endogenous regressor $G y_t$ is correlated with $\varepsilon_t$ through
+the simultaneity in eq.~\eqref{eq:bdf_matrix}. Under intransitivity, when
+$I$, $G$, $G^2$, $G^3$ are linearly independent (Bramoullé et al.\ 2009,
+Prop.\ 1), the second- and third-order contextual terms $G^2 X$ and $G^3 X$
+are valid excluded instruments for $G y$, since they shift peers'-peers'
+outcomes without entering eq.~\eqref{eq:bdf} directly. We therefore estimate
+eq.~\eqref{eq:bdf} by G2SLS, instrumenting $G y_t$ with
+$\{G^2 x_{k,t}, G^3 x_{k,t}\}_{k=1}^{K}$, with $\alpha_i$ absorbed by the
+within transformation and inference based on a pairs cluster bootstrap over
+countries.
+
+
 \label{sec:peer-effects}
 Figure~\ref{fig:bdf_combined} reports the \citet{bramoulle2009}
 peer-effect estimates across network specifications, for the recovered networks and for
@@ -296,41 +304,6 @@ Figure \ref{fig:bdf_combined} shows peer effect estimates from the linear-in-mea
 \begin{itemize}
     \item \textbf{Recovered Quality Networks} shows significant peer effect not statistically different from the one identified by Albuquerque et al. in their chosen specification (Geo + Trade). The validity of the recovered network is supported by the lagged specification, where the chosen Albuquerque network isn't statistically different form 0.
     \item \textbf{Recovered Environment Networks} shows a small peer-effect estimate, smaller than the Albuquerque specification and not statistically significant for both simultaneous and lagged specifications. This result is consistent with the shorter panel for Environment and is analysed in more detail in the next section.
-\end{itemize}
-
-Figure~\ref{fig:depaula_fig_sim} reproduces the Monte Carlo evidence of \citet{depaula2025} and locates the two empirical panels, $T=25$ (Quality) and $T=21$
-(Environment), on the estimator's finite-sample performance curves. The simulations make
-the Quality--Environment asymmetry interpretable rather than anomalous. At the panel lengths
-available here, recovery of the network support is already good. Panels~A and~B show that
-both true zeros and true non-zeros are correctly classified at high rates by $T=21$--$25$ ---
-but the structural parameters are recovered with bias at short $T$. Panel~E shows that the
-endogenous social effect $\hat\rho$ is attenuated below its true value of $0.3$ for both
-$T=21$ and $T=25$, with the bias larger at the shorter horizon. The Environment panel is thus
-doubly disadvantaged: it recovers fewer true zeros and shows a higher mean absolute deviation
-from the true $W$ (Panels~A and~C), and it sits further down the $\hat\rho$ bias curve
-(Panel~E). This is the basis on which the null Environment peer effect should be read not as
-evidence of absent contagion but as a power limitation: at $T=21$ the estimator cannot be
-expected to identify $\rho$ reliably, exactly as the simulation predicts. The longer Quality
-panel is correspondingly closer to the region where $\hat\rho$ converges on its true value,
-which is why its peer effect is both larger relative to its standard error and stable across
-specifications.
-
-\begin{figure}[H]
-    \centering
-    \caption{Simulation Results, Adaptive Elastic-Net GMM}
-    \label{fig:depaula_fig_sim}
-    \includegraphics[width=\textwidth]{assets/figures/depaula_fig_sim.pdf}
-    \par\vspace{0.5em}
-    {\footnotesize \textit{Notes.} \textit{Source:} \citet{depaula2025}, Figure A1 (adaptation) Results from 1000 Monte Carlo iterations under various true networks and time periods $T = 25, 50, 75, 100, 125, 150$, with true parameters $\rho_0 = 0.3$, $\beta_0 = 0.4$, $\gamma_0 = 0.5$. Panel A: share of true zero elements in $W$ estimated below $0.05$. Panel B: share of true non-zero elements above $0.3$ estimated as non-zero. Panels C--D: mean absolute deviation of the estimated network from the true $W$ and reduced-form matrix respectively. Panels E--F: recovered parameters averaged across iterations; true values marked by horizontal red lines. All specifications include time and node fixed effects.}
-\end{figure}
-
-Figure \ref{fig:depaula_fig_sim} shows the results of the Monte Carlo simulations in \citet{depaula2025} for their adaptive elastic-net GMM estimator.
-\begin{itemize}
-    \item The method ideally would benefit from a longer panel for both standards, but the shorter panel for Environment is likely more problematic.
-    \item Environment's panel recovers less true zeros
-    \item Higher mean absolute deviation from the true network
-    \item Rho's identification is biased for both T = 21 and T = 25. Only duflo network provides a better estimate of rho for Environment's T rather than Quality's T
-
 \end{itemize}
 
 \clearpage
