@@ -527,60 +527,65 @@ For the BIC-selected recovered networks, $|E_Q| = `r n_q`$, $|E_E| = `r n_e`$, $
 #| label: network-jaccard-matrices
 #| echo: false
 #| results: asis
-jaccard_similarity_mat <- function(M1, M2) {
-  b1 <- as.numeric(M1[row(M1) != col(M1)] != 0)
-  b2 <- as.numeric(M2[row(M2) != col(M2)] != 0)
-  union_count <- sum(b1 | b2)
-  if (union_count == 0) {
+jac <- function(A, B) {
+  a <- as.numeric(A[row(A) != col(A)] != 0)
+  b <- as.numeric(B[row(B) != col(B)] != 0)
+  u <- sum(a | b)
+  if (u == 0) {
     return(0)
   }
-  sum(b1 & b2) / union_count
+  sum(a & b) / u
 }
 
-# Merged Jaccard table: each recovered network (column) vs benchmarks (rows).
-# Focus is the comparison recovered Quality vs recovered Environment.
-jacc_col <- function(W_self, W_other) {
-  c(
-    sprintf("%.3f", jaccard_similarity_mat(W_self, W_other)), # vs other recovered net
-    sprintf("%.3f", jaccard_similarity_mat(W_self, W_geo)),
-    sprintf("%.3f", jaccard_similarity_mat(W_self, W_trade)),
-    sprintf("%.3f", jaccard_similarity_mat(W_self, W_cul)),
-    sprintf("%.3f", jaccard_similarity_mat(W_self, W_geotrade)),
-    sprintf("%.3f", jaccard_similarity_mat(W_self, W_geoculture))
-  )
-}
-
-jaccard_merged <- data.frame(
-  `Recovered Quality` = jacc_col(W_q, W_e),
-  `Recovered Environment` = jacc_col(W_e, W_q),
-  row.names = c(
-    "Recovered (other standard)", "Geography", "Trade",
-    "Cultural dist.", "Geo + Trade", "Geo + Culture"
-  ),
-  check.names = FALSE,
-  stringsAsFactors = FALSE
+nets <- list(
+  "$\\hat{W}^Q$ (Recovered)" = W_q,
+  "$\\hat{W}^E$ (Recovered)" = W_e,
+  "Geography" = W_geo,
+  "Trade" = W_trade,
+  "Cultural dist." = W_cul,
+  "Geo + Trade" = W_geotrade,
+  "Geo + Culture" = W_geoculture
 )
 
-tab_jaccard <- kbl(
-  jaccard_merged,
-  booktabs = TRUE,
-  format = "latex",
-  escape = FALSE,
-  align = "lcc",
-  caption = "Jaccard similarity of recovered networks to benchmarks.",
-  label = "jaccard_similarity"
+n_nets <- length(nets)
+jac_mat <- matrix(NA_real_, n_nets, n_nets,
+  dimnames = list(names(nets), names(nets))
+)
+for (i in seq_len(n_nets)) {
+  for (j in seq_len(n_nets)) {
+    jac_mat[i, j] <- jac(nets[[i]], nets[[j]])
+  }
+}
+
+# Format: diagonal as "1.000", off-diagonal to 3 dp
+jac_fmt <- matrix(sprintf("%.3f", jac_mat), n_nets, n_nets,
+  dimnames = dimnames(jac_mat)
+)
+diag(jac_fmt) <- "1.000"
+
+tab_jac_mat <- kbl(
+  as.data.frame(jac_fmt),
+  booktabs = TRUE, format = "latex", escape = FALSE,
+  align = paste(rep("c", n_nets + 1), collapse = ""),
+  row.names = TRUE,
+  caption = "Pairwise Jaccard similarity matrix of recovered and benchmark networks.",
+  label = "jaccard_matrix"
 ) |>
   kable_styling(
-    latex_options = "hold_position",
-    font_size = 9
+    latex_options = c("hold_position", "scale_down"),
+    font_size = 8
   ) |>
   add_note(
-    "Each column reports the Jaccard index between a recovered network (Quality or Environment) and the network in the corresponding row. The first row reports the overlap between the two recovered networks, identical across columns by construction. Benchmark networks (geography, trade, cultural distance and the combined specifications) follow Albuquerque et al.\\ (2007). A link is active if $w_{ij} \\neq 0$."
+    paste(
+      "$J(A,B)=|E_A\\cap E_B|/|E_A\\cup E_B|$ on binarised directed edge sets ($w_{ij}\\neq 0$).",
+      "Diagonal entries are 1 by definition.",
+      "The recovered networks ($\\hat{W}^Q$, $\\hat{W}^E$) are the BIC-selected networks.",
+      "Benchmark networks follow Albuquerque."
+    )
   )
 
-save_table(tab_jaccard, "jaccard_similarity")
-
-tab_jaccard |> print()
+save_table(tab_jac_mat, "jaccard_matrix")
+tab_jac_mat |> print()
 ```
 
 ### Network visualisation
@@ -620,7 +625,7 @@ plot_net_gg <- function(g, lo, title, w_max) {
     scale_edge_alpha(range = c(0.35, 0.9), limits = c(0, w_max), guide = "none") +
     scale_edge_colour_manual(
       values = c(`TRUE` = "#67000D", `FALSE` = "grey60"),
-      labels = c(`TRUE` = "Strong ties", `FALSE` = "Weak ties"),
+      labels = c(`TRUE` = "Strong influence", `FALSE` = "Weak influence"),
       guide = guide_legend(title = NULL, override.aes = list(width = 2, alpha = 0.7), position = "bottom")
     ) +
     scale_colour_manual(values = c(`TRUE` = "steelblue", `FALSE` = "grey85")) +
