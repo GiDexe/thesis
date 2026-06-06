@@ -486,15 +486,14 @@ p_deg <- ggplot(deg_df, aes(x = value, fill = standard)) +
   geom_histogram(position = "dodge", alpha = 0.55, colour = "white", linewidth = 0.3, bins = 12) +
   geom_rug(aes(colour = standard), sides = "b", length = unit(0.03, "npc"), alpha = 0.7) +
   facet_wrap(~direction, ncol = 2) +
-  scale_fill_manual(values = c("Quality (ISO 9001)" = "#3182bd", "Environment (ISO 14001)" = "#31a354")) +
-  scale_colour_manual(values = c("Quality (ISO 9001)" = "#08519c", "Environment (ISO 14001)" = "#006d2c")) +
+  scale_fill_grey(start = 0.2, end = 0.65, name = NULL) +
+  scale_colour_grey(start = 0.1, end = 0.55, name = NULL) +
   scale_x_continuous(expand = expansion(mult = c(0, 0.02))) +
   labs(x = "Degree", y = "Count", fill = NULL, colour = NULL) +
   theme_minimal(base_size = 10) +
   theme(legend.position = "bottom", strip.text = element_text(face = "bold"), panel.grid.minor = element_blank())
 print(p_deg)
 save_figure("degree_hist", width = 9, height = 3.5)
-print(p_deg)
 ```
 
 ```{r}
@@ -643,7 +642,6 @@ p_ee <- plot_net_gg(g_e_full, layout_e, "Environment (own layout)", w_max)
 panel <- (p_qq | p_eq) / (p_qe | p_ee)
 print(panel)
 save_figure("networks_weighted_full", width = 13, height = 13)
-print(panel)
 ```
 
 ### Dyadic regression
@@ -972,7 +970,6 @@ p_ci <- ggplot(ci_df, aes(x = estimate, y = param, colour = panel, group = panel
 
 print(p_ci)
 save_figure("gmm_ci", width = 9, height = 5)
-print(p_ci)
 ```
 
 ```{r}
@@ -1198,7 +1195,6 @@ ci_nolag <- build_ci(tab_nolag, "Simultaneous")
 p_bdf_nolag <- forest_plot(ci_nolag)
 print(p_bdf_nolag)
 save_figure("bdf_forest_nolag", width = 12, height = 6)
-print(p_bdf_nolag)
 ```
 
 ```{r}
@@ -1212,7 +1208,6 @@ ci_lag <- build_ci(tab_lag, "Lagged")
 p_bdf_lag <- forest_plot(ci_lag)
 print(p_bdf_lag)
 save_figure("bdf_forest_lag", width = 12, height = 6)
-print(p_bdf_lag)
 ```
 
 ```{r}
@@ -1230,7 +1225,6 @@ ci_combined <- dplyr::bind_rows(ci_nolag, ci_lag) |>
 p_bdf_combined <- forest_plot(ci_combined)
 print(p_bdf_combined)
 save_figure("bdf_forest_combined", width = 12, height = 6)
-print(p_bdf_combined)
 ```
 
 ```{r}
