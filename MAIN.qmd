@@ -623,11 +623,11 @@ plot_net_gg <- function(g, lo, title, w_max) {
     ) +
     scale_edge_alpha(range = c(0.35, 0.9), limits = c(0, w_max), guide = "none") +
     scale_edge_colour_manual(
-      values = c(`TRUE` = "#67000D", `FALSE` = "grey60"),
+      values = c(`TRUE` = "black", `FALSE` = "grey65"),
       labels = c(`TRUE` = "Strong influence", `FALSE` = "Weak influence"),
       guide = guide_legend(title = NULL, override.aes = list(width = 2, alpha = 0.7), position = "bottom")
     ) +
-    scale_colour_manual(values = c(`TRUE` = "steelblue", `FALSE` = "grey85")) +
+    scale_colour_manual(values = c(`TRUE` = "grey15", `FALSE` = "grey85")) +
     ggtitle(title) + theme_void(base_size = 11) +
     theme(
       plot.title = element_text(hjust = 0.5, face = "bold"), legend.position = "bottom",
@@ -956,8 +956,8 @@ p_ci <- ggplot(ci_df, aes(x = estimate, y = param, colour = panel, group = panel
     show.legend = FALSE
   ) +
   scale_colour_manual(values = c(
-    "Quality (ISO 9001)" = "#3182bd",
-    "Environment (ISO 14001)" = "#31a354"
+    "Quality (ISO 9001)" = "black",
+    "Environment (ISO 14001)" = "grey55"
   )) +
   coord_cartesian(clip = "off") +
   labs(x = "Estimate", y = NULL, colour = NULL) +
@@ -1165,7 +1165,7 @@ build_ci <- function(tab, spec_label) {
     )
 }
 
-spec_vals <- c("Simultaneous" = "#5e3c99", "Lagged" = "#e66101")
+spec_vals <- c("Simultaneous" = "black", "Lagged" = "grey55")
 pd <- position_dodge(width = 0.55, preserve = "single")
 
 forest_plot <- function(df) {
@@ -1271,7 +1271,7 @@ r2_combined <- dplyr::bind_rows(r2_nolag, r2_lag) |>
     spec    = factor(spec, levels = c("Simultaneous", "Lagged"))
   )
 
-spec_vals <- c("Simultaneous" = "#5e3c99", "Lagged" = "#e66101")
+spec_vals <- c("Simultaneous" = "black", "Lagged" = "grey55")
 pd <- position_dodge(width = 0.7, preserve = "single")
 
 r2_plot <- function(df) {
