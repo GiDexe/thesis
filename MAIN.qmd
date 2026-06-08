@@ -1520,3 +1520,58 @@ p_twfe <- forest_plot(ci_twfe_combined)
 print(p_twfe)
 save_figure("bdf_forest_twfe", width = 12, height = 6)
 ```
+
+```{r}
+#| label: bdf-model9
+#| echo: false
+#| results: asis
+# Contemporaneous BDF design + own- and peer-outcome lags (W fixed -> (Wy)_{t-1} = lag of Gy)
+build_bdf_m9 <- function(panel, W, x_vars) {
+  build_bdf(panel, W, x_vars, use_lag = FALSE) |>
+    dplyr::arrange(country, year) |>
+    dplyr::group_by(country) |>
+    dplyr::mutate(
+      y_lag  = dplyr::lag(y, 1, order_by = year), # theta : y_{i,t-1}
+      Gy_lag = dplyr::lag(Gy, 1, order_by = year) # beta1 : (Wy)_{i,t-1}
+    ) |>
+    dplyr::ungroup() |>
+    tidyr::drop_na(Gy, y_lag, Gy_lag)
+}
+
+# (a) Full Eq. 9: contemporaneous Wy instrumented; lagged terms included as predetermined
+f_m9 <- as.formula(sprintf(
+  "y ~ %s + %s + y_lag + Gy_lag | country + year | Gy ~ %s + %s", rhs, exo, inst2, inst3
+))
+# (b) Defensible restriction: no contemporaneous Wy -> OLS-FE, no reflection problem
+f_m9_lp <- as.formula(sprintf("y ~ %s + %s + y_lag + Gy_lag | country + year", rhs, exo))
+
+fit_m9 <- function(panel, W, restricted = FALSE) {
+  d <- build_bdf_m9(panel, W, x_vars)
+  feols(if (restricted) f_m9_lp else f_m9, data = d, cluster = ~country)
+}
+
+# Switch restricted = TRUE for version (b)
+m9 <- list(
+  fit_m9(panel_q, W_q_sub),     fit_m9(panel_q, W_q_lag_sub),
+  fit_m9(panel_e, W_e_sub),     fit_m9(panel_e, W_e_lag_sub)
+)
+
+etable(
+  m9,
+  depvar = FALSE,
+  headers = c(
+    "Quality / sim-rec", "Quality / lag-rec",
+    "Environment / sim-rec", "Environment / lag-rec"
+  ),
+  keep = c("%Gy", "%y_lag"), # match original names (before dict); %Gy catches Gy/fit_Gy/Gy_lag
+  dict = c(
+    `fit_Gy` = "$\\beta_0$: $Wy_t$", Gy = "$\\beta_0$: $Wy_t$",
+    Gy_lag = "$\\beta_1$: $Wy_{t-1}$", y_lag = "$\\theta$: $y_{t-1}$"
+  ),
+  fitstat = ~ n + wr2, signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10), tex = TRUE,
+  title = "Hypothetical dynamic specification (BDF Eq.~9) on the recovered networks. Illustrative: $\\beta_0$ is IV-identified while $\\theta,\\beta_1$ carry $O(1/T)$ dynamic-panel bias.",
+  label = "tab:bdf_model9",
+  notes = "Columns differ only in the network source (recovered without vs.\\ with lagged covariates). FE: country + year. Slovenia excluded.",
+  file = file.path(tab_dir, "bdf_model9.tex")
+)
+```
