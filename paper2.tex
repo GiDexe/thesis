@@ -81,14 +81,16 @@ distance. Such a methodology highlights the problem of the unobserved network bu
 it: its conclusions hold only under the strong assumption that the true diffusion network is
 among those specified in advance, an assumption it cannot itself verify.
 
-This fragility is exactly what motivates the present work. Rather than choosing a proximity metric
-and hoping it coincides with the true structure of influence, we recover the latent diffusion network
+This fragility is exactly what motivates the present work.
+Using annual data on ISO 9001 and ISO 14001 certifications for the 27 EU member states, we recover a separate latent diffusion network for each standard. We compare the resulting network structures, examine the bilateral determinants of the recovered links and re-estimate peer effects using both the recovered networks and the exogenous benchmark networks of \citet{albuquerque2007}.
+This enables us to evaluate whether Quality and Environmental Management standards diffuse through distinct channels and to quantify the extent to which substantive conclusions depend on the specification of the underlying diffusion network.
+Rather than choosing a proximity metric and hoping it coincides with the true structure of influence, we recover the latent diffusion network
 directly from the data, using the framework of \citet{depaula2025}, whose adaptive
 elastic-net GMM estimator recovers the network endogenously from panel data on a single
 standard over time. This lets the data, not an assumed metric, determine which countries
 influence which, removes the misspecification at the root of the bias in \citet{albuquerque2007}.
 
-The work is organised as follows....
+The remainder of the paper is organised as follows. Section~\ref{sec:data-and-methodology} presents the data and empirical methodology, including the network-recovery framework and the econometric specification. Section~\ref{sec:results} reports the main results, starting with the properties of the recovered networks and their comparison with exogenous benchmarks, followed by dyadic determinants and peer-effect estimates. Section~\ref{sec:discussion} discusses the main findings and limitations. The Appendix provides additional robustness checks, including the grid search, degree distributions, network similarity measures, and supplementary estimation results.
 
 \clearpage
 \section{Data and Methodology}
@@ -150,14 +152,45 @@ Two features of the data require adaptation. Annual certificate counts are highl
 \end{equation}
 where the outcome is the year-on-year log-difference in certificates, $\tilde y_{it} = \log(1+n_{it}) - \log(1+n_{i,t-1})$, with $n_{it}$ the number of valid certificates held in country $i$ in year $t$, and $\tilde x_{it}^{(k)} = \log(1+x_{it}^{(k)})$ is the $k$-th of the $K=5$ covariates: GDP per capita, Trade (\% of GDP), the Rule of Law estimate, Total Natural Resource Rents (\% of GDP), and the Share of Renewables in Total Final Energy Consumption.
 
-I estimate equation~\eqref{eq:empirical} via the adaptive elastic-net GMM of \citet{depaula2025}, which returns $\hat W$ jointly with $(\hat\rho,\hat\beta,\hat\gamma)$; the three penalty parameters are selected by BIC over a grid (Appendix~\ref{app:grid}).
+We estimate equation~\eqref{eq:empirical} via the adaptive elastic-net GMM of \citet{depaula2025}, which returns $\hat W$ jointly with $(\hat\rho,\hat\beta,\hat\gamma)$; the three penalty parameters are selected by BIC over a grid (Appendix~\ref{app:grid}).
+We then analyse the structure of the two recovered networks and compare their similarity, both with one another and with the exogenous network specifications adopted by \citet{albuquerque2007}. We complement this with a dyadic regression of the recovered edge weights on a set of bilateral covariates,
+\begin{equation}
+    \hat w_{ij} = \sum_{k} \delta_k\, D_{ij}^{k} + a_i + a_j + u_{ij},
+    \label{eq:dyadic}
+\end{equation}
+where $D_{ij}^{k}$ collects the dyadic regressors (economic distance, asymmetry of environmental policy, cultural distance, geographic distance, bilateral FDI, and bilateral trade), and $a_i$ and $a_j$ are sender and receiver fixed effects absorbing each country's overall propensity to influence and to be influenced. The regressors are chosen following the existing literature.
 
+Having recovered both the network and the associated structural parameters, we assess the role of the network in a second stage. Following \citet{bramoulle2009}, we estimate the linear-in-means peer-effects model
+\begin{equation}
+    y_{it} = \rho \sum_{j} W_{ij}\, y_{jt} + \beta\, x_{it} + \gamma \sum_{j} W_{ij}\, x_{jt} + \alpha_i + \alpha_t + \varepsilon_{it},
+    \label{eq:bdf}
+\end{equation}
+where the endogenous peer term $\sum_j W_{ij} y_{jt}$ is instrumented by the characteristics of indirectly connected peers, $\mathbf{W}^2\mathbf{x}$ and $\mathbf{W}^3\mathbf{x}$, which exploit the intransitivities of the network to address the reflection problem \citep{manski1993,bramoulle2009}. We run equation~\eqref{eq:bdf} on both the recovered network and the row-normalised exogenous benchmarks of \citet{albuquerque2007}, treating the network as known and including country and year fixed effects. The recovered network is taken to be the true network of interactions; as an internal check on this assumption, we compare the within-$R^2$ across specifications and find that the recovered network attains the highest fit for both standards.
 
+As a robustness check, we also estimate a fully lagged specification in which all explanatory variables are dated $t-1$:
+\begin{equation}
+    y_{it}
+    =
+    \theta y_{i,t-1}
+    +
+    \beta_1 \sum_j W_{ij} y_{j,t-1}
+    +
+    \sum_{k=1}^{K}\gamma_{1k} x_{i,t-1}^{(k)}
+    +
+    \sum_{k=1}^{K}\delta_{1k}\sum_j W_{ij}x_{j,t-1}^{(k)}
+    +
+    \alpha_i+\alpha_t+\varepsilon_{it},
+    \label{eq:fullag}
+\end{equation}
+where $W$ denotes either the recovered network or one of the benchmark exogenous networks.
+
+This specification can be viewed as a restricted version of the dynamic framework discussed by \citet{bramoulle2020}, in which contemporaneous peer effects are excluded and social influence is allowed to propagate only with a one-period delay. By replacing the contemporaneous peer outcome $Wy_t$ with its lagged counterpart $Wy_{t-1}$, the model breaks the simultaneous feedback mechanism that gives rise to the reflection problem \citep{manski1993, bramoulle2009}. Identification therefore relies on temporal rather than contemporaneous spillovers.
+
+The coefficient $\theta$ captures persistence in certification dynamics, while $\beta_1$ measures the effect of past peer adoption on current adoption. Under the maintained assumption that $|\theta|<1$, the implied long-run social multiplier is given by $\beta_1/(1-\theta)$, which measures the cumulative propagation of a shock through the network over time. Because influence is constrained to operate through lagged outcomes and characteristics, this specification provides a conservative robustness check on the contemporaneous estimates, reducing the risk that recovered network effects merely reflect common shocks affecting EU countries simultaneously.
 \clearpage
 \section{Results}
 \label{sec:results}
 
-% =============================================================================
 \subsection{Network Recovery}
 \label{sec:network-recovery}
 
@@ -219,6 +252,63 @@ distributions underlying these layouts are given in Appendix~\ref{app:degree}
 
 
 % =============================================================================
+
+% =============================================================================
+\subsection{Network Similarity}
+\label{sec:network-similarity}
+% =============================================================================
+To assess how closely the two recovered networks $\hat W^Q$ and $\hat W^E$ overlap, we summarise their structural similarity through the Jaccard index. Results and Jaccard definition are in attached in the Appendix.
+
+Briefly, the closer to 1 the Jaccard, the more similar the networks are.
+As expected and already seen in \ref{fig:networks} the two standards do present very different diffusion networks. Such netwoks do not simply differ between each other, but also result to be very different from the exogenous networks considerd by the previous literature, in particular \citet{albuquerque2007}.
+$|E_Q|=28$, $|E_E|=30$ and only three shared directed edges, the two recovered structures
+overlap at $J=0.055$, close to the value expected of two essentially unrelated sparse
+networks on the same node set. Table~\ref{tab:jaccard_matrix} extends the comparison to
+the Albuquerque et al.\ (2007) benchmarks and delivers the same verdict for both standards:
+no exogenous proxy comes close to reproducing either recovered network.
+More precisely, the exogenous networks are far more similar between each other (e.g. Trade-Culture) than to any of the recovered networks.
+
+
+\clearpage
+
+% =============================================================================
+\subsection{Dyadic Regression}
+The dyadic regressions in Table~\ref{tab:dyadic_recovered_fp_fe} ask what predicts the
+\emph{presence and strength} of a recovered tie, with sender and receiver fixed effects
+absorbing all monadic heterogeneity in propensity to certify or to be imitated (Dzemski
+2018). The result is the paper's sharpest finding. For Quality, bilateral FDI is the robust
+dyadic predictor of recovered links ($0.0143$, significant at $5\%$), whereas bilateral
+trade is small and insignificant ($0.0031$). This refines the existing literature: Guler et
+al.\ (2002) and Albuquerque et al.\ (2007) treat trade and FDI together, or trade alone, as
+the economic channel for ISO~9001, leaving open which of the two actually carries the
+diffusion. Conditioning on both within the same specification, only FDI survives. The
+recovered Quality network thus looks trade-like in aggregate fit (Figure~\ref{fig:bdf_forest_twfe_sim_vs_fullag})
+precisely because trade and FDI are correlated, but the structure underneath is investment,
+not trade, driven. For Environment, neither economic variable
+is significant; the predictors that load instead are environmental-policy asymmetry
+($0.0381$, significant at $5\%$) and economic distance ($-0.0360$, significant at $10\%$),
+consistent with a governance-homophily logic in which environmental certification travels
+between countries with similar regulatory postures rather than along investment ties
+(Berliner \& Prakash 2013). Read alongside the weaker peer-effect identification for
+Environment, this reinforces the two-track reading: a technical standard diffusing through
+economic integration, specifically FDI, and a political standard diffusing through
+governance similarity, recovered less precisely because of its shorter panel.
+% =============================================================================
+
+% --- prose motivating the dyadic regression here ---
+
+\input{assets/tables/dyadic_recovered_fp_fe}
+
+\textbf{Findings.}
+\begin{itemize}
+    \item For Quality in Table~\ref{tab:dyadic_recovered_fp_fe}, (i)~bilateral FDI is the robust dyadic predictor of recovered ties ($0.0143^{**}$) whereas (ii)~bilateral trade is not ($0.0031$, n.s.), refining existing literature (Albuquerque et al. (2007) and Guler et al.\ (2002)), who bundle trade and FDI/consider trade only as joint ISO 9001 channels.
+    \item Cannot disprove the economic channel for technical standards and the complexity of the political standard
+\end{itemize}
+
+
+\clearpage
+
+% =============================================================================
 \subsection{Peer Effects: Recovered vs Exogenous Networks}
 
 Conditional on the recovered network $\hat W$, we estimate endogenous peer
@@ -257,7 +347,7 @@ countries.
 
 
 \label{sec:peer-effects}
-Figure~\ref{fig:bdf_combined} reports the \citet{bramoulle2009}
+Figure~\ref{fig:bdf_forest_twfe_sim_vs_fullag} reports the \citet{bramoulle2009}
 peer-effect estimates across network specifications, for the recovered networks and for
 the exogenous benchmarks of Albuquerque et al.\ (2007). Two readings support the claim
 that Quality is recovered more successfully than Environment. First, the recovered
@@ -282,7 +372,7 @@ network can draw.
 \begin{figure}[H]
     \centering
     \caption{Peer-effect estimates across network specifications.}
-    \label{fig:bdf_combined}
+    \label{fig:bdf_forest_twfe_sim_vs_fullag}
     \includegraphics[width=\textwidth]{assets/figures/bdf_forest_combined}
     \par\vspace{0.5em}
     {\footnotesize \textit{Notes.} \textit{Observations:} Quality $N \times T = 624$ (simultaneous), $598$ (lagged); Environment $N \times T = 468$ (simultaneous), $442$ (lagged). The figure reports IV-2SLS peer-effect estimates ($\hat\beta$) and 95\% confidence intervals from the \citet{bramoulle2009} linear-in-means specification, estimated on the recovered networks (\citet{depaula2025}) and on the exogenous benchmark networks of Albuquerque et al.\ (2007). Error bars are cluster-bootstrapped (999 draws, country clusters). Each point estimate is labelled with its value and, in parentheses, the within-$R^2$. The two panels show results with and without a one-year lag. Slovenia is dropped (isolated node in the recovered Quality network).}
@@ -291,16 +381,16 @@ network can draw.
 \begin{figure}[H]
     \centering
     \caption{R squared of peer-effect estimates across network specifications.}
-    \label{fig:bdf_combined_r2}
-    \includegraphics[width=\textwidth]{assets/figures/bdf_r2_combined.pdf}
+    \label{fig:bdf_r2_nolag}
+    \includegraphics[width=\textwidth]{assets/figures/bdf_r2_nolag.pdf}
     \par\vspace{0.5em}
-    {\footnotesize \textit{Notes.} \textit{Observations:} Quality $N \times T = 624$ (simultaneous), $598$ (lagged); Environment $N \times T = 468$ (simultaneous), $442$ (lagged). The figure reports IV-2SLS peer-effect R squared.}
+    {\footnotesize \textit{Notes.} \textit{Observations:} Quality $N \times T = 624$ (simultaneous); Environment $N \times T = 468$ (simultaneous). The figure reports IV-2SLS peer-effect R squared for the two standards.}
 \end{figure}
 
 Recovered networks seem to show a better fit than de Paula's chosen specifications, even though the best fit for Quality is the pure Trade network.
 
 
-Figure \ref{fig:bdf_combined} shows peer effect estimates from the linear-in-means specification of \citet{bramoulle2009} across the different network specifications. The considered specifications are the recovered ones and the exogenous network specifications taken into account by Albuquerque et al.\ (2007): geographical proximity, trade intensity, cultural similarity and institutional similarity.
+Figure \ref{fig:bdf_forest_twfe_sim_vs_fullag} shows peer effect estimates from the linear-in-means specification of \citet{bramoulle2009} across the different network specifications. The considered specifications are the recovered ones and the exogenous network specifications taken into account by Albuquerque et al.\ (2007): geographical proximity, trade intensity, cultural similarity and institutional similarity.
 \begin{itemize}
     \item \textbf{Recovered Quality Networks} shows significant peer effect not statistically different from the one identified by Albuquerque et al. in their chosen specification (Geo + Trade). The validity of the recovered network is supported by the lagged specification, where the chosen Albuquerque network isn't statistically different form 0.
     \item \textbf{Recovered Environment Networks} shows a small peer-effect estimate, smaller than the Albuquerque specification and not statistically significant for both simultaneous and lagged specifications. This result is consistent with the shorter panel for Environment and is analysed in more detail in the next section.
@@ -308,70 +398,6 @@ Figure \ref{fig:bdf_combined} shows peer effect estimates from the linear-in-mea
 
 \clearpage
 
-% =============================================================================
-\subsection{Network Similarity}
-\label{sec:network-similarity}
-% =============================================================================
-To assess how closely the two recovered networks $\hat W^Q$ and $\hat W^E$ overlap, we summarise their structural similarity through the \textbf{Jaccard index} (Jaccard 1901; Wasserman \& Faust 1994, Sec.\ 11.4): \begin{equation} J(\hat W^Q, \hat W^E) = \frac{|E_Q \cap E_E|}{|E_Q \cup E_E|}, \label{eq:jaccard} \end{equation} where $E_Q = \{(i, j) : |\hat w^Q_{ij}| > 10^{-5}\}$ and $E_E$ is defined analogously. The index ranges in $[0, 1]$, with $J = 0$ for disjoint networks and $J = 1$ for identical edge sets. For the BIC-selected recovered networks, $|E_Q| = 28$, $|E_E| = 30$, $|E_Q \cap E_E| = 3$, and $|E_Q \cup E_E| = 55$, yielding $J = 0.055$.
-\begin{itemize}
-    \item \textbf{Distance from exogenous benchmarks.} Both recovered networks barely overlap any Albuquerque et al.\ (2007) benchmark in Tables~\ref{tab:jaccard_similarity}, TO BE COMMENTED so diffusion is not reducible to (i)~geography, (ii)~trade, or (iii)~culture; the endogenous-recovery step adds information beyond fixed proxies.
-\end{itemize}
-
-The Jaccard index formalises the visual dissimilarity of Figure~\ref{fig:networks}. With
-$|E_Q|=28$, $|E_E|=30$ and only three shared directed edges, the two recovered structures
-overlap at $J=0.055$, close to the value expected of two essentially unrelated sparse
-networks on the same node set. Table~\ref{tab:jaccard_similarity} extends the comparison to
-the Albuquerque et al.\ (2007) benchmarks and delivers the same verdict for both standards:
-no exogenous proxy comes close to reproducing either recovered network. For Quality the
-highest overlap is with Geography ($0.069$) and with Geo~$+$~Trade ($0.052$), both far below
-unity; for Environment every benchmark overlap lies at or under $0.047$. Diffusion is
-therefore not reducible to geography, trade, or cultural distance taken singly or in the
-combinations the prior literature imposes, the endogenous-recovery step is adding
-structure that no fixed proxy encodes. The contrast between the two recovered networks is the
-substantive payoff: Quality and Environment do not merely load on the exogenous proxies to
-different degrees, they diffuse through almost disjoint sets of country-to-country links,
-which is the two-track diffusion narrative the paper sets out to test.
-
-\input{assets/tables/jaccard_similarity}
-
-\clearpage
-
-% =============================================================================
-\subsection{Dyadic Regression}
-The dyadic regressions in Table~\ref{tab:dyadic_recovered_fp_fe} ask what predicts the
-\emph{presence and strength} of a recovered tie, with sender and receiver fixed effects
-absorbing all monadic heterogeneity in propensity to certify or to be imitated (Dzemski
-2018). The result is the paper's sharpest finding. For Quality, bilateral FDI is the robust
-dyadic predictor of recovered links ($0.0143$, significant at $5\%$), whereas bilateral
-trade is small and insignificant ($0.0031$). This refines the existing literature: Guler et
-al.\ (2002) and Albuquerque et al.\ (2007) treat trade and FDI together, or trade alone, as
-the economic channel for ISO~9001, leaving open which of the two actually carries the
-diffusion. Conditioning on both within the same specification, only FDI survives. The
-recovered Quality network thus looks trade-like in aggregate fit (Figure~\ref{fig:bdf_combined})
-precisely because trade and FDI are correlated, but the structure underneath is investment,
-not trade, driven. For Environment, neither economic variable
-is significant; the predictors that load instead are environmental-policy asymmetry
-($0.0381$, significant at $5\%$) and economic distance ($-0.0360$, significant at $10\%$),
-consistent with a governance-homophily logic in which environmental certification travels
-between countries with similar regulatory postures rather than along investment ties
-(Berliner \& Prakash 2013). Read alongside the weaker peer-effect identification for
-Environment, this reinforces the two-track reading: a technical standard diffusing through
-economic integration, specifically FDI, and a political standard diffusing through
-governance similarity, recovered less precisely because of its shorter panel.
-% =============================================================================
-
-% --- prose motivating the dyadic regression here ---
-
-\input{assets/tables/dyadic_recovered_fp_fe}
-
-\textbf{Findings.}
-\begin{itemize}
-    \item For Quality in Table~\ref{tab:dyadic_recovered_fp_fe}, (i)~bilateral FDI is the robust dyadic predictor of recovered ties ($0.0143^{**}$) whereas (ii)~bilateral trade is not ($0.0031$, n.s.), refining existing literature (Albuquerque et al. (2007) and Guler et al.\ (2002)), who bundle trade and FDI/consider trade only as joint ISO 9001 channels.
-    \item Cannot disprove the economic channel for technical standards and the complexity of the political standard
-\end{itemize}
-
-
-\clearpage
 \section{Discussion}
 \label{sec:discussion}
 
@@ -411,6 +437,27 @@ governance similarity, recovered less precisely because of its shorter panel.
     \par\vspace{0.5em}
     \textit{Notes.} This figure shows the in- and out-degree distributions of the recovered Quality and Environment networks. Degree is defined as the number of non-zero entries in each row (out-degree) or column (in-degree) of the recovered weight matrix $\hat{W}$.
 \end{figure}
+
+\subsection{Network Similarity}
+\textbf{Jaccard index} (Jaccard 1901; Wasserman \& Faust 1994, Sec.\ 11.4): \begin{equation} J(\hat W^Q, \hat W^E) = \frac{|E_Q \cap E_E|}{|E_Q \cup E_E|}, \label{eq:jaccard} \end{equation} where $E_Q = \{(i, j) : |\hat w^Q_{ij}| > 10^{-5}\}$ and $E_E$ is defined analogously. The index ranges in $[0, 1]$, with $J = 0$ for disjoint networks and $J = 1$ for identical edge sets. For the BIC-selected recovered networks, $|E_Q| = 28$, $|E_E| = 30$, $|E_Q \cap E_E| = 3$, and $|E_Q \cup E_E| = 55$, yielding $J = 0.055$.
+\begin{itemize}
+    \item \textbf{Distance from exogenous benchmarks.} Both recovered networks barely overlap any Albuquerque et al.\ (2007) benchmark in Tables~\ref{tab:jaccard_matrix}, TO BE COMMENTED so diffusion is not reducible to (i)~geography, (ii)~trade, or (iii)~culture; the endogenous-recovery step adds information beyond fixed proxies.
+\end{itemize}
+
+The Jaccard index formalises the visual dissimilarity of Figure~\ref{fig:networks}
+\input{assets/tables/jaccard_matrix.tex}
+
+
+\subsection{Models fit}
+\begin{figure}[H]
+    \centering
+    \caption{R-squared, fully lagged peer effects}
+    \label{fig:bdf_r2_fullag}
+    \includegraphics[width=0.85\textwidth]{assets/figures/bdf_r2_fullag.pdf}
+    \par\vspace{0.5em}
+    {\footnotesize \textit{Notes.}}
+\end{figure}
+
 
 \subsection{GMM Parameter Estimates}
 

@@ -1575,3 +1575,223 @@ etable(
   file = file.path(tab_dir, "bdf_model9.tex")
 )
 ```
+
+
+```{r}
+#| label: bdf-fullag-standalone
+#| echo: false
+#| results: asis
+
+# Fully-lagged: x_{t-1}, Gx_{t-1}, y_{t-1}, Wy_{t-1}. OLS-FE, no IV.
+build_bdf_fullag <- function(panel, W, x_vars) {
+  build_bdf(panel, W, x_vars, use_lag = TRUE) |>          # x_{t-1}, Gx_{t-1}; Gy is Wy_t
+    dplyr::arrange(country, year) |>
+    dplyr::group_by(country) |>
+    dplyr::mutate(
+      y_lag  = dplyr::lag(y,  1, order_by = year),         # theta: y_{i,t-1}
+      Gy_lag = dplyr::lag(Gy, 1, order_by = year)          # beta1: (Wy)_{i,t-1}
+    ) |>
+    dplyr::ungroup() |>
+    tidyr::drop_na(Gy_lag, y_lag)
+}
+f_fullag <- as.formula(sprintf("y ~ %s + %s + y_lag + Gy_lag | country + year", rhs, exo))
+fit_fullag <- function(panel, W) feols(f_fullag, data = build_bdf_fullag(panel, W, x_vars), cluster = ~country)
+
+nets_fa <- make_networks(lag = TRUE)   # "Recovered" = lag-recovered W
+m_q <- fit_fullag(panel_q, nets_fa$q[["Recovered"]])
+m_e <- fit_fullag(panel_e, nets_fa$e[["Recovered"]])
+
+lr <- function(m) { b <- coef(m); unname(b["Gy_lag"] / (1 - b["y_lag"])) }
+
+etable(
+  list(m_q, m_e), depvar = FALSE,
+  headers = c("Quality", "Environment"),
+  order = c("Gy_lag", "y_lag"), keep = c("%Gy_lag", "%y_lag"),
+  dict = c(Gy_lag = "$\\beta_1$: peers' past adoption $Wy_{t-1}$",
+           y_lag  = "$\\theta$: own persistence $y_{t-1}$"),
+  fitstat = ~ n + wr2, signif.code = c("***"=0.01,"**"=0.05,"*"=0.10), tex = TRUE,
+  title = "Fully-lagged specification (recovered networks): covariates, own and peer outcomes all dated $t-1$. OLS with country and year FE; no instrument.",
+  label = "tab:bdf_fullag",
+  notes = sprintf(paste(
+    "Lagged-peer restriction of BDF Eq.~9 ($\\beta_0=0$): $Wy_{t-1}$ is predetermined, so no reflection problem and no IV",
+    "(Bramoull\\'e, Djebbari \\& Fortin 2009; Manski 1993). Network recovered with lagged covariates.",
+    "$\\theta$ carries $O(1/T)$ Nickell (1981) bias. Long-run propagation $\\beta_1/(1-\\theta)$: Quality %.3f, Environment %.3f. Slovenia excluded."),
+    lr(m_q), lr(m_e)),
+  file = file.path(tab_dir, "bdf_fullag.tex")
+)
+
+# Forest of beta1 across all networks (built from fitted objects, no text parsing)
+ci_fa <- function(panel, fits) do.call(rbind, lapply(names(fits), function(nm) {
+  ct <- summary(fits[[nm]])$coeftable
+  if (!"Gy_lag" %in% rownames(ct)) return(NULL)
+  b <- ct["Gy_lag", 1]; se <- ct["Gy_lag", 2]
+  data.frame(panel = panel, network = nm, estimate = b, lo95 = b - 1.96*se, hi95 = b + 1.96*se)
+}))
+fa_all <- dplyr::bind_rows(
+  ci_fa("Quality",     lapply(nets_fa$q, function(W) fit_fullag(panel_q, W))),
+  ci_fa("Environment", lapply(nets_fa$e, function(W) fit_fullag(panel_e, W)))
+) |>
+  dplyr::mutate(
+    network = dplyr::recode(network,
+      "Exogenous, Geo + Trade"="Geo + Trade","Exogenous, Geo + Culture"="Geo + Culture",
+      "Exogenous, Geography"="Geography","Exogenous, Trade"="Trade","Exogenous, Cultural dist."="Culture"),
+    network = forcats::fct_relevel(factor(network), "Recovered", after = Inf),
+    panel   = factor(panel, levels = c("Quality","Environment")),
+    est_label = sprintf("%.3f", estimate))
+
+p_fa <- ggplot(fa_all, aes(estimate, network)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50", linewidth = 0.4) +
+  geom_linerange(aes(xmin = lo95, xmax = hi95), linewidth = 0.8) +
+  geom_point(size = 2.6) +
+  geom_text(aes(label = est_label), vjust = -1.1, size = 2.3) +
+  facet_wrap(~panel, ncol = 2) + coord_cartesian(clip = "off") +
+  labs(x = expression("Lagged peer effect ("*beta[1]*")"), y = NULL) +
+  theme_minimal(base_size = 10) +
+  theme(panel.grid.minor = element_blank(), panel.grid.major.y = element_blank(),
+        strip.text = element_text(face = "bold"))
+print(p_fa)
+save_figure("bdf_fullag_forest", width = 12, height = 6)
+```
+
+```{r}
+#| label: bdf-fullag-splice
+#| echo: false
+#| results: asis
+# Run AFTER bdf-adjusted-tables (needs panels, helpers, build_bdf_fullag/fit_fullag from chunk A).
+# Overrides the "Lagged" objects so every combined figure now means fully-lagged-peer.
+
+star_lp <- function(p) if (is.na(p)) "" else if (p<0.01) "$^{***}$" else if (p<0.05) "$^{**}$" else if (p<0.10) "$^{*}$" else ""
+rb_lp <- function(panel, network, m, coef = "Gy_lag") {       # mirrors rb()'s 2-row, V1..V4 layout
+  ct <- summary(m)$coeftable
+  if (!coef %in% rownames(ct)) { est <- "---"; se <- "" } else {
+    b <- ct[coef,1]; s <- ct[coef,2]; p <- ct[coef,4]
+    est <- sprintf("%.3f%s", b, star_lp(p)); se <- sprintf("(%.3f)", s)
+  }
+  rbind(c(panel, network, "", est), c("", "", "", se))
+}
+run_all_fullag <- function() {
+  nets <- make_networks(lag = TRUE)
+  rows <- NULL
+  for (nm in names(nets$q)) rows <- rbind(rows, rb_lp("Quality", nm, fit_fullag(panel_q, nets$q[[nm]])))
+  for (nm in names(nets$e)) rows <- rbind(rows, rb_lp("Environment", nm, fit_fullag(panel_e, nets$e[[nm]])))
+  as.data.frame(rows, stringsAsFactors = FALSE)                # columns auto-named V1..V4
+}
+wr2_fullag <- function() {
+  nets <- make_networks(lag = TRUE)
+  c(sapply(nets$q, function(W) unname(fixest::r2(fit_fullag(panel_q, W), "wr2"))),
+    sapply(nets$e, function(W) unname(fixest::r2(fit_fullag(panel_e, W), "wr2"))))
+}
+
+# Override the lagged objects the downstream figures consume
+tab_lag      <- run_all_fullag()
+wr2_lag_vals <- wr2_fullag()
+ci_lag       <- build_ci(tab_lag, "Lagged")
+nobs_q_lag   <- nrow(build_bdf_fullag(panel_q, W_q_lag_sub, x_vars))
+nobs_e_lag   <- nrow(build_bdf_fullag(panel_e, W_e_lag_sub, x_vars))
+
+print_bdf_tab(
+  tab_lag, wr2_lag_vals,
+  caption = "Peer-effect estimates — fully-lagged specification. $\\beta_1$ on peers' past adoption $Wy_{i,t-1}$; covariates, own outcome and peer outcome all dated $t-1$. OLS with country and year FE, no IV.",
+  label = "tab:bdf_fullag_panel",
+  note  = "Lagged-peer restriction ($\\beta_0=0$): predetermined RHS, no reflection problem, no instrument (Bramoull\\'e, Djebbari \\& Fortin 2009). Recovered = lag-recovered network. Slovenia excluded.",
+  nobs_q = nobs_q_lag, nobs_e = nobs_e_lag
+)
+
+# Recompute combined forest / R²: "Simultaneous" = beta0 (IV), "Lagged" = beta1 (lagged peer)
+ci_combined <- dplyr::bind_rows(ci_nolag, ci_lag) |>
+  dplyr::mutate(network = forcats::fct_relevel(network, "Recovered", after = Inf),
+                spec = factor(spec, levels = c("Simultaneous", "Lagged")))
+print(forest_plot(ci_combined)); save_figure("bdf_forest_combined", width = 12, height = 6)
+
+r2_lag <- data.frame(panel = c(rep("Quality",5), rep("Environment",5)),
+                     network = c(net_q, net_e), wr2 = wr2_lag_vals) |>
+  relevel_net() |> dplyr::mutate(spec = "Lagged")
+print(r2_plot(dplyr::bind_rows(r2_nolag, r2_lag))); save_figure("bdf_r2_lag", width = 12, height = 6)
+```
+
+```{r}
+#| label: fig-bdf-r2-twfe
+#| echo: false
+#| fig-width: 12
+#| fig-height: 6
+#| fig-cap: "Within-$R^2$ — simultaneous specification, country $+$ year FE"
+# net_q / net_e / relevel_net / r2_plot defined in fig-bdf-forest-combined; wr2_twfe_nolag in bdf-twfe-tables.
+r2_twfe_nolag <- data.frame(
+  panel   = c(rep("Quality", 5), rep("Environment", 5)),
+  network = c(net_q, net_e),
+  wr2     = wr2_twfe_nolag,
+  stringsAsFactors = FALSE
+) |>
+  relevel_net() |>
+  dplyr::mutate(spec = "Simultaneous")
+
+p_r2_twfe <- r2_plot(r2_twfe_nolag) + theme(legend.position = "none")
+print(p_r2_twfe)
+save_figure("bdf_r2_twfe", width = 12, height = 6)
+```
+```{r}
+#| label: fig-bdf-r2-fullag
+#| echo: false
+#| fig-width: 12
+#| fig-height: 6
+#| fig-cap: "Within-$R^2$ — fully-lagged-peer specification"
+# wr2_fullag() is defined in bdf-fullag-splice; this chunk must run after it.
+# Names come back as the full "Exogenous, ..." labels -> recode to match net_q/net_e.
+wr2_fa <- wr2_fullag()
+r2_fullag <- data.frame(
+  panel   = c(rep("Quality", 5), rep("Environment", 5)),
+  network = c(net_q, net_e),     # same network order make_networks() iterates
+  wr2     = unname(wr2_fa),
+  stringsAsFactors = FALSE
+) |>
+  relevel_net() |>
+  dplyr::mutate(spec = "Fully lagged")
+
+p_r2_fullag <- r2_plot(r2_fullag) + theme(legend.position = "none")
+print(p_r2_fullag)
+save_figure("bdf_r2_fullag", width = 12, height = 6)
+```
+
+```{r}
+#| label: fig-bdf-forest-twfe-sim-vs-fullag
+#| echo: false
+#| fig-width: 12
+#| fig-height: 6
+#| fig-cap: "Peer-effect estimates, country $+$ year FE: simultaneous ($\\beta_0$ on $Wy_t$, IV) vs fully-lagged ($\\beta_1$ on $Wy_{t-1}$, OLS)"
+# Needs: ci_twfe_nolag (fig-bdf-forest-twfe), forest_plot/spec_vals (fig-bdf-forest-combined),
+#        fit_fullag/nets_fa (bdf-fullag-standalone).
+
+ci_fullag <- function(panel, fits) do.call(rbind, lapply(names(fits), function(nm) {
+  ct <- summary(fits[[nm]])$coeftable
+  if (!"Gy_lag" %in% rownames(ct)) return(NULL)
+  b <- ct["Gy_lag", 1]; se <- ct["Gy_lag", 2]
+  data.frame(panel = panel, network = nm, estimate = b, se = se,
+             lo95 = b - 1.96*se, hi95 = b + 1.96*se, stringsAsFactors = FALSE)
+}))
+
+ci_lagpeer <- dplyr::bind_rows(
+  ci_fullag("Quality",     lapply(nets_fa$q, function(W) fit_fullag(panel_q, W))),
+  ci_fullag("Environment", lapply(nets_fa$e, function(W) fit_fullag(panel_e, W)))
+) |>
+  dplyr::mutate(
+    network = dplyr::recode(network,
+      "Exogenous, Geo + Trade"="Geo + Trade","Exogenous, Geo + Culture"="Geo + Culture",
+      "Exogenous, Geography"="Geography","Exogenous, Trade"="Trade","Exogenous, Cultural dist."="Culture"),
+    network = forcats::fct_relevel(
+      factor(network, levels = c("Recovered","Geo + Trade","Geo + Culture","Geography","Trade","Culture")),
+      "Recovered", after = Inf),
+    panel = factor(panel, levels = c("Quality","Environment")),
+    spec  = "Lagged",
+    est_label = sprintf("%.3f", estimate)
+  )
+
+ci_twfe_sim_vs_lag <- dplyr::bind_rows(ci_twfe_nolag, ci_lagpeer) |>
+  dplyr::mutate(
+    network = forcats::fct_relevel(network, "Recovered", after = Inf),
+    spec    = factor(spec, levels = c("Simultaneous","Lagged"))
+  )
+
+p_twfe_sim_vs_fullag <- forest_plot(ci_twfe_sim_vs_lag)
+print(p_twfe_sim_vs_fullag)
+save_figure("bdf_forest_twfe_sim_vs_fullag", width = 12, height = 6)
+```
