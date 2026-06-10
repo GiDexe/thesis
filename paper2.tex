@@ -150,7 +150,7 @@ If $W_0$ were known, equation~\eqref{eq:reduced} would directly identify the str
 
 My work applies this framework to recover the latent network underlying ISO certification diffusion across the $N=27$ EU member states, estimating it separately for the two standards: ISO~9001 (\emph{Quality}, $T=25$, 1993--2017) and ISO~14001 (\emph{Environment}, $T=21$, 1997--2017). For each standard I obtain a distinct recovered network $\hat W$ together with its structural parameters $(\hat\rho,\hat\beta,\hat\gamma)$.
 
-Two features of the data require adaptation. Annual certificate counts are highly heterogeneous, spanning several orders of magnitude across countries (Table~\ref{tab:descriptives}), and contain zeros for country--years preceding adoption. I therefore apply a $\log(1+x)$ transformation to both sides of the equation: it stabilises the variance, accommodates the zeros that a plain log would discard. Generalising the scalar $\beta_0,\gamma_0$ of equation~\eqref{eq:structural} to $K\times1$ vectors, the estimated specification is
+Two features of the data require adaptation. Annual certificate counts are highly heterogeneous, spanning several orders of magnitude across countries (Table~\ref{tab:desc_stats}), and contain zeros for country--years preceding adoption. I therefore apply a $\log(1+x)$ transformation to both sides of the equation: it stabilises the variance, accommodates the zeros that a plain log would discard. Generalising the scalar $\beta_0,\gamma_0$ of equation~\eqref{eq:structural} to $K\times1$ vectors, the estimated specification is
 \begin{equation}
     \tilde y_{it} = \rho_0 \sum_{j=1}^{N} W_{0,ij}\,\tilde y_{jt} + \sum_{k=1}^{K} \beta_{0k}\,\tilde x_{it}^{(k)} + \sum_{k=1}^{K} \gamma_{0k} \sum_{j=1}^{N} W_{0,ij}\,\tilde x_{jt}^{(k)} + \alpha_i + \alpha_t + \varepsilon_{it},
     \label{eq:empirical}
@@ -193,8 +193,11 @@ This specification can be viewed as a restricted version of the dynamic framewor
 
 The coefficient $\theta$ captures persistence in certification dynamics, while $\beta_1$ measures the effect of past peer adoption on current adoption. Under the maintained assumption that $|\theta|<1$, the implied long-run social multiplier is given by $\beta_1/(1-\theta)$, which measures the cumulative propagation of a shock through the network over time. Because influence is constrained to operate through lagged outcomes and characteristics, this specification provides a conservative robustness check on the contemporaneous estimates, reducing the risk that recovered network effects merely reflect common shocks affecting EU countries simultaneously.
 \clearpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Results}
 \label{sec:results}
+%%
 
 \subsection{Network Recovery}
 \label{sec:network-recovery}
@@ -227,24 +230,17 @@ examined in Section~\ref{sec:peer-effects}.
 As disclosed by the table, the recovered networks are sparse and do show little similarity, only sharing 3 edges. This can be better appreciated visually in Figure~\ref{fig:networks}, which also shows the different topologies of the two networks. The Quality network is disconnected ... More detailed commentary will follow.
 % =============================================================================
 \subsection{Recovered Networks}
-Figure~\ref{fig:networks} renders the two networks and makes their dissimilarity visible.
-The panels are arranged as a $2\times 2$ grid: the diagonal shows each network in its own
-Fruchterman--Reingold layout, while the off-diagonal panels redraw each network using the
-other standard's coordinates, so that a shared structure, if present, would
-appear as aligned edges across a row or column. It does not. The Quality network (top-left)
-breaks into several disconnected components, with Slovenia appearing as an isolated node
-(the reason it is dropped from the Quality peer-effect estimation in
-Section~\ref{sec:peer-effects}), alongside a chain through Italy--Spain--Malta--Romania and
-a separate cluster around Austria, Germany and the Netherlands. The Environment network
-(bottom-right) is organised differently, with the Netherlands and Portugal acting as
-high-in-degree hubs and the directed, unreciprocated edges noted in
-Table~\ref{tab:network_eu} producing a more star-like, hierarchical appearance. When
-either network is forced into the other's layout (off-diagonal panels), no common backbone
-emerges which is the visual counterpart of the
-three shared edges and the Jaccard index of $0.055$ reported below. The in- and out-degree
-distributions underlying these layouts are given in Appendix
-(Figure~\ref{fig:degree_hist}).
-Both networks come directly row-normalised from the estimation, where the condition is set in order to retrieve the peer effect. This transformation, together with the sparsity of the recovered network results in most of the non-zero weights being 1s. This is particularly evident in the Appendix figure \ref{fig:degree_hist}, where a degree distribution for the two networks is reported.
+
+Figure~\ref{fig:networks} renders the two recovered networks and makes their dissimilarity visible. The panels are arranged as a $2\times 2$ grid: the diagonal shows each network in its own Fruchterman--Reingold layout, while the off-diagonal panels redraw each network using the other standard's coordinates, so that a shared structure, if present, would appear as aligned edges across a row or column. It does not. The two standards share only three directed edges, a near-orthogonality formalised by the Jaccard index in Section~\ref{sec:network-similarity}; here we simply note that the dissimilarity is not an artefact of layout, since neither network retains any recognisable backbone when projected onto the other's coordinates.
+
+A second feature of the recovered structures is that neither maps cleanly onto a single proximity metric. The Quality network combines geographically contiguous links with ties between non-neighbouring economies, and the Environment network connects countries that are neither culturally close nor major bilateral trading partners. This is consistent with the central premise of the exercise: had diffusion travelled along a single observable dimension, the recovered networks would resemble one of the exogenous benchmarks of \citet{albuquerque2007}, which they do not (Table~\ref{tab:jaccard_matrix}). Individual edges nonetheless admit plausible economic readings. The Germany--Slovenia link in the Environment network, for instance, is suggestive of vertical supply-chain pressure: Slovenia's manufacturing base is deeply integrated into German automotive value chains, and a well-documented channel of ISO diffusion is precisely the requirement, by large certified customers, that upstream suppliers certify in turn \citep{corbett2006, christmann2001, arimura2011}. We stress that such edge-level readings are illustrative rather than causal: the recovered $\hat W$ is a statistical object, estimated under a sparsity penalty, and the systematic analysis of what predicts a recovered tie is deferred to the dyadic regressions of Section~\ref{sec:dyadic}.
+
+The internal topology of the two networks also differs, in ways visible in the diagonal panels and quantified in Table~\ref{tab:network_eu}. The Quality network breaks into several disconnected components --- a chain through Italy--Spain--Malta--Romania, a separate cluster around Austria, Germany and the Netherlands --- with Slovenia appearing as an isolated node (the reason it is dropped from the Quality peer-effect estimation in Section~\ref{sec:peer-effects}). Rather than a single EU-wide channel, Quality diffusion appears to operate through a small number of self-contained regional sub-systems. The Environment network is instead connected around a few high-in-degree hubs, notably the Netherlands and Portugal, with directed and entirely unreciprocated edges producing a more hierarchical, star-like appearance.
+
+These topological differences align with the structural estimates. Quality exhibits higher clustering ($0.164$ versus $0.053$) and is the only network with reciprocated ties ($7.1\%$ of edges), while its recovered peer-effect parameter is the smaller of the two ($\hat\rho^{Q}=0.203$ versus $\hat\rho^{E}=0.286$, Figure~\ref{fig:gmm_ci}). Taken together, and bearing in mind that $\hat\rho^{E}$ is estimated with considerably less precision given the shorter Environment panel, the pattern is suggestive of a \emph{broader but slower} diffusion for Quality: a denser, more cohesive structure transmitting with lower per-link intensity. This reading is consistent with the two standards' different positions on their adoption curves within the sample window: ISO~9001, introduced in 1993 and already widely diffused by the time ISO~14001 was launched, is observed closer to the saturation phase of its diffusion process, where marginal transmission is mechanically weaker \citep{albuquerque2007}.
+
+Finally, both networks are row-normalised directly within the estimation, where the condition is imposed in order to identify the peer effect. This normalisation, combined with the sparsity of the recovered structures, implies that most non-zero weights equal one, as is evident in the degree distributions reported in Appendix Figure~\ref{fig:degree_hist}.
+
 % =============================================================================
 
 \begin{figure}[H]
@@ -253,7 +249,7 @@ Both networks come directly row-normalised from the estimation, where the condit
     \label{fig:networks}
     \includegraphics[width=\textwidth]{assets/figures/networks_weighted_full}
     \par\vspace{0.5em}
-    {\footnotesize \textit{Notes.} Quality and Environment networks recovered via \citet{depaula2025}; weighted and directed. Panels are arranged as a $2\times2$ grid: diagonal panels show each network in its own Fruchterman--Reingold layout (Quality, Environment), while off-diagonal panels redraw a network in the other standard's layout to facilitate visual comparison of topology. Arrows point from influencing to influenced countries and edges weights range from 0 to 1, with 1 being strong influencers and any other non-zero weight being a weak influencer.}
+    {\footnotesize \textit{Notes.} Networks recovered via the adaptive elastic-net GMM of \citet{depaula2025}; directed and weighted. Panels are arranged as a $2\times2$ grid: diagonal panels show each network in its own Fruchterman--Reingold layout (Quality top-left, Environment bottom-right), while off-diagonal panels redraw each network in the other standard's layout to facilitate visual comparison of topology. Arrows point from influencing to influenced countries. Edge weights lie in $(0,1]$ after row-normalisation: a weight of $1$ indicates that the source country is the destination's sole recovered influencer, while smaller weights indicate influence shared across multiple recovered ties.}
 \end{figure}
 
 
@@ -381,16 +377,18 @@ network can draw.
     \label{fig:bdf_forest_twfe_sim_vs_fullag}
     \includegraphics[width=\textwidth]{assets/figures/bdf_forest_combined}
     \par\vspace{0.5em}
-    {\footnotesize \textit{Notes.} \textit{Observations:} Quality $N\times T = 624$ (simultaneous), $572$ (fully lagged); Environment $N\times T = 468$ (simultaneous), $416$ (fully lagged). The figure contrasts two specifications, estimated on the recovered networks \citep{depaula2025} and on the row-normalised exogenous benchmarks of \citet{albuquerque2007}, with country and year fixed effects throughout. \textbf{Simultaneous} reports the contemporaneous endogenous peer effect $\beta_0$ on $Wy_t$ (eq.~\ref{eq:bdf_est}), identified by IV-2SLS using $W^2x$, $W^3x$ as excluded instruments for the reflection problem \citep{manski1993, bramoulle2009}. \textbf{Lagged} reports the lagged peer effect $\beta_1$ on past adoption $Wy_{t-1}$ from the fully-lagged specification (eq.~\ref{eq:fullag}); the peer term is predetermined, so no instrument is required and the model is estimated by OLS. The two coefficients are distinct objects --- contemporaneous versus one-period-lagged transmission --- and are not on a common structural scale. Error bars are 95\% cluster-bootstrap intervals (999 draws, country clusters); each point is labelled with its estimate. Slovenia is dropped (isolated node in the recovered Quality network).}\end{figure}
+    {\footnotesize \textit{Notes.} \textit{Observations:} Quality $N\times T = 624$ (simultaneous), $572$ (fully lagged); Environment $N\times T = 468$ (simultaneous), $416$ (fully lagged). The figure contrasts two specifications, estimated on the recovered networks \citep{depaula2025} and on the row-normalised exogenous benchmarks of \citet{albuquerque2007}, with country and year fixed effects throughout. \textbf{Simultaneous} reports the contemporaneous endogenous peer effect $\beta$ on $Gy_t$ (eq.~\ref{eq:bdf_est}), identified by IV-2SLS using $G^2x$ and $G^3x$ as excluded instruments for the reflection problem \citep{manski1993, bramoulle2009}. \textbf{Lagged} reports the lagged peer effect $\beta_1$ on past adoption $Gy_{t-1}$ from the fully lagged specification (eq.~\ref{eq:fullag}); the peer term is predetermined, so no instrument is required and the model is estimated by OLS. The two coefficients are distinct objects --- contemporaneous versus one-period-lagged transmission --- and are not on a common structural scale. Error bars are 95\% cluster-bootstrap intervals (999 draws, country clusters); each point is labelled with its estimate. Slovenia is dropped (isolated node in the recovered Quality network).}
+\end{figure}
 
 \begin{figure}[H]
     \centering
-    \caption{$R^2$ of peer-effect estimates across network specifications.}
+    \caption{Within-$R^2$ of the simultaneous peer-effect specification across network specifications}
     \label{fig:bdf_r2_nolag}
     \includegraphics[width=\textwidth]{assets/figures/bdf_r2_nolag.pdf}
     \par\vspace{0.5em}
-    {\footnotesize \textit{Notes.} \textit{Observations:} Quality $N\times T = 624$; Environment $N\times T = 468$. Within-$R^2$ of the IV-2SLS simultaneous peer-effect estimates (eq.~\ref{eq:bdf_est}) across network specifications, with country and year fixed effects throughout.}
+    {\footnotesize \textit{Notes.} \textit{Observations:} Quality $N\times T = 624$; Environment $N\times T = 468$. Within-$R^2$ of the IV-2SLS simultaneous specification (eq.~\ref{eq:bdf_est}), estimated on the recovered networks and on the row-normalised exogenous benchmarks of \citet{albuquerque2007}, with country and year fixed effects throughout.}
 \end{figure}
+
 
 Recovered networks fit the data marginally better than all the exogenous benchmarks for Environment, and show roughly the same fit with respect to the pure Trade network for the quality data, as shown in Figure~\ref{fig:bdf_r2_nolag}. This is consistent with the peer-effect estimates, where the recovered network does not seem to show a better fit than de Paula's chosen specifications. Such a tendency also holds for the lagged specification in the Appendix (Fig. \ref{fig:bdf_r2_fullag}), where the recovered networks do show a better fit than all the exogenous ones, consistently with the main simultaneous specification.
 
@@ -436,12 +434,13 @@ Figure \ref{fig:bdf_forest_twfe_sim_vs_fullag} shows peer effect estimates from 
 
 \begin{figure}[H]
     \centering
-    \caption{Degree distributions of recovered networks}
+    \caption{Degree distributions of the recovered networks}
     \label{fig:degree_hist}
     \includegraphics[width=\textwidth]{assets/figures/degree_hist}
     \par\vspace{0.5em}
-    \textit{Notes.} This figure shows the in- and out-degree distributions of the recovered Quality and Environment networks. Degree is defined as the number of non-zero entries in each row (out-degree) or column (in-degree) of the recovered weight matrix $\hat{W}$.
+    {\footnotesize \textit{Notes.} In- and out-degree distributions of the recovered Quality and Environment networks. Degree is the number of non-zero entries in each row (out-degree) or column (in-degree) of the recovered weight matrix $\hat{W}$.}
 \end{figure}
+
 
 \subsection{Network Similarity}
 \textbf{Jaccard index} (Jaccard 1901; Wasserman \& Faust 1994, Sec.\ 11.4): \begin{equation} J(\hat W^Q, \hat W^E) = \frac{|E_Q \cap E_E|}{|E_Q \cup E_E|}, \label{eq:jaccard} \end{equation} where $E_Q = \{(i, j) : |\hat w^Q_{ij}| > 10^{-5}\}$ and $E_E$ is defined analogously. The index ranges in $[0, 1]$, with $J = 0$ for disjoint networks and $J = 1$ for identical edge sets. For the BIC-selected recovered networks, $|E_Q| = 28$, $|E_E| = 30$, $|E_Q \cap E_E| = 3$, and $|E_Q \cup E_E| = 55$, yielding $J = 0.055$.
@@ -456,23 +455,22 @@ The Jaccard index formalises the visual dissimilarity of Figure~\ref{fig:network
 \subsection{Models fit}
 \begin{figure}[H]
     \centering
-    \caption{$R^2$, fully lagged peer effects}
+    \caption{Within-$R^2$ of the fully lagged specification across network specifications}
     \label{fig:bdf_r2_fullag}
     \includegraphics[width=0.85\textwidth]{assets/figures/bdf_r2_fullag.pdf}
     \par\vspace{0.5em}
-    {\footnotesize \textit{Notes.} Within-$R^2$ of the fully-lagged specification (eq.~\ref{eq:fullag}), estimated by OLS with country and year fixed effects; the contemporaneous peer term is excluded, so no instrument is used. Because these are OLS lagged-model fits rather than the IV simultaneous fits of Figure~\ref{fig:bdf_r2_nolag}, the values are comparable across networks \emph{within this figure} but not directly against the IV within-$R^2$ reported there. \textit{Observations:} Quality $N\times T = 572$; Environment $N\times T = 416$.}
+    {\footnotesize \textit{Notes.} \textit{Observations:} Quality $N\times T = 572$; Environment $N\times T = 416$. Within-$R^2$ of the fully lagged specification (eq.~\ref{eq:fullag}), estimated by OLS with country and year fixed effects; the contemporaneous peer term is excluded, so no instrument is used. Because these are OLS lagged-model fits rather than the IV simultaneous fits of Figure~\ref{fig:bdf_r2_nolag}, values are comparable across networks within this figure but not against the within-$R^2$ reported there.}
 \end{figure}
 
 
 \subsection{GMM Parameter Estimates}
-
 \begin{figure}[H]
     \centering
-    \caption{GMM parameter estimates}
+    \caption{GMM parameter estimates from the network-recovery stage}
     \label{fig:gmm_ci}
     \includegraphics[width=0.85\textwidth]{assets/figures/gmm_ci}
     \par\vspace{0.5em}
-    {\footnotesize \textit{Notes.} This figure shows the point estimates and 95\% confidence intervals for the GMM peer-effect parameter $\rho$ and the covariate coefficients $\beta$ from the network recovery step. Estimates are shown separately for the Quality and Environment standards, with each point labelled by its value. Error bars are based on the asymptotic sandwich variance estimator that conditions on the recovered network $\hat W$ (\citet{depaula2025}).}
+    {\footnotesize \textit{Notes.} Point estimates and 95\% confidence intervals for the peer-effect parameter $\rho$ and the covariate coefficients $\beta$ from the network-recovery stage (eq.~\ref{eq:empirical}), shown separately for the Quality and Environment standards; each point is labelled with its value. Error bars are based on the asymptotic sandwich variance estimator conditional on the recovered network $\hat W$ \citep{depaula2025}.}
 \end{figure}
 
 \newpage
