@@ -98,18 +98,12 @@ rownames(W_e) <- colnames(W_e) <- country_labels
 ```{r}
 #| label: load-best-lagged
 #| include: false
-lagged_dir <- file.path(data_dir, "output_lagged")
-best_lag <- readRDS(file.path(lagged_dir, "best_per_panel_lagged.rds"))
-
-W_q_lag <- as.matrix(best_lag[["9001_eu"]]$rn$unpenalisedgmm$W)
-diag(W_q_lag) <- 0
-W_q_lag[abs(W_q_lag) <= EPS_EDGE] <- 0
-rownames(W_q_lag) <- colnames(W_q_lag) <- country_labels
-
-W_e_lag <- as.matrix(best_lag[["14001_eu"]]$rn$unpenalisedgmm$W)
-diag(W_e_lag) <- 0
-W_e_lag[abs(W_e_lag) <= EPS_EDGE] <- 0
-rownames(W_e_lag) <- colnames(W_e_lag) <- country_labels
+# The fully-lagged BDF specification reuses the SAME network recovered from the
+# contemporaneous De Paula GMM; no separate lagged recovery is loaded.
+# Aliases keep downstream "_lag" references pointing at the standard recovered
+# network: only the BDF equation is lagged, never the network.
+W_q_lag <- W_q
+W_e_lag <- W_e
 ```
 
 ```{r}
@@ -591,14 +585,12 @@ tab_jac_mat <- kbl(
     latex_options = c("hold_position", "scale_down"),
     font_size = 8
   ) |>
-  add_note(
-    paste(
-      "$J(A,B)=|E_A\\cap E_B|/|E_A\\cup E_B|$ on binarised directed edge sets ($w_{ij}\\neq 0$).",
-      "Diagonal entries are 1 by definition.",
-      "The recovered networks ($\\hat{W}^Q$, $\\hat{W}^E$) are the BIC-selected networks.",
-      "Benchmark networks follow Albuquerque."
-    )
-  )
+  add_note(paste(
+  "$J(A,B) = |E_A \\\\cap E_B| / |E_A \\\\cup E_B|$ on binarised directed edge sets",
+  "($w_{ij} \\\\neq 0$). Diagonal entries are 1 by definition. The recovered networks",
+  "($\\\\hat W^Q$, $\\\\hat W^E$) are the BIC-selected networks. Benchmark networks",
+  "follow Albuquerque et al. (2007)."
+))
 
 save_table(tab_jac_mat, "jaccard_matrix")
 tab_jac_mat |> print()
@@ -1088,8 +1080,8 @@ wr2_lag_vals <- make_wr2(lag = TRUE)
 
 nobs_q_nolag <- get_nobs(panel_q, W_q_sub, lag = FALSE)
 nobs_e_nolag <- get_nobs(panel_e, W_e_sub, lag = FALSE)
-nobs_q_lag <- get_nobs(panel_q, W_q_lag_sub, lag = TRUE)
-nobs_e_lag <- get_nobs(panel_e, W_e_lag_sub, lag = TRUE)
+nobs_q_lag <- get_nobs(panel_q, W_q_sub, lag = TRUE)
+nobs_e_lag <- get_nobs(panel_e, W_e_sub, lag = TRUE)
 
 print_bdf_tab <- function(tab, wr2_vec, caption, label, note, nobs_q, nobs_e) {
   tab <- tab[, -3]
@@ -1355,9 +1347,8 @@ tab_grid <- kbl(grid_df,
   label = "tab:grid_search"
 ) |>
   kable_styling(latex_options = "hold_position", font_size = 9) |>
-  row_spec(best_rows, bold = TRUE, background = "#FFF9C4") |>
-  add_note("Top 5 penalisation parameter combinations by BIC, from a grid search over the adaptive elastic-net GMM estimator of De Paula, Rasul and Souza (2025). The BIC-selected specification is highlighted in yellow. Convergence failures are denoted by ---.")
-
+  row_spec(best_rows, bold = TRUE) |>
+    add_note("Top 5 penalisation-parameter combinations by BIC, from a grid search over the adaptive elastic-net GMM estimator of De Paula, Rasul and Souza (2025). The BIC-selected specification per standard is shown in bold.")
 
 save_table(tab_grid, "grid_search_summary")
 tab_grid |> print()
@@ -1484,7 +1475,7 @@ build_bdf_fullag <- function(panel, W, x_vars) {
 f_fullag <- as.formula(sprintf("y ~ %s + %s + y_lag + Gy_lag | country + year", rhs, exo))
 fit_fullag <- function(panel, W) feols(f_fullag, data = build_bdf_fullag(panel, W, x_vars), cluster = ~country)
 
-nets_fa <- make_networks(lag = TRUE) # "Recovered" = lag-recovered W
+nets_fa <- make_networks(lag = TRUE) # "Recovered" = contemporaneous recovered W; lag applies to the equation only
 m_q <- fit_fullag(panel_q, nets_fa$q[["Recovered"]])
 m_e <- fit_fullag(panel_e, nets_fa$e[["Recovered"]])
 
@@ -1600,14 +1591,14 @@ wr2_fullag <- function() {
 tab_lag <- run_all_fullag()
 wr2_lag_vals <- wr2_fullag()
 ci_lag <- build_ci(tab_lag, "Lagged")
-nobs_q_lag <- nrow(build_bdf_fullag(panel_q, W_q_lag_sub, x_vars))
-nobs_e_lag <- nrow(build_bdf_fullag(panel_e, W_e_lag_sub, x_vars))
+nobs_q_lag <- nrow(build_bdf_fullag(panel_q, W_q_sub, x_vars))
+nobs_e_lag <- nrow(build_bdf_fullag(panel_e, W_e_sub, x_vars))
 
 print_bdf_tab(
   tab_lag, wr2_lag_vals,
   caption = "Peer-effect estimates — fully-lagged specification. $\\beta_1$ on peers' past adoption $Wy_{i,t-1}$; covariates, own outcome and peer outcome all dated $t-1$. OLS with country and year FE, no IV.",
   label = "tab:bdf_fullag_panel",
-  note = "Lagged-peer restriction ($\\beta_0=0$): predetermined RHS, no reflection problem, no instrument (Bramoull\\'e, Djebbari \\& Fortin 2009). Recovered = lag-recovered network. Slovenia excluded.",
+  note = "Lagged-peer restriction ($\\beta_0=0$): predetermined RHS, no reflection problem, no instrument (Bramoull\\'e, Djebbari \\& Fortin 2009). Recovered = contemporaneous recovered network; only the equation is lagged. Slovenia excluded.",
   nobs_q = nobs_q_lag, nobs_e = nobs_e_lag
 )
 
@@ -1682,24 +1673,45 @@ save_figure("bdf_r2_fullag", width = 12, height = 6)
 # Needs: ci_twfe_nolag (fig-bdf-forest-twfe), forest_plot/spec_vals (fig-bdf-forest-combined),
 #        fit_fullag/nets_fa (bdf-fullag-standalone).
 
-ci_fullag <- function(panel, fits) {
-  do.call(rbind, lapply(names(fits), function(nm) {
-    ct <- summary(fits[[nm]])$coeftable
+# Pairs cluster bootstrap (country clusters, B = 999) for the fully-lagged beta_1,
+# mirroring cluster_boot() on the simultaneous side so both series in the figure
+# use cluster-bootstrap SEs, as stated in the figure note.
+boot_se_fullag <- function(panel, W, B = 999, seed = 42) {
+  d <- build_bdf_fullag(panel, W, x_vars)
+  ids <- unique(d$country)
+  set.seed(seed)
+  draws <- replicate(B, {
+    samp <- sample(ids, length(ids), replace = TRUE)
+    db <- do.call(rbind, lapply(seq_along(samp), function(k) {
+      dk <- d[d$country == samp[k], , drop = FALSE]
+      dk$country <- paste0(samp[k], "_", k) # duplicates get distinct FE ids
+      dk
+    }))
+    m <- tryCatch(feols(f_fullag, data = db), error = \(e) NULL)
+    if (is.null(m) || !"Gy_lag" %in% names(coef(m))) NA_real_ else unname(coef(m)["Gy_lag"])
+  })
+  stats::sd(draws, na.rm = TRUE)
+}
+
+ci_fullag <- function(panel_label, panel_data, nets) {
+  do.call(rbind, lapply(names(nets), function(nm) {
+    m <- fit_fullag(panel_data, nets[[nm]])
+    ct <- summary(m)$coeftable
     if (!"Gy_lag" %in% rownames(ct)) {
       return(NULL)
     }
     b <- ct["Gy_lag", 1]
-    se <- ct["Gy_lag", 2]
+    se <- boot_se_fullag(panel_data, nets[[nm]]) # cluster-bootstrap SE (country, B = 999)
     data.frame(
-      panel = panel, network = nm, estimate = b, se = se,
+      panel = panel_label, network = nm, estimate = b, se = se,
       lo95 = b - 1.96 * se, hi95 = b + 1.96 * se, stringsAsFactors = FALSE
     )
   }))
 }
 
 ci_lagpeer <- dplyr::bind_rows(
-  ci_fullag("Quality", lapply(nets_fa$q, function(W) fit_fullag(panel_q, W))),
-  ci_fullag("Environment", lapply(nets_fa$e, function(W) fit_fullag(panel_e, W)))
+  ci_fullag("Quality", panel_q, nets_fa$q),
+  ci_fullag("Environment", panel_e, nets_fa$e)
 ) |>
   dplyr::mutate(
     network = dplyr::recode(network,
