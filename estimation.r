@@ -25,8 +25,8 @@ set.seed(1861)
 setwd("/workspaces/thesis")
 options(readr.show_col_types = FALSE)
 
-data_dir  <- "/workspaces/thesis/data"
-raw_dir   <- file.path(data_dir, "data_raw")
+data_dir <- "/workspaces/thesis/data"
+raw_dir <- file.path(data_dir, "data_raw")
 clean_dir <- file.path(data_dir, "cleaned_data")
 if (!dir.exists(clean_dir)) dir.create(clean_dir, recursive = TRUE)
 
@@ -166,6 +166,31 @@ covs14001 <- make_covs(1999)
 f9001 <- f9001 %>% dplyr::left_join(covs9001, by = c("country", "year"))
 f14001 <- f14001 %>% dplyr::left_join(covs14001, by = c("country", "year"))
 
+# ---- EU-27 share of global ISO certificates (role of EU in diffusion)
+eu_global_share <- function(df, yr, eu_set) {
+  glob <- df %>%
+    dplyr::filter(year == yr) %>%
+    dplyr::summarise(t = sum(n_cert, na.rm = TRUE)) %>%
+    dplyr::pull(t)
+  eu_tot <- df %>%
+    dplyr::filter(year == yr, country %in% eu_set) %>%
+    dplyr::summarise(t = sum(n_cert, na.rm = TRUE)) %>%
+    dplyr::pull(t)
+  data.frame(year = yr, eu = eu_tot, global = glob, share = eu_tot / glob)
+}
+
+share_9001 <- do.call(rbind, lapply(c(1999, 2010, 2017), eu_global_share, df = f9001, eu_set = eu))
+share_14001 <- do.call(rbind, lapply(c(1999, 2010, 2017), eu_global_share, df = f14001, eu_set = eu))
+
+cat("\n--- ISO 9001 EU-27 global share ---\n")
+print(share_9001)
+cat("\n--- ISO 14001 EU-27 global share ---\n")
+print(share_14001)
+
+saveRDS(
+  list(iso9001 = share_9001, iso14001 = share_14001),
+  file.path(clean_dir, "eu_global_share.rds")
+)
 # Truncate at 2017 (overlap of both standards' historical sheets)
 f9001 <- f9001 %>% dplyr::filter(year <= 2017)
 f14001 <- f14001 %>% dplyr::filter(year <= 2017)
@@ -176,8 +201,8 @@ sync_eu <- intersect(
   (f14001 %>% dplyr::filter(country %in% eu) %>% dplyr::pull(country) %>% unique())
 )
 
-saveRDS(f9001,   file.path(clean_dir, "f9001.rds"))
-saveRDS(f14001,  file.path(clean_dir, "f14001.rds"))
+saveRDS(f9001, file.path(clean_dir, "f9001.rds"))
+saveRDS(f14001, file.path(clean_dir, "f14001.rds"))
 saveRDS(sync_eu, file.path(clean_dir, "sync_eu.rds"))
 
 dp_9001_eu <- finalize_panel(f9001, sync_eu, "9001_EU (synced)")

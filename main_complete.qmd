@@ -9,7 +9,7 @@ format:
   pdf:
     output-file: "results.pdf"
     keep-tex: false
-    fig-pos: "H"
+    fig-pos: "htbp"
     include-in-header:
       text: |
         \usepackage{longtable}
@@ -93,6 +93,17 @@ sync_eu <- readRDS(file.path(clean_dir, "sync_eu.rds"))
 country_labels <- sort(sync_eu)
 rownames(W_q) <- colnames(W_q) <- country_labels
 rownames(W_e) <- colnames(W_e) <- country_labels
+```
+
+```{r}
+#| label: load-best-lagged
+#| include: false
+# The fully-lagged BDF specification reuses the SAME network recovered from the
+# contemporaneous De Paula GMM; no separate lagged recovery is loaded.
+# Aliases keep downstream "_lag" references pointing at the standard recovered
+# network: only the BDF equation is lagged, never the network.
+W_q_lag <- W_q
+W_e_lag <- W_e
 ```
 
 ```{r}
@@ -486,15 +497,14 @@ p_deg <- ggplot(deg_df, aes(x = value, fill = standard)) +
   geom_histogram(position = "dodge", alpha = 0.55, colour = "white", linewidth = 0.3, bins = 12) +
   geom_rug(aes(colour = standard), sides = "b", length = unit(0.03, "npc"), alpha = 0.7) +
   facet_wrap(~direction, ncol = 2) +
-  scale_fill_manual(values = c("Quality (ISO 9001)" = "#3182bd", "Environment (ISO 14001)" = "#31a354")) +
-  scale_colour_manual(values = c("Quality (ISO 9001)" = "#08519c", "Environment (ISO 14001)" = "#006d2c")) +
+  scale_fill_grey(start = 0.2, end = 0.65, name = NULL) +
+  scale_colour_grey(start = 0.1, end = 0.55, name = NULL) +
   scale_x_continuous(expand = expansion(mult = c(0, 0.02))) +
   labs(x = "Degree", y = "Count", fill = NULL, colour = NULL) +
   theme_minimal(base_size = 10) +
   theme(legend.position = "bottom", strip.text = element_text(face = "bold"), panel.grid.minor = element_blank())
 print(p_deg)
 save_figure("degree_hist", width = 9, height = 3.5)
-print(p_deg)
 ```
 
 ```{r}
@@ -527,60 +537,65 @@ For the BIC-selected recovered networks, $|E_Q| = `r n_q`$, $|E_E| = `r n_e`$, $
 #| label: network-jaccard-matrices
 #| echo: false
 #| results: asis
-jaccard_similarity_mat <- function(M1, M2) {
-  b1 <- as.numeric(M1[row(M1) != col(M1)] != 0)
-  b2 <- as.numeric(M2[row(M2) != col(M2)] != 0)
-  union_count <- sum(b1 | b2)
-  if (union_count == 0) {
+jac <- function(A, B) {
+  a <- as.numeric(A[row(A) != col(A)] != 0)
+  b <- as.numeric(B[row(B) != col(B)] != 0)
+  u <- sum(a | b)
+  if (u == 0) {
     return(0)
   }
-  sum(b1 & b2) / union_count
+  sum(a & b) / u
 }
 
-# Merged Jaccard table: each recovered network (column) vs benchmarks (rows).
-# Focus is the comparison recovered Quality vs recovered Environment.
-jacc_col <- function(W_self, W_other) {
-  c(
-    sprintf("%.3f", jaccard_similarity_mat(W_self, W_other)), # vs other recovered net
-    sprintf("%.3f", jaccard_similarity_mat(W_self, W_geo)),
-    sprintf("%.3f", jaccard_similarity_mat(W_self, W_trade)),
-    sprintf("%.3f", jaccard_similarity_mat(W_self, W_cul)),
-    sprintf("%.3f", jaccard_similarity_mat(W_self, W_geotrade)),
-    sprintf("%.3f", jaccard_similarity_mat(W_self, W_geoculture))
-  )
-}
-
-jaccard_merged <- data.frame(
-  `Recovered Quality` = jacc_col(W_q, W_e),
-  `Recovered Environment` = jacc_col(W_e, W_q),
-  row.names = c(
-    "Recovered (other standard)", "Geography", "Trade",
-    "Cultural dist.", "Geo + Trade", "Geo + Culture"
-  ),
-  check.names = FALSE,
-  stringsAsFactors = FALSE
+nets <- list(
+  "$\\hat{W}^Q$ (Recovered)" = W_q,
+  "$\\hat{W}^E$ (Recovered)" = W_e,
+  "Geography" = W_geo,
+  "Trade" = W_trade,
+  "Cultural dist." = W_cul,
+  "Geo + Trade" = W_geotrade,
+  "Geo + Culture" = W_geoculture
 )
 
-tab_jaccard <- kbl(
-  jaccard_merged,
-  booktabs = TRUE,
-  format = "latex",
-  escape = FALSE,
-  align = "lcc",
-  caption = "Jaccard similarity of recovered networks to benchmarks.",
-  label = "jaccard_similarity"
+n_nets <- length(nets)
+jac_mat <- matrix(NA_real_, n_nets, n_nets,
+  dimnames = list(names(nets), names(nets))
+)
+for (i in seq_len(n_nets)) {
+  for (j in seq_len(n_nets)) {
+    jac_mat[i, j] <- jac(nets[[i]], nets[[j]])
+  }
+}
+
+# Format: diagonal as "1.000", off-diagonal to 3 dp
+jac_fmt <- matrix(sprintf("%.3f", jac_mat), n_nets, n_nets,
+  dimnames = dimnames(jac_mat)
+)
+diag(jac_fmt) <- "1.000"
+
+tab_jac_mat <- kbl(
+  as.data.frame(jac_fmt),
+  booktabs = TRUE, format = "latex", escape = FALSE,
+  align = paste(rep("c", n_nets + 1), collapse = ""),
+  row.names = TRUE,
+  caption = "Pairwise Jaccard similarity matrix of recovered and benchmark networks.",
+  label = "jaccard_matrix"
 ) |>
   kable_styling(
-    latex_options = "hold_position",
-    font_size = 9
+    latex_options = c("hold_position", "scale_down"),
+    font_size = 8
   ) |>
   add_note(
-    "Each column reports the Jaccard index between a recovered network (Quality or Environment) and the network in the corresponding row. The first row reports the overlap between the two recovered networks, identical across columns by construction. Benchmark networks (geography, trade, cultural distance and the combined specifications) follow Albuquerque et al.\\ (2007). A link is active if $w_{ij} \\neq 0$."
+    paste(
+      "$J(A,B)=|E_A\\cap E_B|/|E_A\\cup E_B|$ on binarised directed edge sets ($w_{ij}\\neq 0$).",
+      "Diagonal entries are 1 by definition.",
+      "The recovered networks ($\\hat{W}^Q$, $\\hat{W}^E$) are the BIC-selected networks.",
+      "Benchmark networks follow Albuquerque."
+    )
   )
 
-save_table(tab_jaccard, "jaccard_similarity")
-
-tab_jaccard |> print()
+save_table(tab_jac_mat, "jaccard_matrix")
+tab_jac_mat |> print()
 ```
 
 ### Network visualisation
@@ -619,11 +634,11 @@ plot_net_gg <- function(g, lo, title, w_max) {
     ) +
     scale_edge_alpha(range = c(0.35, 0.9), limits = c(0, w_max), guide = "none") +
     scale_edge_colour_manual(
-      values = c(`TRUE` = "#67000D", `FALSE` = "grey60"),
-      labels = c(`TRUE` = "Strong ties", `FALSE` = "Weak ties"),
+      values = c(`TRUE` = "black", `FALSE` = "grey65"),
+      labels = c(`TRUE` = "Strong influence", `FALSE` = "Weak influence"),
       guide = guide_legend(title = NULL, override.aes = list(width = 2, alpha = 0.7), position = "bottom")
     ) +
-    scale_colour_manual(values = c(`TRUE` = "steelblue", `FALSE` = "grey85")) +
+    scale_colour_manual(values = c(`TRUE` = "grey15", `FALSE` = "grey85")) +
     ggtitle(title) + theme_void(base_size = 11) +
     theme(
       plot.title = element_text(hjust = 0.5, face = "bold"), legend.position = "bottom",
@@ -638,7 +653,6 @@ p_ee <- plot_net_gg(g_e_full, layout_e, "Environment (own layout)", w_max)
 panel <- (p_qq | p_eq) / (p_qe | p_ee)
 print(panel)
 save_figure("networks_weighted_full", width = 13, height = 13)
-print(panel)
 ```
 
 ### Dyadic regression
@@ -771,6 +785,18 @@ for (i in seq_len(N)) {
   nbrs <- unique(c(which(W_geo[i, ] > 0), which(W_cul[i, ] > 0)))
   W_geoculture[i, nbrs] <- 1 / length(nbrs)
 }
+
+# Add at the top of bdf-prereqs, before the W_geotrade/W_geoculture blocks:
+drop_country <- "Slovenia"
+keep_idx <- which(country_labels != drop_country)
+country_keep <- country_labels[keep_idx]
+
+W_geotrade_sub <- W_geotrade[keep_idx, keep_idx]
+W_geoculture_sub <- W_geoculture[keep_idx, keep_idx]
+
+# Lagged recovered networks (subsetted, Slovenia dropped)
+W_q_lag_sub <- W_q_lag[keep_idx, keep_idx]
+W_e_lag_sub <- W_e_lag[keep_idx, keep_idx]
 ```
 
 ```{r}
@@ -906,7 +932,7 @@ kbl(tab,
 ```{r}
 #| label: fig-gmm-ci
 #| echo: false
-#| #| fig-width: 9
+#| fig-width: 9
 #| fig-height: 5
 K <- 5
 x_names <- c("GDP p.c.", "Trade", "Rule of Law", "Renewables", "Nat. Res. Rents")
@@ -953,8 +979,8 @@ p_ci <- ggplot(ci_df, aes(x = estimate, y = param, colour = panel, group = panel
     show.legend = FALSE
   ) +
   scale_colour_manual(values = c(
-    "Quality (ISO 9001)" = "#3182bd",
-    "Environment (ISO 14001)" = "#31a354"
+    "Quality (ISO 9001)" = "black",
+    "Environment (ISO 14001)" = "grey55"
   )) +
   coord_cartesian(clip = "off") +
   labs(x = "Estimate", y = NULL, colour = NULL) +
@@ -967,22 +993,12 @@ p_ci <- ggplot(ci_df, aes(x = estimate, y = param, colour = panel, group = panel
 
 print(p_ci)
 save_figure("gmm_ci", width = 9, height = 5)
-print(p_ci)
 ```
 
 ```{r}
 #| label: bdf-adjusted-tables
 #| echo: false
 #| results: asis
-# ── Spec 1 (no-lag / simultaneous) ─────────────────────────────────────────
-# Δlog y_it ~ x_it + Gx_it | Gy_it ~ G²x_it + G³x_it
-# Matches De Paula, Rasul & Souza (2025) own application.
-#
-# ── Spec 2 (lagged) ────────────────────────────────────────────────────────
-# Δlog y_it ~ x_{t-1} + Gx_{t-1} | Gy_{t-1} ~ G²x_{t-1} + G³x_{t-1}
-# NOTE: build_bdf(..., use_lag = TRUE) must lag ALL of {Gy, x, Gx, G²x, G³x}
-# — not only Gy.
-
 fit_spec <- function(panel, W, lag, B = 999) {
   d <- build_bdf(panel, W, x_vars, use_lag = lag)
   list(
@@ -991,7 +1007,6 @@ fit_spec <- function(panel, W, lag, B = 999) {
   )
 }
 
-# Helper to dynamically grab within-R2 for each matrix specification
 get_wr2_adjusted <- function(panel, W, lag) {
   d <- build_bdf(panel, W, x_vars, use_lag = lag)
   m <- tryCatch(feols(f_cfe, data = d, cluster = ~country), error = \(e) NULL)
@@ -1010,89 +1025,80 @@ get_nobs <- function(panel, W, lag) {
   nrow(tidyr::drop_na(d, Gy))
 }
 
+# Network lists — recovered network switches by spec
+make_networks <- function(lag) {
+  list(
+    q = list(
+      "Recovered"                 = W_q_sub,
+      "Exogenous, Geo + Trade"    = W_geotrade_sub,
+      "Exogenous, Geography"      = W_geo_sub,
+      "Exogenous, Trade"          = W_trade_sub,
+      "Exogenous, Cultural dist." = W_cul_sub
+    ),
+    e = list(
+      "Recovered"                 = W_e_sub,
+      "Exogenous, Geo + Culture"  = W_geoculture_sub,
+      "Exogenous, Geography"      = W_geo_sub,
+      "Exogenous, Trade"          = W_trade_sub,
+      "Exogenous, Cultural dist." = W_cul_sub
+    )
+  )
+}
+
+run_all <- function(lag) {
+  nets <- make_networks(lag)
+  rows <- NULL
+  for (nm in names(nets$q)) {
+    rows <- rbind(rows, rb("Quality", nm, fit_spec(panel_q, nets$q[[nm]], lag)))
+  }
+  for (nm in names(nets$e)) {
+    rows <- rbind(rows, rb("Environment", nm, fit_spec(panel_e, nets$e[[nm]], lag)))
+  }
+  as.data.frame(rows, stringsAsFactors = FALSE)
+}
+
+tab_nolag <- run_all(lag = FALSE)
+tab_lag <- run_all(lag = TRUE)
+
+# Within-R2
+make_wr2 <- function(lag) {
+  nets <- make_networks(lag)
+  c(
+    get_wr2_adjusted(panel_q, nets$q[["Recovered"]], lag),
+    get_wr2_adjusted(panel_q, nets$q[["Exogenous, Geo + Trade"]], lag),
+    get_wr2_adjusted(panel_q, nets$q[["Exogenous, Geography"]], lag),
+    get_wr2_adjusted(panel_q, nets$q[["Exogenous, Trade"]], lag),
+    get_wr2_adjusted(panel_q, nets$q[["Exogenous, Cultural dist."]], lag),
+    get_wr2_adjusted(panel_e, nets$e[["Recovered"]], lag),
+    get_wr2_adjusted(panel_e, nets$e[["Exogenous, Geo + Culture"]], lag),
+    get_wr2_adjusted(panel_e, nets$e[["Exogenous, Geography"]], lag),
+    get_wr2_adjusted(panel_e, nets$e[["Exogenous, Trade"]], lag),
+    get_wr2_adjusted(panel_e, nets$e[["Exogenous, Cultural dist."]], lag)
+  )
+}
+
+wr2_nolag_vals <- make_wr2(lag = FALSE)
+wr2_lag_vals <- make_wr2(lag = TRUE)
+
 nobs_q_nolag <- get_nobs(panel_q, W_q_sub, lag = FALSE)
 nobs_e_nolag <- get_nobs(panel_e, W_e_sub, lag = FALSE)
 nobs_q_lag <- get_nobs(panel_q, W_q_sub, lag = TRUE)
 nobs_e_lag <- get_nobs(panel_e, W_e_sub, lag = TRUE)
 
-networks_q <- list(
-  "Recovered" = W_q_sub,
-  "Exogenous, Geo + Trade" = W_geotrade_sub,
-  "Exogenous, Geography" = W_geo_sub,
-  "Exogenous, Trade" = W_trade_sub,
-  "Exogenous, Cultural dist." = W_cul_sub
-)
-networks_e <- list(
-  "Recovered" = W_e_sub,
-  "Exogenous, Geo + Culture" = W_geoculture_sub,
-  "Exogenous, Geography" = W_geo_sub,
-  "Exogenous, Trade" = W_trade_sub,
-  "Exogenous, Cultural dist." = W_cul_sub
-)
-
-run_all <- function(lag) {
-  rows <- NULL
-  for (nm in names(networks_q)) {
-    rows <- rbind(rows, rb(
-      "Quality", nm,
-      fit_spec(panel_q, networks_q[[nm]], lag = lag)
-    ))
-  }
-  for (nm in names(networks_e)) {
-    rows <- rbind(rows, rb(
-      "Environment", nm,
-      fit_spec(panel_e, networks_e[[nm]], lag = lag)
-    ))
-  }
-  as.data.frame(rows, stringsAsFactors = FALSE)
-}
-
-# 1. Run specifications
-tab_nolag <- run_all(lag = FALSE)
-tab_lag <- run_all(lag = TRUE)
-
-# 2. Extract corresponding Within-R2 vectors
-wr2_nolag_vals <- c(
-  get_wr2_adjusted(panel_q, W_q_sub, lag = FALSE),       get_wr2_adjusted(panel_q, W_geotrade_sub, lag = FALSE),
-  get_wr2_adjusted(panel_q, W_geo_sub, lag = FALSE),     get_wr2_adjusted(panel_q, W_trade_sub, lag = FALSE),
-  get_wr2_adjusted(panel_q, W_cul_sub, lag = FALSE),
-  get_wr2_adjusted(panel_e, W_e_sub, lag = FALSE),       get_wr2_adjusted(panel_e, W_geoculture_sub, lag = FALSE),
-  get_wr2_adjusted(panel_e, W_geo_sub, lag = FALSE),     get_wr2_adjusted(panel_e, W_trade_sub, lag = FALSE),
-  get_wr2_adjusted(panel_e, W_cul_sub, lag = FALSE)
-)
-
-wr2_lag_vals <- c(
-  get_wr2_adjusted(panel_q, W_q_sub, lag = TRUE),       get_wr2_adjusted(panel_q, W_geotrade_sub, lag = TRUE),
-  get_wr2_adjusted(panel_q, W_geo_sub, lag = TRUE),     get_wr2_adjusted(panel_q, W_trade_sub, lag = TRUE),
-  get_wr2_adjusted(panel_q, W_cul_sub, lag = TRUE),
-  get_wr2_adjusted(panel_e, W_e_sub, lag = TRUE),       get_wr2_adjusted(panel_e, W_geoculture_sub, lag = TRUE),
-  get_wr2_adjusted(panel_e, W_geo_sub, lag = TRUE),     get_wr2_adjusted(panel_e, W_trade_sub, lag = TRUE),
-  get_wr2_adjusted(panel_e, W_cul_sub, lag = TRUE)
-)
-
-# 3. Enhanced table printing function that maps R2 only to Estimate rows
 print_bdf_tab <- function(tab, wr2_vec, caption, label, note, nobs_q, nobs_e) {
   tab <- tab[, -3]
   colnames(tab) <- c("Panel", "Network", "$\\hat\\beta$ (country FE)")
-
-  r2_column <- rep("", nrow(tab))
-  obs_column <- rep("", nrow(tab))
-  odd_indices <- seq(1, nrow(tab), by = 2)
-
-  formatted_wr2 <- ifelse(is.na(wr2_vec), "---", sprintf("%.3f", wr2_vec))
-  r2_column[odd_indices] <- formatted_wr2
-
-  # Quality rows: 1-10 (odd: 1,3,5,7,9), Environment rows: 11-20 (odd: 11,13,15,17,19)
-  obs_column[odd_indices[1:5]] <- formatC(nobs_q, format = "d", big.mark = ",")
-  obs_column[odd_indices[6:10]] <- formatC(nobs_e, format = "d", big.mark = ",")
-
-  tab[["$R^2$ (within)"]] <- r2_column
-  tab[["$N$"]] <- obs_column
-
+  odd_idx <- seq(1, nrow(tab), by = 2)
+  r2_col <- rep("", nrow(tab))
+  obs_col <- rep("", nrow(tab))
+  r2_col[odd_idx] <- ifelse(is.na(wr2_vec), "---", sprintf("%.3f", wr2_vec))
+  obs_col[odd_idx[1:5]] <- formatC(nobs_q, format = "d", big.mark = ",")
+  obs_col[odd_idx[6:10]] <- formatC(nobs_e, format = "d", big.mark = ",")
+  tab[["$R^2$ (within)"]] <- r2_col
+  tab[["$N$"]] <- obs_col
   kbl(tab,
     booktabs = TRUE, format = "latex", escape = FALSE,
-    align = "llccc", row.names = FALSE,
-    caption = caption, label = label
+    align = "llccc", row.names = FALSE, caption = caption, label = label
   ) |>
     kable_styling(latex_options = "hold_position", font_size = 9) |>
     add_note(note) |>
@@ -1100,28 +1106,22 @@ print_bdf_tab <- function(tab, wr2_vec, caption, label, note, nobs_q, nobs_e) {
 }
 
 print_bdf_tab(
-  tab_nolag,
-  wr2_vec = wr2_nolag_vals,
-  caption = "Adjusted peer-effect estimates — simultaneous specification ...",
+  tab_nolag, wr2_nolag_vals,
+  caption = "Peer-effect estimates — simultaneous specification. $\\Delta\\log y_{it}$ on $x_{it}$, $Gx_{it}$; $Gy_{it}$ instrumented by $G^2x_{it}$, $G^3x_{it}$. Network recovered from simultaneous De Paula et al.\\ (2025) specification.",
   label = "tab:bdf_adjusted_nolag",
-  note = "Notes: Instrumental variables network specification mapping spatial dependencies.",
+  note = "2SLS with country FE. Cluster-bootstrap SEs ($B=999$, country clusters). Slovenia excluded.",
   nobs_q = nobs_q_nolag, nobs_e = nobs_e_nolag
 )
 
 print_bdf_tab(
-  tab_lag,
-  wr2_vec = wr2_lag_vals,
-  caption = "Adjusted peer-effect estimates — lagged specification ...",
+  tab_lag, wr2_lag_vals,
+  caption = "Peer-effect estimates — lagged specification. $\\Delta\\log y_{it}$ on $x_{i,t-1}$, $Gx_{i,t-1}$; $Gy_{i,t-1}$ instrumented by $G^2x_{i,t-1}$, $G^3x_{i,t-1}$. Network recovered from lagged De Paula et al.\\ (2025) specification.",
   label = "tab:bdf_adjusted_lag",
-  note = "Notes: Instrumental variables network specification mapping lagged spatial dependencies.",
+  note = "2SLS with country FE. All regressors dated $t-1$. Cluster-bootstrap SEs ($B=999$, country clusters). Slovenia excluded.",
   nobs_q = nobs_q_lag, nobs_e = nobs_e_lag
 )
-
-cat(sprintf(
-  "Quality simultaneous: %d | Quality lagged: %d | Environment simultaneous: %d | Environment lagged: %d\n",
-  nobs_q_nolag, nobs_q_lag, nobs_e_nolag, nobs_e_lag
-))
 ```
+
 ```{r}
 #| label: fig-bdf-forest-nolag
 #| echo: false
@@ -1163,7 +1163,7 @@ build_ci <- function(tab, spec_label) {
     )
 }
 
-spec_vals <- c("Simultaneous" = "#5e3c99", "Lagged" = "#e66101")
+spec_vals <- c("Simultaneous" = "black", "Lagged" = "grey55")
 pd <- position_dodge(width = 0.55, preserve = "single")
 
 forest_plot <- function(df) {
@@ -1193,7 +1193,6 @@ ci_nolag <- build_ci(tab_nolag, "Simultaneous")
 p_bdf_nolag <- forest_plot(ci_nolag)
 print(p_bdf_nolag)
 save_figure("bdf_forest_nolag", width = 12, height = 6)
-print(p_bdf_nolag)
 ```
 
 ```{r}
@@ -1207,7 +1206,6 @@ ci_lag <- build_ci(tab_lag, "Lagged")
 p_bdf_lag <- forest_plot(ci_lag)
 print(p_bdf_lag)
 save_figure("bdf_forest_lag", width = 12, height = 6)
-print(p_bdf_lag)
 ```
 
 ```{r}
@@ -1225,15 +1223,8 @@ ci_combined <- dplyr::bind_rows(ci_nolag, ci_lag) |>
 p_bdf_combined <- forest_plot(ci_combined)
 print(p_bdf_combined)
 save_figure("bdf_forest_combined", width = 12, height = 6)
-print(p_bdf_combined)
-```
 
-```{r}
-#| label: fig-bdf-r2
-#| echo: false
-#| fig-width: 12
-#| fig-height: 6
-#| fig-cap: "Within-$R^2$ of the BDF country-fixed-effects regressions by network and standard"
+# R² data frames and plot function — used by fig-bdf-r2-nolag and fig-bdf-r2-lag
 net_q <- c("Recovered", "Geo + Trade", "Geography", "Trade", "Culture")
 net_e <- c("Recovered", "Geo + Culture", "Geography", "Trade", "Culture")
 
@@ -1254,33 +1245,31 @@ relevel_net <- function(df) {
 
 r2_nolag <- data.frame(
   panel = c(rep("Quality", 5), rep("Environment", 5)),
-  network = c(net_q, net_e), wr2 = wr2_nolag_vals, stringsAsFactors = FALSE
+  network = c(net_q, net_e),
+  wr2 = wr2_nolag_vals,
+  stringsAsFactors = FALSE
 ) |>
   relevel_net() |>
   dplyr::mutate(spec = "Simultaneous")
 
 r2_lag <- data.frame(
   panel = c(rep("Quality", 5), rep("Environment", 5)),
-  network = c(net_q, net_e), wr2 = wr2_lag_vals, stringsAsFactors = FALSE
+  network = c(net_q, net_e),
+  wr2 = wr2_lag_vals,
+  stringsAsFactors = FALSE
 ) |>
   relevel_net() |>
   dplyr::mutate(spec = "Lagged")
 
-r2_combined <- dplyr::bind_rows(r2_nolag, r2_lag) |>
-  dplyr::mutate(
-    network = forcats::fct_relevel(network, "Recovered", after = Inf),
-    spec    = factor(spec, levels = c("Simultaneous", "Lagged"))
-  )
-
-spec_vals <- c("Simultaneous" = "#5e3c99", "Lagged" = "#e66101")
-pd <- position_dodge(width = 0.7, preserve = "single")
+spec_vals <- c("Simultaneous" = "grey20", "Lagged" = "grey65")
+pd_r2 <- position_dodge(width = 0.7, preserve = "single")
 
 r2_plot <- function(df) {
   df <- dplyr::mutate(df, spec = factor(spec, levels = c("Simultaneous", "Lagged")))
   ggplot(df, aes(x = wr2, y = network, fill = spec)) +
-    geom_col(position = pd, width = 0.6, na.rm = TRUE) +
+    geom_col(position = pd_r2, width = 0.6, na.rm = TRUE) +
     geom_text(aes(label = ifelse(is.na(wr2), "", sprintf("%.3f", wr2)), group = spec),
-      position = pd, hjust = -0.15, size = 2.3, na.rm = TRUE
+      position = pd_r2, hjust = -0.15, size = 2.3, na.rm = TRUE
     ) +
     scale_fill_manual(values = spec_vals, drop = FALSE) +
     scale_x_continuous(expand = expansion(mult = c(0, 0.12))) +
@@ -1292,13 +1281,28 @@ r2_plot <- function(df) {
       panel.grid.major.y = element_blank(), strip.text = element_text(face = "bold")
     )
 }
+```
 
+```{r}
+#| label: fig-bdf-r2-nolag
+#| echo: false
+#| fig-width: 12
+#| fig-height: 6
+#| fig-cap: "Within-$R^2$ — simultaneous specification"
 p_r2_nolag <- r2_plot(r2_nolag)
 print(p_r2_nolag)
 save_figure("bdf_r2_nolag", width = 12, height = 6)
+```
 
+```{r}
+#| label: fig-bdf-r2-lag
+#| echo: false
+#| fig-width: 12
+#| fig-height: 6
+#| fig-cap: "Within-$R^2$ — lagged specification"
 p_r2_lag <- r2_plot(r2_lag)
 print(p_r2_lag)
+save_figure("bdf_r2_lag", width = 12, height = 6)
 ```
 
 ```{r}
@@ -1353,3 +1357,462 @@ save_table(tab_grid, "grid_search_summary")
 tab_grid |> print()
 ```
 
+# Year FE
+
+```{r}
+#| label: bdf-twfe-tables
+#| echo: false
+#| results: asis
+f_twfe <- as.formula(sprintf(
+  "y ~ %s + %s | country + year | Gy ~ %s + %s", rhs, exo, inst2, inst3
+))
+# Drop-in replacement: same as fit_spec but with f_twfe instead of f_cfe
+fit_spec_twfe <- function(panel, W, lag, B = 999) {
+  d <- build_bdf(panel, W, x_vars, use_lag = lag)
+  list(
+    nofe = extract_nofe(feols(f_nofe, data = d, cluster = ~country)),
+    cfe  = extract_cfe(cluster_boot(d, f_twfe, "country", B = B))
+  )
+}
+
+get_wr2_twfe <- function(panel, W, lag) {
+  d <- build_bdf(panel, W, x_vars, use_lag = lag)
+  m <- tryCatch(feols(f_twfe, data = d, cluster = ~country), error = \(e) NULL)
+  if (is.null(m)) {
+    return(NA_real_)
+  }
+  rv <- tryCatch(fixest::r2(m), error = \(e) NULL)
+  if (is.null(rv)) {
+    return(NA_real_)
+  }
+  unname(rv["wr2"])
+}
+
+run_all_twfe <- function(lag) {
+  nets <- make_networks(lag)
+  rows <- NULL
+  for (nm in names(nets$q)) {
+    rows <- rbind(rows, rb("Quality", nm, fit_spec_twfe(panel_q, nets$q[[nm]], lag)))
+  }
+  for (nm in names(nets$e)) {
+    rows <- rbind(rows, rb("Environment", nm, fit_spec_twfe(panel_e, nets$e[[nm]], lag)))
+  }
+  as.data.frame(rows, stringsAsFactors = FALSE)
+}
+
+make_wr2_twfe <- function(lag) {
+  nets <- make_networks(lag)
+  c(
+    get_wr2_twfe(panel_q, nets$q[["Recovered"]], lag),
+    get_wr2_twfe(panel_q, nets$q[["Exogenous, Geo + Trade"]], lag),
+    get_wr2_twfe(panel_q, nets$q[["Exogenous, Geography"]], lag),
+    get_wr2_twfe(panel_q, nets$q[["Exogenous, Trade"]], lag),
+    get_wr2_twfe(panel_q, nets$q[["Exogenous, Cultural dist."]], lag),
+    get_wr2_twfe(panel_e, nets$e[["Recovered"]], lag),
+    get_wr2_twfe(panel_e, nets$e[["Exogenous, Geo + Culture"]], lag),
+    get_wr2_twfe(panel_e, nets$e[["Exogenous, Geography"]], lag),
+    get_wr2_twfe(panel_e, nets$e[["Exogenous, Trade"]], lag),
+    get_wr2_twfe(panel_e, nets$e[["Exogenous, Cultural dist."]], lag)
+  )
+}
+
+tab_twfe_nolag <- run_all_twfe(lag = FALSE)
+tab_twfe_lag <- run_all_twfe(lag = TRUE)
+wr2_twfe_nolag <- make_wr2_twfe(lag = FALSE)
+wr2_twfe_lag <- make_wr2_twfe(lag = TRUE)
+
+print_bdf_tab(
+  tab_twfe_nolag, wr2_twfe_nolag,
+  caption = "Peer-effect estimates — simultaneous specification, country $+$ year FE.",
+  label = "tab:bdf_twfe_nolag",
+  note = "2SLS with country and year FE. Cluster-bootstrap SEs ($B=999$, country clusters). Slovenia excluded.",
+  nobs_q = nobs_q_nolag, nobs_e = nobs_e_nolag
+)
+
+print_bdf_tab(
+  tab_twfe_lag, wr2_twfe_lag,
+  caption = "Peer-effect estimates — lagged specification, country $+$ year FE.",
+  label = "tab:bdf_twfe_lag",
+  note = "2SLS with country and year FE. All regressors dated $t-1$. Cluster-bootstrap SEs ($B=999$, country clusters). Slovenia excluded.",
+  nobs_q = nobs_q_lag, nobs_e = nobs_e_lag
+)
+```
+
+```{r}
+#| label: fig-bdf-forest-twfe
+#| echo: false
+#| fig-width: 12
+#| fig-height: 6
+#| fig-cap: "BDF peer-effect estimates and 95\\% CI — country $+$ year FE, simultaneous and lagged"
+ci_twfe_nolag <- build_ci(tab_twfe_nolag, "Simultaneous")
+ci_twfe_lag <- build_ci(tab_twfe_lag, "Lagged")
+
+ci_twfe_combined <- dplyr::bind_rows(ci_twfe_nolag, ci_twfe_lag) |>
+  dplyr::mutate(
+    network = forcats::fct_relevel(network, "Recovered", after = Inf),
+    spec    = factor(spec, levels = c("Simultaneous", "Lagged"))
+  )
+
+p_twfe <- forest_plot(ci_twfe_combined)
+print(p_twfe)
+save_figure("bdf_forest_twfe", width = 12, height = 6)
+```
+
+
+```{r}
+#| label: bdf-fullag-standalone
+#| echo: false
+#| results: asis
+# Fully-lagged: x_{t-1}, Gx_{t-1}, y_{t-1}, Wy_{t-1}. OLS-FE, no IV.
+build_bdf_fullag <- function(panel, W, x_vars) {
+  build_bdf(panel, W, x_vars, use_lag = TRUE) |> # x_{t-1}, Gx_{t-1}; Gy is Wy_t
+    dplyr::arrange(country, year) |>
+    dplyr::group_by(country) |>
+    dplyr::mutate(
+      y_lag  = dplyr::lag(y, 1, order_by = year), # theta: y_{i,t-1}
+      Gy_lag = dplyr::lag(Gy, 1, order_by = year) # beta1: (Wy)_{i,t-1}
+    ) |>
+    dplyr::ungroup() |>
+    tidyr::drop_na(Gy_lag, y_lag)
+}
+f_fullag <- as.formula(sprintf("y ~ %s + %s + y_lag + Gy_lag | country + year", rhs, exo))
+fit_fullag <- function(panel, W) feols(f_fullag, data = build_bdf_fullag(panel, W, x_vars), cluster = ~country)
+
+nets_fa <- make_networks(lag = TRUE) # "Recovered" = contemporaneous recovered W; lag applies to the equation only
+m_q <- fit_fullag(panel_q, nets_fa$q[["Recovered"]])
+m_e <- fit_fullag(panel_e, nets_fa$e[["Recovered"]])
+
+lr <- function(m) {
+  b <- coef(m)
+  unname(b["Gy_lag"] / (1 - b["y_lag"]))
+}
+
+etable(
+  list(m_q, m_e),
+  depvar = FALSE,
+  headers = c("Quality", "Environment"),
+  order = c("Gy_lag", "y_lag"), keep = c("%Gy_lag", "%y_lag"),
+  dict = c(
+    Gy_lag = "$\\beta_1$: peers' past adoption $Wy_{t-1}$",
+    y_lag = "$\\theta$: own persistence $y_{t-1}$"
+  ),
+  fitstat = ~ n + wr2, signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10), tex = TRUE,
+  title = "Fully-lagged specification (recovered networks): covariates, own and peer outcomes all dated $t-1$. OLS with country and year FE; no instrument.",
+  label = "tab:bdf_fullag",
+  notes = sprintf(
+    paste(
+      "Lagged-peer restriction of BDF Eq.~9 ($\\beta_0=0$): $Wy_{t-1}$ is predetermined, so no reflection problem and no IV",
+      "(Bramoull\\'e, Djebbari \\& Fortin 2009; Manski 1993). Network recovered with lagged covariates.",
+      "$\\theta$ carries $O(1/T)$ Nickell (1981) bias. Long-run propagation $\\beta_1/(1-\\theta)$: Quality %.3f, Environment %.3f. Slovenia excluded."
+    ),
+    lr(m_q), lr(m_e)
+  ),
+  file = file.path(tab_dir, "bdf_fullag.tex")
+)
+
+# Forest of beta1 across all networks (built from fitted objects, no text parsing)
+ci_fa <- function(panel, fits) {
+  do.call(rbind, lapply(names(fits), function(nm) {
+    ct <- summary(fits[[nm]])$coeftable
+    if (!"Gy_lag" %in% rownames(ct)) {
+      return(NULL)
+    }
+    b <- ct["Gy_lag", 1]
+    se <- ct["Gy_lag", 2]
+    data.frame(panel = panel, network = nm, estimate = b, lo95 = b - 1.96 * se, hi95 = b + 1.96 * se)
+  }))
+}
+fa_all <- dplyr::bind_rows(
+  ci_fa("Quality", lapply(nets_fa$q, function(W) fit_fullag(panel_q, W))),
+  ci_fa("Environment", lapply(nets_fa$e, function(W) fit_fullag(panel_e, W)))
+) |>
+  dplyr::mutate(
+    network = dplyr::recode(network,
+      "Exogenous, Geo + Trade" = "Geo + Trade", "Exogenous, Geo + Culture" = "Geo + Culture",
+      "Exogenous, Geography" = "Geography", "Exogenous, Trade" = "Trade", "Exogenous, Cultural dist." = "Culture"
+    ),
+    network = forcats::fct_relevel(factor(network), "Recovered", after = Inf),
+    panel = factor(panel, levels = c("Quality", "Environment")),
+    est_label = sprintf("%.3f", estimate)
+  )
+
+p_fa <- ggplot(fa_all, aes(estimate, network)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50", linewidth = 0.4) +
+  geom_linerange(aes(xmin = lo95, xmax = hi95), linewidth = 0.8) +
+  geom_point(size = 2.6) +
+  geom_text(aes(label = est_label), vjust = -1.1, size = 2.3) +
+  facet_wrap(~panel, ncol = 2) +
+  coord_cartesian(clip = "off") +
+  labs(x = expression("Lagged peer effect (" * beta[1] * ")"), y = NULL) +
+  theme_minimal(base_size = 10) +
+  theme(
+    panel.grid.minor = element_blank(), panel.grid.major.y = element_blank(),
+    strip.text = element_text(face = "bold")
+  )
+print(p_fa)
+save_figure("bdf_fullag_forest", width = 12, height = 6)
+```
+
+```{r}
+#| label: bdf-fullag-splice
+#| echo: false
+#| results: asis
+# Run AFTER bdf-adjusted-tables (needs panels, helpers, build_bdf_fullag/fit_fullag from chunk A).
+# Overrides the "Lagged" objects so every combined figure now means fully-lagged-peer.
+
+star_lp <- function(p) if (is.na(p)) "" else if (p < 0.01) "$^{***}$" else if (p < 0.05) "$^{**}$" else if (p < 0.10) "$^{*}$" else ""
+rb_lp <- function(panel, network, m, coef = "Gy_lag") { # mirrors rb()'s 2-row, V1..V4 layout
+  ct <- summary(m)$coeftable
+  if (!coef %in% rownames(ct)) {
+    est <- "---"
+    se <- ""
+  } else {
+    b <- ct[coef, 1]
+    s <- ct[coef, 2]
+    p <- ct[coef, 4]
+    est <- sprintf("%.3f%s", b, star_lp(p))
+    se <- sprintf("(%.3f)", s)
+  }
+  rbind(c(panel, network, "", est), c("", "", "", se))
+}
+run_all_fullag <- function() {
+  nets <- make_networks(lag = TRUE)
+  rows <- NULL
+  for (nm in names(nets$q)) rows <- rbind(rows, rb_lp("Quality", nm, fit_fullag(panel_q, nets$q[[nm]])))
+  for (nm in names(nets$e)) rows <- rbind(rows, rb_lp("Environment", nm, fit_fullag(panel_e, nets$e[[nm]])))
+  as.data.frame(rows, stringsAsFactors = FALSE) # columns auto-named V1..V4
+}
+wr2_fullag <- function() {
+  nets <- make_networks(lag = TRUE)
+  c(
+    sapply(nets$q, function(W) unname(fixest::r2(fit_fullag(panel_q, W), "wr2"))),
+    sapply(nets$e, function(W) unname(fixest::r2(fit_fullag(panel_e, W), "wr2")))
+  )
+}
+
+# Override the lagged objects the downstream figures consume
+tab_lag <- run_all_fullag()
+wr2_lag_vals <- wr2_fullag()
+ci_lag <- build_ci(tab_lag, "Lagged")
+nobs_q_lag <- nrow(build_bdf_fullag(panel_q, W_q_sub, x_vars))
+nobs_e_lag <- nrow(build_bdf_fullag(panel_e, W_e_sub, x_vars))
+
+print_bdf_tab(
+  tab_lag, wr2_lag_vals,
+  caption = "Peer-effect estimates — fully-lagged specification. $\\beta_1$ on peers' past adoption $Wy_{i,t-1}$; covariates, own outcome and peer outcome all dated $t-1$. OLS with country and year FE, no IV.",
+  label = "tab:bdf_fullag_panel",
+  note = "Lagged-peer restriction ($\\beta_0=0$): predetermined RHS, no reflection problem, no instrument (Bramoull\\'e, Djebbari \\& Fortin 2009). Recovered = contemporaneous recovered network; only the equation is lagged. Slovenia excluded.",
+  nobs_q = nobs_q_lag, nobs_e = nobs_e_lag
+)
+
+# Recompute combined forest / R²: "Simultaneous" = beta0 (IV), "Lagged" = beta1 (lagged peer)
+ci_combined <- dplyr::bind_rows(ci_nolag, ci_lag) |>
+  dplyr::mutate(
+    network = forcats::fct_relevel(network, "Recovered", after = Inf),
+    spec = factor(spec, levels = c("Simultaneous", "Lagged"))
+  )
+print(forest_plot(ci_combined))
+save_figure("bdf_forest_combined", width = 12, height = 6)
+
+r2_lag <- data.frame(
+  panel = c(rep("Quality", 5), rep("Environment", 5)),
+  network = c(net_q, net_e), wr2 = wr2_lag_vals
+) |>
+  relevel_net() |>
+  dplyr::mutate(spec = "Lagged")
+print(r2_plot(dplyr::bind_rows(r2_nolag, r2_lag)))
+save_figure("bdf_r2_lag", width = 12, height = 6)
+```
+
+```{r}
+#| label: fig-bdf-r2-twfe
+#| echo: false
+#| fig-width: 12
+#| fig-height: 6
+#| fig-cap: "Within-$R^2$ — simultaneous specification, country $+$ year FE"
+# net_q / net_e / relevel_net / r2_plot defined in fig-bdf-forest-combined; wr2_twfe_nolag in bdf-twfe-tables.
+r2_twfe_nolag <- data.frame(
+  panel = c(rep("Quality", 5), rep("Environment", 5)),
+  network = c(net_q, net_e),
+  wr2 = wr2_twfe_nolag,
+  stringsAsFactors = FALSE
+) |>
+  relevel_net() |>
+  dplyr::mutate(spec = "Simultaneous")
+
+p_r2_twfe <- r2_plot(r2_twfe_nolag) + theme(legend.position = "none")
+print(p_r2_twfe)
+save_figure("bdf_r2_twfe", width = 12, height = 6)
+```
+```{r}
+#| label: fig-bdf-r2-fullag
+#| echo: false
+#| fig-width: 12
+#| fig-height: 6
+#| fig-cap: "Within-$R^2$ — fully-lagged-peer specification"
+# wr2_fullag() is defined in bdf-fullag-splice; this chunk must run after it.
+# Names come back as the full "Exogenous, ..." labels -> recode to match net_q/net_e.
+wr2_fa <- wr2_fullag()
+r2_fullag <- data.frame(
+  panel = c(rep("Quality", 5), rep("Environment", 5)),
+  network = c(net_q, net_e), # same network order make_networks() iterates
+  wr2 = unname(wr2_fa),
+  stringsAsFactors = FALSE
+) |>
+  relevel_net() |>
+  dplyr::mutate(spec = "Fully lagged")
+
+p_r2_fullag <- r2_plot(r2_fullag) + theme(legend.position = "none")
+print(p_r2_fullag)
+save_figure("bdf_r2_fullag", width = 12, height = 6)
+```
+
+```{r}
+#| label: fig-bdf-forest-twfe-sim-vs-fullag
+#| echo: false
+#| fig-width: 12
+#| fig-height: 6
+#| fig-cap: "Peer-effect estimates, country $+$ year FE: simultaneous ($\\beta_0$ on $Wy_t$, IV) vs fully-lagged ($\\beta_1$ on $Wy_{t-1}$, OLS)"
+# Needs: ci_twfe_nolag (fig-bdf-forest-twfe), forest_plot/spec_vals (fig-bdf-forest-combined),
+#        fit_fullag/nets_fa (bdf-fullag-standalone).
+
+# Pairs cluster bootstrap (country clusters, B = 999) for the fully-lagged beta_1,
+# mirroring cluster_boot() on the simultaneous side so both series in the figure
+# use cluster-bootstrap SEs, as stated in the figure note.
+boot_se_fullag <- function(panel, W, B = 999, seed = 42) {
+  d <- build_bdf_fullag(panel, W, x_vars)
+  ids <- unique(d$country)
+  set.seed(seed)
+  draws <- replicate(B, {
+    samp <- sample(ids, length(ids), replace = TRUE)
+    db <- do.call(rbind, lapply(seq_along(samp), function(k) {
+      dk <- d[d$country == samp[k], , drop = FALSE]
+      dk$country <- paste0(samp[k], "_", k) # duplicates get distinct FE ids
+      dk
+    }))
+    m <- tryCatch(feols(f_fullag, data = db), error = \(e) NULL)
+    if (is.null(m) || !"Gy_lag" %in% names(coef(m))) NA_real_ else unname(coef(m)["Gy_lag"])
+  })
+  stats::sd(draws, na.rm = TRUE)
+}
+
+ci_fullag <- function(panel_label, panel_data, nets) {
+  do.call(rbind, lapply(names(nets), function(nm) {
+    m <- fit_fullag(panel_data, nets[[nm]])
+    ct <- summary(m)$coeftable
+    if (!"Gy_lag" %in% rownames(ct)) {
+      return(NULL)
+    }
+    b <- ct["Gy_lag", 1]
+    se <- boot_se_fullag(panel_data, nets[[nm]]) # cluster-bootstrap SE (country, B = 999)
+    data.frame(
+      panel = panel_label, network = nm, estimate = b, se = se,
+      lo95 = b - 1.96 * se, hi95 = b + 1.96 * se, stringsAsFactors = FALSE
+    )
+  }))
+}
+
+ci_lagpeer <- dplyr::bind_rows(
+  ci_fullag("Quality", panel_q, nets_fa$q),
+  ci_fullag("Environment", panel_e, nets_fa$e)
+) |>
+  dplyr::mutate(
+    network = dplyr::recode(network,
+      "Exogenous, Geo + Trade" = "Geo + Trade", "Exogenous, Geo + Culture" = "Geo + Culture",
+      "Exogenous, Geography" = "Geography", "Exogenous, Trade" = "Trade", "Exogenous, Cultural dist." = "Culture"
+    ),
+    network = forcats::fct_relevel(
+      factor(network, levels = c("Recovered", "Geo + Trade", "Geo + Culture", "Geography", "Trade", "Culture")),
+      "Recovered",
+      after = Inf
+    ),
+    panel = factor(panel, levels = c("Quality", "Environment")),
+    spec = "Lagged",
+    est_label = sprintf("%.3f", estimate)
+  )
+
+ci_twfe_sim_vs_lag <- dplyr::bind_rows(ci_twfe_nolag, ci_lagpeer) |>
+  dplyr::mutate(
+    network = forcats::fct_relevel(network, "Recovered", after = Inf),
+    spec    = factor(spec, levels = c("Simultaneous", "Lagged"))
+  )
+
+p_twfe_sim_vs_fullag <- forest_plot(ci_twfe_sim_vs_lag)
+print(p_twfe_sim_vs_fullag)
+save_figure("bdf_forest_twfe_sim_vs_fullag", width = 12, height = 6)
+```
+
+```{r}
+#| label: fig-bdf-forest-fullag-noyearfe
+#| echo: false
+#| fig-width: 12
+#| fig-height: 6
+#| fig-cap: "Fully-lagged peer-effect estimates ($\\beta_1$ on $Wy_{t-1}$, OLS), country FE only (no year FE)"
+# Robustness: fully-lagged specification WITHOUT year FE, both standards,
+# same networks as the main figure (contemporaneous recovered + exogenous).
+# Same construction as fig-bdf-forest-twfe-sim-vs-fullag: point estimates from
+# the full-sample fit, SEs from a pairs cluster bootstrap (country, B = 999).
+
+f_fullag_cfe <- as.formula(sprintf("y ~ %s + %s + y_lag + Gy_lag | country", rhs, exo))
+fit_fullag_cfe <- function(panel, W) {
+  feols(f_fullag_cfe, data = build_bdf_fullag(panel, W, x_vars), cluster = ~country)
+}
+
+boot_se_fullag_cfe <- function(panel, W, B = 999, seed = 42) {
+  d <- build_bdf_fullag(panel, W, x_vars)
+  ids <- unique(d$country)
+  set.seed(seed)
+  draws <- replicate(B, {
+    samp <- sample(ids, length(ids), replace = TRUE)
+    db <- do.call(rbind, lapply(seq_along(samp), function(k) {
+      dk <- d[d$country == samp[k], , drop = FALSE]
+      dk$country <- paste0(samp[k], "_", k) # duplicates get distinct FE ids
+      dk
+    }))
+    m <- tryCatch(feols(f_fullag_cfe, data = db), error = \(e) NULL)
+    if (is.null(m) || !"Gy_lag" %in% names(coef(m))) NA_real_ else unname(coef(m)["Gy_lag"])
+  })
+  stats::sd(draws, na.rm = TRUE)
+}
+
+ci_fullag_cfe <- function(panel_label, panel_data, nets) {
+  do.call(rbind, lapply(names(nets), function(nm) {
+    m <- fit_fullag_cfe(panel_data, nets[[nm]])
+    ct <- summary(m)$coeftable
+    if (!"Gy_lag" %in% rownames(ct)) {
+      return(NULL)
+    }
+    b <- ct["Gy_lag", 1]
+    se <- boot_se_fullag_cfe(panel_data, nets[[nm]])
+    data.frame(
+      panel = panel_label, network = nm, estimate = b, se = se,
+      lo95 = b - 1.96 * se, hi95 = b + 1.96 * se, stringsAsFactors = FALSE
+    )
+  }))
+}
+
+ci_lagpeer_cfe <- dplyr::bind_rows(
+  ci_fullag_cfe("Quality", panel_q, nets_fa$q),
+  ci_fullag_cfe("Environment", panel_e, nets_fa$e)
+) |>
+  dplyr::mutate(
+    network = dplyr::recode(network,
+      "Exogenous, Geo + Trade" = "Geo + Trade", "Exogenous, Geo + Culture" = "Geo + Culture",
+      "Exogenous, Geography" = "Geography", "Exogenous, Trade" = "Trade", "Exogenous, Cultural dist." = "Culture"
+    ),
+    network = forcats::fct_relevel(
+      factor(network, levels = c("Recovered", "Geo + Trade", "Geo + Culture", "Geography", "Trade", "Culture")),
+      "Recovered",
+      after = Inf
+    ),
+    panel = factor(panel, levels = c("Quality", "Environment")),
+    spec = "Lagged",
+    est_label = sprintf("%.3f", estimate)
+  )
+
+p_fullag_cfe <- forest_plot(
+  dplyr::mutate(ci_lagpeer_cfe, spec = factor(spec, levels = c("Simultaneous", "Lagged")))
+) + theme(legend.position = "none")
+print(p_fullag_cfe)
+save_figure("bdf_forest_fullag_noyearfe", width = 12, height = 6)
+```

@@ -1,5 +1,4 @@
 \documentclass[12pt,a4paper]{article}
-
 \usepackage{booktabs}
 \usepackage{longtable}
 \usepackage{pdflscape}
@@ -14,22 +13,50 @@
 \usepackage{amssymb}
 \usepackage{natbib}
 \usepackage{hyperref}
-
 \geometry{margin=2.5cm}
-
-\title{ISOs Diffusion in the EU: an Endogenous Network Recovery for
-       Environmental and Quality Management Systems}
-\author{Gianluigi De Rubertis}
-\date{\today}
 
 \begin{document}
 
-\maketitle
+% ---- PAGE 1: TITLE PAGE ----
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
 
-\begin{abstract}
-    ...
-\end{abstract}
+    {\Large\bfseries Aix-Marseille School of Economics\par}
 
+    \vspace{1.5cm}
+
+    {\LARGE\bfseries ISOs Diffusion in the EU: an Endogenous Network Recovery for Environmental and Quality Management Systems\par}
+
+    \vspace{2cm}
+
+    {\large Master's Thesis\par}
+    \vspace{0.4cm}
+    {\large\itshape M2 Research in Economics\par}
+
+    \vspace{2.5cm}
+
+    {\large \textbf{Author:} Gianluigi De Rubertis\par}
+    \vspace{0.6cm}
+    {\large \textbf{Supervisors:} Prof.\ Renaud Bourlès, Prof.\ Romain Ferrali\par}
+
+    \vfill
+
+\end{titlepage}
+
+% ---- PAGE 2: ABSTRACT ----
+\thispagestyle{plain}
+\vspace*{3cm}
+
+\begin{center}
+    {\Large\bfseries Abstract}
+\end{center}
+
+\vspace{0.8cm}
+
+\noindent ...
+
+\vspace{0.5cm}
 
 \begin{center}
     \small
@@ -37,15 +64,16 @@
     Environment: Ubuntu container.
 \end{center}
 
+\vfill
+
+%\noindent\textit{Acknowledgments} -- ...
+
 \newpage
 
-\tableofcontents
-
-\newpage
 
 \section{Introduction}
 
-Policies do not diffuse in a vacuum: they travel along structures of influence between countries that researchers must usually assume rather than observe. \citet{gilardi2019} organise this field around four mechanisms, namely learning, competition, coercion and emulation, while noting that the channel along which a policy actually travels is rarely visible in the data --- which counsels against committing in advance to a particular metric of proximity. Establishing these channels nonetheless matters, because the policies that diffuse through them can have tangible effects: \citet{linsenmeier2023}, for instance, show that the indirect emission reductions produced by the international diffusion of carbon pricing can exceed the direct domestic reductions. This logic is not confined to public regulation. It extends to private and voluntary standards, of which ISO management-system certifications are the leading case: sets of audited practices that began spreading internationally in the 1990s and now constitute a large and growing catalogue.\footnote{Certification is verified by accredited bodies and coordinated internationally, first through the International Accreditation Forum (IAF) and, from January 2026, through its successor, Global Accreditation Cooperation Incorporated (Global ACI).} \citet{vanderheijden2020} explicitly advocates modelling their diffusion as a network phenomenon, yet relatively little work has done so, and most existing studies examine a single standard in isolation.
+Policies do not diffuse in a vacuum: they travel along structures of influence between countries that researchers must usually assume rather than observe. \citet{gilardi2019} in a review, report how literature on the field is revolving around four mechanisms, namely learning, competition, coercion and emulation, while noting that the channel along which a policy actually travels is rarely visible in the data --- which counsels against committing in advance to a particular metric of proximity. Establishing these channels matters because the consequences of diffusion can be first-order.  \citet{linsenmeier2023},  This logic is not confined to public regulation. It extends to private and voluntary standards, of which ISO management-system certifications are the leading case: sets of audited practices that began spreading internationally in the 1990s and now constitute a large and growing catalogue.\footnote{Certification is verified by accredited bodies and coordinated internationally, first through the International Accreditation Forum (IAF) and, from January 2026, through its successor, Global Accreditation Cooperation Incorporated (Global ACI).} \citet{vanderheijden2020} explicitly advocates modelling their diffusion as a network phenomenon, yet relatively little work has done so, and most existing studies examine a single standard in isolation.
 
 This paper asks whether technical and political standards diffuse through different international channels, and answers it without assuming those channels in advance. We focus on the most widely held standard of each type in the European Union: ISO~9001 (Quality Management Systems), the technical case, concerned with efficiency and operational processes, and ISO~14001 (Environmental Management Systems), the political case, whose adoption has been shown to operate partly as a signalling device toward international audiences, being more prevalent in weak-governance environments \citep{berliner2013}. Using annual certification counts for the 27 EU member states (1993--2017 for Quality, 1997--2017 for Environment), we recover a separate latent diffusion network for each standard with the adaptive elastic-net GMM estimator of \citet{depaula2025}, which identifies who influences whom directly from the panel covariation in adoption, rather than from an assumed proximity metric. We then compare the two recovered structures, examine the bilateral determinants of the recovered links in dyadic regressions, and re-estimate peer effects \citep{bramoulle2009} on both the recovered networks and the exogenous benchmark networks of \citet{albuquerque2007}.
 
@@ -89,8 +117,9 @@ standard. \footnote{The ISO Survey reports certificates rather than certified or
     survey methodology changed in a way that breaks comparability with earlier years; the present
     sample therefore ends in 2017 and no post-2018 harmonisation is attempted.} The series begin
 in the years the two standards were established, $1993$ for Quality (ISO~9001) and $1997$ for
-Environment (ISO~14001), and both run through $2017$. The sample is restricted to the $27$ EU
-member states. This yields a balanced country dimension of $N=27$ for both standards and a
+Environment (ISO~14001), and both run through $2017$. The sample is restricted to the 27 EU member states. The methodology of \citet{depaula2025} recovers $\hat{W}$ from moment conditions whose parameter count grows with $N^2$ while identifying variation grows with $N×TN \times T N×T$; enlarging the node set beyond what the panel length can support makes estimation infeasible. The EU-27, observed over T=21T = 21 T=21–2525 25 years, sits at the boundary of what the estimator can handle while retaining an institutionally coherent group: a common market with a shared conformity-assessment and accreditation infrastructure, which makes treating it as an approximately closed system defensible. The cost of this restriction  is essentially the truncation of influence arriving from outside the EU and is discussed in Section \ref{sec:limitations}.
+
+This yields a balanced country dimension of $N=27$ for both standards and a
 time dimension of $T=25$ for Quality and $T=21$ for Environment, for $N\times T = 675$ and
 $567$ country--year observations respectively.
 
@@ -100,8 +129,7 @@ the share of renewables in total final energy consumption, and total natural res
 (\% of GDP); from the WGI we take the Rule of Law estimate. All covariates enter the
 estimation in $\log(1+x)$ form, as described in Section~\ref{sec:methodology}.
 
-The structure of the data imposes the constraint of stopping the sample in 2017. The choice was necessary because of a change in the survey methodology used to collect the data, however it comes with the cost of an increase in the bias of the estimate for both standards, bias potentially more critical for Environment given the slightly shorter panel.
-
+The structure of the data imposes the constraint of stopping the sample in 2017. The choice was necessary because of a change in the survey methodology used to collect the data, however it comes with the cost of reduced estimation precision for both standards. \citet{depaula2025} run Monte Carlo simulations on several network types (their Online Appendix Figure A1, p.~21), and the Erd\H{o}s--R\'{e}nyi random network --- the closest in characteristics to our recovered structures --- provides a useful benchmark: in their analysis, at the $T$ range of our panels one can still expect some deviation from the true $W$ structure along with some downward bias in the estimates of the peer-effect parameter $\hat{\rho}$ and the exogenous social effect $\hat{\gamma}$. This cost is potentially more critical for Environment given its shorter panel ($T = 21$ versus $T = 25$).
 \subsection{Descriptive Statistics}
 The two standards show different adoption levels, consistently with their distinct institutional histories. As reported in Table~\ref{tab:desc_stats}, the older standard (Quality) is considerably more widespread than Environment, both in absolute and relative terms. In 2017, the total number of ISO 9001 certifications reached 315,987, compared with 84,316 ISO 14001 certifications. Similarly, certification intensity amounted to 441.67 certifications per thousand dollars of GDP per capita for Quality, against 128.86 for Environment. These differences are likely related to the earlier introduction of ISO 9001, which had already achieved widespread diffusion by the time ISO 14001 was launched in 1997.
 
@@ -135,7 +163,7 @@ Two features of the data require adaptation. Annual certificate counts are highl
 \end{equation}
 where the outcome is the year-on-year log-difference in certificates, $\tilde y_{it} = \log(1+n_{it}) - \log(1+n_{i,t-1})$, with $n_{it}$ the number of valid certificates held in country $i$ in year $t$, and $\tilde x_{it}^{(k)} = \log(1+x_{it}^{(k)})$ is the $k$-th of the $K=5$ covariates: GDP per capita, Trade (\% of GDP), the Rule of Law estimate, Total Natural Resource Rents (\% of GDP), and the Share of Renewables in Total Final Energy Consumption.
 
-We estimate equation~\eqref{eq:empirical} via the adaptive elastic-net GMM of \citet{depaula2025}, which returns $\hat W$ jointly with $(\hat\rho,\hat\beta,\hat\gamma)$; the three penalty parameters are selected by BIC over a grid (Appendix~\ref{tab:tab:grid_search}).
+We estimate equation~\eqref{eq:empirical} via the adaptive elastic-net GMM of \citet{depaula2025}, which returns $\hat W$ jointly with $(\hat\rho,\hat\beta,\hat\gamma)$; the three penalty parameters are selected by BIC over a grid (Appendix~\ref{tab:tab:grid_search}). It is worth noting that the \citet{depaula2025} estimator is built on the \citet{bramoulle2009} framework and therefore imposes row-sum normalisation on $\hat{W}$ as part of the recovery with  network estimation and peer-effect identification occurring jointly. In our setting, this produces a nearly binarised network: when the recovered structure is sparse and most nodes have only one or two incoming edges, row normalisation mechanically pushes the surviving weights toward one. This is clearly visible in the degree distributions of Figure~\ref{fig:degree_hist} and in the network plots of Figure~\ref{fig:networks}.
 We then analyse the structure of the two recovered networks and compare their similarity, both with one another and with the exogenous network specifications adopted by \citet{albuquerque2007}. We complement this with a dyadic regression of the recovered edge weights on a set of bilateral covariates,
 \begin{equation}
     \hat w_{ij} = \sum_{k} \delta_k\, D_{ij}^{k} + a_i + a_j + u_{ij},
@@ -145,10 +173,10 @@ where $D_{ij}^{k}$ collects the dyadic regressors (economic distance, asymmetry 
 
 Having recovered both the network and the associated structural parameters, we assess the role of the network in a second stage. Following \citet{bramoulle2009}, we estimate the linear-in-means peer-effects model
 \begin{equation}
-    y_{it} = \rho \sum_{j} W_{ij}\, y_{jt} + \beta\, x_{it} + \gamma \sum_{j} W_{ij}\, x_{jt} + \alpha_i + \alpha_t + \varepsilon_{it},
+    y_{it} = \rho \sum_{j} \hat W_{ij}\, y_{jt} + \beta\, x_{it} + \gamma \sum_{j} \hat W_{ij}\, x_{jt} + \alpha_i + \alpha_t + \varepsilon_{it},
     \label{eq:bdf}
 \end{equation}
-where the endogenous peer term $\sum_j W_{ij} y_{jt}$ is instrumented by the characteristics of indirectly connected peers, $\mathbf{W}^2\mathbf{x}$ and $\mathbf{W}^3\mathbf{x}$, which exploit the intransitivities of the network to address the reflection problem \citep{manski1993,bramoulle2009}. We run equation~\eqref{eq:bdf} on both the recovered network and the row-normalised exogenous benchmarks of \citet{albuquerque2007}, treating the network as known and including country and year fixed effects. The recovered network is expected to be the true network of interactions; as validation, we compare the within-$R^2$ across specifications and find that the recovered network attains the highest fit for both standards.
+where the endogenous peer term $\sum_j \hat W_{ij} y_{jt}$ is instrumented by the characteristics of indirectly connected peers, $\mathbf{\hat W}^2\mathbf{x}$ and $\mathbf{\hat W}^3\mathbf{x}$, which exploit the intransitivities of the network to address the reflection problem \citep{manski1993,bramoulle2009}. We run equation~\eqref{eq:bdf} on both the recovered network and the row-normalised exogenous benchmarks of \citet{albuquerque2007}, and including country and year fixed effects. The recovered network is expected to be the true network of interactions; as validation, we compare the within-$R^2$ across specifications and find that the recovered network attains the highest fit for both standards.
 
 As a robustness check, we also estimate a fully lagged specification in which all explanatory variables are dated $t-1$:
 \begin{equation}
@@ -156,20 +184,20 @@ As a robustness check, we also estimate a fully lagged specification in which al
     =
     \theta y_{i,t-1}
     +
-    \beta_1 \sum_j W_{ij} y_{j,t-1}
+    \beta_1 \sum_j \hat W_{ij} y_{j,t-1}
     +
     \sum_{k=1}^{K}\gamma_{1k} x_{i,t-1}^{(k)}
     +
-    \sum_{k=1}^{K}\delta_{1k}\sum_j W_{ij}x_{j,t-1}^{(k)}
+    \sum_{k=1}^{K}\delta_{1k}\sum_j \hat W_{ij}x_{j,t-1}^{(k)}
     +
     \alpha_i+\alpha_t+\varepsilon_{it},
     \label{eq:fullag}
 \end{equation}
-where $W$ denotes either the recovered network or one of the benchmark exogenous networks.
+where $\hat W$ denotes either the recovered network or one of the benchmark exogenous networks.
 
 This specification can be viewed as a restricted version of the dynamic framework discussed by \citet{bramoulle2020}, in which contemporaneous peer effects are excluded and social influence is allowed to propagate only with a one-period delay. By replacing the contemporaneous peer outcome $Wy_t$ with its lagged counterpart $Wy_{t-1}$, the model breaks the simultaneous feedback mechanism that gives rise to the reflection problem \citep{manski1993, bramoulle2009}. Identification therefore relies on temporal rather than contemporaneous spillovers.
 
-The coefficient $\theta$ captures persistence in certification dynamics, while $\beta_1$ measures the effect of past peer adoption on current adoption. Under the maintained assumption that $|\theta|<1$, the implied long-run social multiplier is given by $\beta_1/(1-\theta)$, which measures the cumulative propagation of a shock through the network over time. Because influence is constrained to operate through lagged outcomes and characteristics, this specification provides a conservative robustness check on the contemporaneous estimates, reducing the risk that recovered network effects merely reflect common shocks affecting EU countries simultaneously.
+The coefficient $\theta$ captures persistence in certification dynamics, while $\beta_1$ measures the effect of past peer adoption on current adoption. Under the maintained assumption that $|\theta|<1$, the implied long-run international multiplier is given by $\beta_1/(1-\theta)$, which measures the cumulative propagation of a shock through the network over time. Because influence is constrained to operate through lagged outcomes and characteristics, this specification provides a conservative robustness check on the contemporaneous estimates, reducing the risk that recovered network effects merely reflect common shocks affecting EU countries simultaneously.
 \clearpage
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -181,7 +209,7 @@ The coefficient $\theta$ captures persistence in certification dynamics, while $
 \label{sec:network-recovery}
 \input{assets/tables/network_stats.tex}
 
-Table~\ref{tab:network_eu} reports the structural summary of the two networks selected by BIC. Three features stand out. First, both recovered networks are \emph{sparse}: the Quality network retains $28$ directed edges and the Environment network $30$, out of $27\times 26 = 702$ possible ordered pairs, so fewer than one potential link in twenty is active. This is the regularisation at work: the adaptive elastic-net penalty drives the overwhelming majority of off-diagonal entries of $\hat W$ to zero, which is precisely the property that restores consistency in a short panel. Second, the two structures are \emph{nearly disjoint}: of their respective $28$ and $30$ edges, only $3$ coincide in both endpoints and direction, leaving $25$ edges unique to Quality and $27$ unique to Environment. This near-orthogonality is the central descriptive finding of the paper and is quantified formally by the Jaccard index in Section~\ref{sec:network-similarity}. Third, the two networks differ in internal topology. The Quality network is more transitive (clustering coefficient $0.164$ versus $0.053$) and exhibits some mutual ties ($7.1\%$ of edges are reciprocated), whereas the Environment network has \emph{no} reciprocated edges at all and a markedly lower clustering coefficient, pointing to a more hierarchical, less locally cohesive diffusion structure. The recovered peer-effect parameter is respectively for the two standards, $\hat\rho^{Q}=0.203$ and $\hat\rho^{E}=0.286$, with the penalty triples and BIC values reported in the lower rows and the full grid in Appendix Table~\ref{tab:tab:grid_search}. The associated structural estimates and their confidence intervals, including the covariate coefficients, are shown in Figure~\ref{fig:gmm_ci}; notably, while $\hat\rho^{E}$ is the larger point estimate, its interval is much wider, a precision gap consistent with the shorter Environment panel and examined in Section~\ref{sec:peer-effects}.
+Table~\ref{tab:network_eu} reports the structural summary of the two networks selected by BIC. Three features stand out. First, both recovered networks are \emph{sparse}: the Quality network retains $28$ directed edges and the Environment network $30$, out of $27\times 26 = 702$ possible ordered pairs, so fewer than one potential link over twenty is active. This is the regularisation at work: the adaptive elastic-net penalty drives the overwhelming majority of off-diagonal entries of $\hat W$ to zero, which is precisely the property that restores consistency in a short panel. Second, the two structures are \emph{nearly disjoint}: of their respective $28$ and $30$ edges, only $3$ coincide in both endpoints and direction, leaving $25$ edges unique to Quality and $27$ unique to Environment. This near-orthogonality is the central descriptive finding of the paper and is quantified formally by the Jaccard index in Section~\ref{sec:network-similarity}. Third, the two networks differ in internal topology. The Quality network is more transitive (clustering coefficient $0.164$ versus $0.053$) and exhibits some mutual ties ($7.1\%$ of edges are reciprocated), whereas the Environment network has \emph{no} reciprocated edges at all and a markedly lower clustering coefficient, pointing to a more hierarchical, less locally cohesive diffusion structure. The recovered peer-effect parameter is $\hat\rho^{Q}=0.203$ and $\hat\rho^{E}=0.286$; neither is individually significant, nor are the covariate coefficients (Figure~\ref{fig:gmm_ci}). Two considerations follow. First, \citet{depaula2025} document in their Monte Carlo simulations that $\hat\rho$ is underestimated at short panel lengths, with the bias vanishing only as $T$ grows; at the $T$ available to us the recovery-stage estimate is therefore expected to be both downward-biased and imprecise. Second, this $\hat\rho$ is not the object we wish to compare across networks: it is estimated jointly with $\hat{W}$ and is specific to the recovered structure, so it cannot be set against the exogenous benchmarks on a common footing. Both considerations motivate the second-stage analysis of Section~\ref{sec:peer-effects}, where we take $\hat{W}$ as given and re-estimate the peer effect following \citet{bramoulle2009}: this delivers a coefficient that is identified by a common strategy across all network specifications and is thus directly comparable, and a sharper test of whether the recovered structure carries transmission.
 
 Figure~\ref{fig:networks} renders the two recovered networks and makes these features visible. The panels are arranged as a $2\times 2$ grid: the diagonal shows each network in its own Fruchterman--Reingold layout, while the off-diagonal panels redraw each network using the other standard's coordinates, so that a shared structure, if present, would appear as aligned edges across a row or column. It does not: neither network retains any recognisable backbone when projected onto the other's coordinates, confirming that the dissimilarity documented in Table~\ref{tab:network_eu} is not an artefact of layout.
 
@@ -191,12 +219,16 @@ Figure~\ref{fig:networks} renders the two recovered networks and makes these fea
     \label{fig:networks}
     \includegraphics[width=\textwidth]{assets/figures/networks_weighted_full}
     \par\vspace{0.5em}
-    {\footnotesize \textit{Notes.} Networks recovered via the adaptive elastic-net GMM of \citet{depaula2025}; directed and weighted. Panels are arranged as a $2\times2$ grid: diagonal panels show each network in its own Fruchterman--Reingold layout (Quality top-left, Environment bottom-right), while off-diagonal panels redraw each network in the other standard's layout to facilitate visual comparison of topology. Arrows point from influencing to influenced countries. Edge weights lie in $(0,1]$ after row-normalisation: a weight of $1$ indicates that the source country is the destination's sole recovered influencer, while smaller weights indicate influence shared across multiple recovered ties.}
+    {\footnotesize \textit{Notes.} Networks recovered via the adaptive elastic-net GMM of \citet{depaula2025}; directed and weighted. Panels are arranged as a $2\times2$ grid: diagonal panels show each network in its own Fruchterman--Reingold layout (Quality top-left, Environment bottom-right), while off-diagonal panels redraw each network in the other standard's layout to facilitate visual comparison of topology. Arrows point from influencing to influenced countries. Edge weights lie in $(0,1]$ after row-normalisation: a weight of $1$ indicates that the source country is the destination's sole recovered influencer, while smaller weights indicate influence shared across multiple recovered ties. In the legend, \emph{strong influence} denotes edges with row-normalised weight above $0.9$, indicating that the source accounts for nearly all of the destination's recovered influence; \emph{weak influence} denotes edges with weight at or below $0.9$, where influence is shared more evenly across multiple sources.}
 \end{figure}
 \clearpage
 
 
 The diagonal panels reveal how the topological contrast of Table~\ref{tab:network_eu} manifests structurally. The Quality network breaks into several disconnected components --- a chain through Italy--Spain--Malta--Romania, a separate cluster around Austria, Germany and the Netherlands --- with Slovenia appearing as an isolated node (the reason it is dropped from the Quality peer-effect estimation in Section~\ref{sec:peer-effects}). Rather than a single EU-wide channel, Quality diffusion appears to operate through a small number of self-contained regional sub-systems. The Environment network is instead connected around a few high-in-degree hubs, notably Belgium and Portugal, with its directed and entirely unreciprocated edges producing a more hierarchical, star-like appearance.
+
+A qualitative reading of the edges is useful at this stage; the quantitative
+analysis of what predicts a recovered tie follows in the dyadic regressions of
+Section~\ref{sec:dyadic}.
 
 Neither structure maps cleanly onto a single proximity metric. The Quality network combines geographically contiguous links with ties between non-neighbouring economies, and the Environment network connects countries that are neither culturally close nor major bilateral trading partners. This is consistent with the central premise of the exercise: had diffusion travelled along a single observable dimension, the recovered networks would resemble one of the exogenous benchmarks of \citet{albuquerque2007}, which they do not (Table~\ref{tab:jaccard_matrix}). Individual edges nonetheless admit plausible economic readings. The Germany--Slovenia link in the Environment network, for instance, is suggestive of vertical supply-chain pressure: Slovenia's manufacturing base is deeply integrated into German automotive value chains, and a well-documented channel of ISO diffusion is precisely the requirement, by large certified customers, that upstream suppliers certify in turn \citep{corbett2006, christmann2001, arimura2011}. We stress that such edge-level readings are illustrative rather than causal: the recovered $\hat W$ is a statistical object, estimated under a sparsity penalty, and the systematic analysis of what predicts a recovered tie is deferred to the dyadic regressions of Section~\ref{sec:dyadic}.
 
@@ -220,66 +252,35 @@ Table~\ref{tab:jaccard_matrix} extends the comparison to the exogenous benchmark
 % =============================================================================
 \subsection{Dyadic Regression}
 \label{sec:dyadic}
-%The dyadic regressions in Table~\ref{tab:dyadic_recovered_fp_fe} ask what predicts the
-%\emph{presence and strength} of a recovered tie, with sender and receiver fixed effects
-%absorbing all monadic heterogeneity in propensity to certify or to be imitated (Dzemski
-%2018). The result is the paper's sharpest finding. For Quality, bilateral FDI is the robust
-%dyadic predictor of recovered links ($0.0143$, significant at $5\%$), whereas bilateral
-%trade is small and insignificant ($0.0031$). This refines the existing literature: Guler et
-%al.\ (2002) and Albuquerque et al.\ (2007) treat trade and FDI together, or trade alone, as
-%the ``economic channel''  for ISO~9001, leaving open which of the two actually carries the
-%diffusion. Conditioning on both within the same specification, only FDI survives. The
-%recovered Quality network thus looks trade-like in aggregate fit (Figure~\ref{fig:bdf_forest_twfe_sim_vs_fullag})
-%precisely because trade and FDI are correlated, but the structure underneath is investment,
-%not trade, driven. For Environment, neither economic variable
-%is significant; the predictors that load instead are environmental-policy asymmetry
-%($0.0381$, significant at $5\%$) and economic distance ($-0.0360$, significant at $10\%$),
-%consistent with a governance-homophily logic in which environmental certification travels
-%between countries with similar regulatory postures rather than along investment ties
-%(Berliner \& Prakash 2013). Read alongside the weaker peer-effect identification for
-%Environment, this reinforces the two-track reading: a technical standard diffusing through
-%economic integration, specifically FDI, and a political standard diffusing through
-%governance similarity, recovered less precisely because of its shorter panel.
-%% =============================================================================
+% =============================================================================
 %
-% --- prose motivating the dyadic regression here ---
+
+The dyadic regressions in Table~\ref{tab:dyadic_recovered_fp_fe} ask what predicts the presence and strength of a recovered tie, with sender and receiver fixed effects absorbing all monadic heterogeneity in each country's propensity to influence or to be influenced \citep{dzemski2019}. This is the paper's sharpest finding.
+
+For Quality, bilateral FDI is the robust dyadic predictor of recovered links ($0.0143$, significant at $5\%$), whereas bilateral trade is small and insignificant ($0.0031$). This refines the existing literature: \citet{guler2002} and \citet{albuquerque2007} treat trade and FDI together, or trade alone, as the economic channel for ISO~9001, leaving open which of the two actually carries the diffusion. Conditioning on both within the same specification, only FDI survives. The recovered Quality network thus resembles the trade benchmark in aggregate fit (Figure~\ref{fig:bdf_r2_nolag}) precisely because trade and FDI are correlated across EU countries, but the structure underneath is investment-driven rather than trade-driven as previously assessed through exogenous networks.
+
+For Environment, neither economic variable is significant. The predictors that load instead are environmental-policy asymmetry ($0.0381$, significant at $5\%$) and economic distance ($-0.0360$, significant at $10\%$): ties form between countries with asymmetric regulatory postures but comparable economies, consistent with a governance-based rather than market-based logic \citep{berliner2013}. Neither cultural distance nor geographic distance is significant for either standard once sender and receiver effects are included, suggesting that the standard proximity proxies load primarily on country-level heterogeneity rather than on genuinely bilateral variation.
+
+Insignificance of geography in both specifications might be implied by the peculiar sample, as previous work assessing its relevance \citet{albuquerque2007} had a more varigated sample which included more distant countries.
+
+The low $R^2$ of both regressions ($0.089$ and $0.067$) is expected in this design: most of the variation in $\hat w_{ij}$ is absorbed by the sender and receiver fixed effects, so the reported fit refers only to the residual bilateral component. Read alongside the peer-effect results of the next subsection, these findings complete the two-track reading: a technical standard diffusing through economic integration, specifically FDI, and a political standard diffusing through governance similarity.
+
 
 \input{assets/tables/dyadic_recovered_fp_fe}
-
-%\textbf{Findings.}
-%\begin{itemize}
-%    \item For Quality in Table~\ref{tab:dyadic_recovered_fp_fe}, (i)~bilateral FDI is the robust dyadic predictor of recovered ties ($0.0143^{**}$) whereas (ii)~bilateral trade is not ($0.0031$, n.s.), refining existing literature (Albuquerque et al. (2007) and Guler et al.\ (2002)), who bundle trade and FDI/consider trade only as joint ISO 9001 channels.
-%    \item Cannot disprove the ``economic channel'' for technical standards and the complexity of the political standard
-%\end{itemize}
-
 
 \clearpage
 
 % =============================================================================
 \subsection{Peer Effects: Recovered vs Exogenous Networks}
 \label{sec:peer-effects}
-%Figure~\ref{fig:bdf_forest_twfe_sim_vs_fullag} reports the \citet{bramoulle2009}
-%peer-effect estimates across network specifications, for the recovered networks and for
-%the exogenous benchmarks of Albuquerque et al.\ (2007). Two readings support the claim
-%that Quality is recovered more successfully than Environment. First, the recovered
-%\emph{Quality} network yields a positive and significant peer effect that is statistically
-%indistinguishable from the estimate on Albuquerque's preferred Geo~$+$~Trade network, and
-%this agreement survives the lagged specification, where, by contrast, the Geo~$+$~Trade
-%estimate collapses to a value not significantly different from zero. The recovered network
-%is therefore at least as informative as the best-performing exogenous proxy, and more
-%robust to the one-year lag. Second, the recovered \emph{Environment} network delivers a
-%small peer-effect estimate that is not significant under either the simultaneous or the
-%lagged specification. This asymmetry is the empirical signature of the panel-length problem
-%examined in the next subsection, and it is consistent with the wider confidence interval on
-%$\hat\rho^{E}$ in Figure~\ref{fig:gmm_ci}. A caveat must be stated plainly: on within-$R^2$
-%the single best fit for Quality is the pure Trade network, marginally ahead of the recovered
-%one. The recovered network's value is therefore not that it dominates every proxy on fit,
-%but that it matches the best proxy without being told in advance that trade is the relevant
-%channel and, as the dyadic analysis shows, the structure it recovers is in fact shaped
-%by foreign direct investment rather than by trade flows, a distinction no single exogenous
-%network can draw.
-% =============================================================================
 
+Figure~\ref{fig:bdf_forest_twfe_sim_vs_fullag} reports the \citet{bramoulle2009} peer-effect estimates across network specifications, for the recovered networks and the exogenous benchmarks of \citet{albuquerque2007}.
+
+For Quality, the recovered network yields a positive and significant peer effect of plausible magnitude ($\hat\beta = 0.40$) and attains the highest within-$R^2$ among all specifications ($0.109$ against at most $0.065$ for any exogenous proxy, Figure~\ref{fig:bdf_r2_nolag}). The fit comparison is informative here precisely because Section~\ref{sec:network-similarity} established that the recovered network is topologically unrelated to every benchmark: the higher $R^2$ cannot be the recovery interpolating among the candidate proxies, since it overlaps with none of them. The exogenous proxies deliver simultaneous estimates that are far larger --- Geo~$+$~Trade at $1.13$, Trade at $1.91$ --- and implausible as structural peer effects, a pattern consistent with network misspecification loading common variation onto the peer term. The lagged specification reinforces this reading: the recovered network's lagged estimate ($0.08$) remains positive and stable, whereas the exogenous estimates collapse toward zero or turn negative once the contemporaneous channel is shut down, suggesting that their large simultaneous coefficients were absorbing within-year co-movement rather than genuine transmission.
+
+For Environment, the recovered network delivers a small and insignificant simultaneous estimate ($\hat\beta = 0.16$), and no exogenous network yields a significant peer effect either. This symmetry matters: the insignificance is not a failure of the recovered network specifically, since even the Albuquerque benchmarks identify nothing. Two complementary explanations are available. The first is panel length: with $T = 21$, the Environment sample is the shorter of the two, consistent with the wider confidence interval on $\hat\rho^{E}$ in Figure~\ref{fig:gmm_ci}. The second is topological: in a hub-dominated, star-like network with no reciprocated ties, the instruments $G^2x$ and $G^3x$ have limited independent variation, because most indirect paths run through the same few high-in-degree nodes; the intransitivity condition of \citet{bramoulle2009} is satisfied formally but delivers weak instruments in practice. The within-$R^2$ comparison supports this reading: the recovered Environment network still attains the best fit ($0.059$ against $0.040$--$0.047$), so the recovered structure carries information about adoption dynamics even where the peer coefficient itself is not precisely identified
+
+% =============================================================================
 \begin{figure}[H]
     \centering
     \caption{Peer-effect estimates across network specifications.}
@@ -288,6 +289,7 @@ Table~\ref{tab:jaccard_matrix} extends the comparison to the exogenous benchmark
     \par\vspace{0.5em}
     {\footnotesize \textit{Notes.} \textit{Observations:} Quality $N\times T = 624$ (simultaneous), $572$ (fully lagged); Environment $N\times T = 468$ (simultaneous), $416$ (fully lagged). The figure contrasts two specifications, estimated on the recovered networks \citep{depaula2025} and on the row-normalised exogenous benchmarks of \citet{albuquerque2007}, with country and year fixed effects throughout. \textbf{Simultaneous} reports the contemporaneous endogenous peer effect $\beta$ on $Gy_t$ (eq.~\ref{eq:bdf}), identified by IV-2SLS using $G^2x$ and $G^3x$ as excluded instruments for the reflection problem \citep{manski1993, bramoulle2009}. \textbf{Lagged} reports the lagged peer effect $\beta_1$ on past adoption $Gy_{t-1}$ from the fully lagged specification (eq.~\ref{eq:fullag}); the peer term is predetermined, so no instrument is required and the model is estimated by OLS. The two coefficients are distinct objects --- contemporaneous versus one-period-lagged transmission --- and are not on a common structural scale. Error bars are 95\% cluster-bootstrap intervals (999 draws, country clusters); each point is labelled with its estimate. Slovenia is dropped (isolated node in the recovered Quality network).}
 \end{figure}
+%
 
 \begin{figure}[H]
     \centering
@@ -298,27 +300,43 @@ Table~\ref{tab:jaccard_matrix} extends the comparison to the exogenous benchmark
 \end{figure}
 
 
-%Recovered networks fit the data marginally better than all the exogenous benchmarks for Environment, and show roughly the same fit with respect to the pure Trade network for the quality data, as shown in Figure~\ref{fig:bdf_r2_nolag}. This is consistent with the peer-effect estimates, where the recovered network does not seem to show a better fit than de Paula's chosen specifications. Such a tendency also holds for the lagged specification in the Appendix (Fig. \ref{fig:bdf_r2_fullag}), where the recovered networks do show a better fit than all the exogenous ones, consistently with the main simultaneous specification.
-%
-%
-%Figure \ref{fig:bdf_forest_twfe_sim_vs_fullag} shows peer effect estimates from the linear-in-means specification of \citet{bramoulle2009} across the different network specifications. The considered specifications are the recovered ones and the exogenous network specifications taken into account by Albuquerque et al.\ (2007): geographical proximity, trade intensity, cultural similarity and institutional similarity.
-%\begin{itemize}
-%    \item \textbf{Recovered Quality Networks} shows significant peer effect not statistically different from the one identified by Albuquerque et al. in their chosen specification (Geo + Trade). The validity of the recovered network is supported by the lagged specification, where the chosen Albuquerque network isn't statistically different form 0.
-%    \item \textbf{Recovered Environment Networks} shows a small peer-effect estimate, smaller than the Albuquerque specification and not statistically significant for both simultaneous and lagged specifications. This result is consistent with the shorter panel for Environment and is analysed in more detail in the next section.
-%\end{itemize}
+Recovered networks fit the data better than all exogenous benchmarks for both standards, as shown in Figure~\ref{fig:bdf_r2_nolag}. The difference is particularly pronounced for Quality, where the recovered network attains a substantially higher within-$R^2$ than the closest benchmark (0.109 against 0.065 for the Trade network), suggesting that the endogenous recovery captures meaningful structure not contained in standard proximity-based specifications. For Environment, the improvement is smaller but remains consistent across specifications. This pattern aligns with the peer-effect estimates, where the recovered network produces more stable and economically plausible coefficients than the exogenous alternatives. The same tendency appears in the lagged specification reported in the Appendix (Fig.~\ref{fig:bdf_r2_fullag}), where recovered networks again outperform all benchmark specifications, reinforcing the interpretation that endogenous recovery contributes information beyond pre-specified channels.
+
+
+Figure \ref{fig:bdf_forest_twfe_sim_vs_fullag} shows peer effect estimates from the linear-in-means specification of \citet{bramoulle2009} across the different network specifications. The considered specifications are the recovered ones and the exogenous network specifications taken into account by Albuquerque et al.\ (2007): geographical proximity, trade intensity, cultural similarity and institutional similarity.
+\begin{itemize}
+    \item \textbf{Recovered Quality Networks} shows significant peer effect not statistically different from the one identified by Albuquerque et al. in their chosen specification (Geo + Trade). The validity of the recovered network is supported by the lagged specification, where the chosen Albuquerque network isn't statistically different form 0.
+    \item \textbf{Recovered Environment Networks} shows a small peer-effect estimate, smaller than the Albuquerque specification and not statistically significant for both simultaneous and lagged specifications. This result is consistent with the shorter panel for Environment and is analysed in more detail in the next section.
+\end{itemize}
 
 \clearpage
 
 \section{Discussion}
-\label{sec:discussion}
-
 \subsection{Limitations}
-%\begin{itemize}
-%    \item \textbf{Observation level}: Data is observed at the aggregate country level, implicating the neglection of within-country heterogeneity and the specfic influential weight given firms may have over others. This may be of particular concern for countris with large multinational players, however the country-level focus is consistent with the policy diffusion literature, is potentially easier to interpret at a national levle for policymakers and is the best way to recover networks with the available data. Considering sigle firms as nodes in the network would imply estimating many more paramters. Ultimately, the assumpation may be heroic, however is extremely consistent and convenient.
-%    \item \textbf{Short panel}: The method ideally would benefit from a longer panel for both standards, but the shorter panel for Environment is likely more problematic. This may explain the worse performance of the recovered Environment network in the peer-effect estimation step and the worse similarity with exogenous benchmarks.
-%    \item \textbf{Unobserved confounders}: The method relies on the assumption that all relevant covariates are observed and included in the model. If there are unobserved factors that influence both the adoption of standards and the formation of links in the network, this could bias the results. For instance, unobserved political or economic shocks that affect multiple countries simultaneously could create spurious correlations in adoption patterns that are not due to direct peer effects.
-%\end{itemize}
+\label{sec:limitations}
 
+
+Some limitations are worth stating explicitly.
+
+The first concerns the level of observation. Data are observed at the aggregate country level, so within-country heterogeneity --- including the differential weight that large multinational firms may carry in transmitting standards through their supply chains --- is subsumed into a single country-year observation. This is of particular concern for countries with dominant multinational sectors, where firm-level coercion is plausibly the primary channel. The country-level focus is nonetheless consistent with the policy diffusion literature, is the unit at which policymakers operate and is the only unit at which the ISO Survey data are publicly available. Moving to a firm-level network would multiply the parameter space by several orders of magnitude and render the sparse-recovery estimator infeasible at the available time-series length.
+
+The second concerns the network-recovery methodology and data dimensions. The \citet{depaula2025} estimator is consistent as $T$ grows for fixed $N$; with $T = 25$ for Quality and $T = 21$ for Environment, both panels are short relative to the ideal, and the Environment panel is the more binding constraint. The weaker peer-effect identification and the wider GMM confidence interval for that standard are consistent with this. Extending the sample beyond 2017 would require a harmonisation of the pre- and post-2018 ISO Survey methodologies that is not currently feasible. Furthermore, the recovery methodology itself imposes necessary but restrictive structural assumptions. It requires the latent network to be fixed over the entire sample period; given that our panel spans over two decades, this static assumption precludes the possibility that channels of influence evolved as European integration deepened. Additionally, to regularize the high-dimensional parameter space, the adaptive elastic-net algorithm imposes a strict sparsity penalty. While mathematically necessary for consistency in short panels, it mechanically forces weak ties to zero, meaning our recovered networks capture only the most dominant channels of diffusion rather than the complete web of low-intensity spillovers.
+
+The third is the restriction of the sample to the 27 EU member states, which presents a specific tradeoff regarding unobserved confounders. On one hand, this homogeneity is an asset: it limits unobserved institutional heterogeneity and ensures that the regulatory baseline is highly comparable across nodes. On the other hand, it introduces the risk of unobserved regional confounders. The EU is a highly active regulatory environment, and coordinated policy initiatives (such as European environmental directives or supply-chain mandates) may hit sub-clusters of member states at similar times, moving several countries together. While country and year fixed effects absorb uniform pan-European shocks, localized EU regulatory waves could induce synchronous adoption patterns that the recovery algorithm inadvertently attributes to peer-to-peer diffusion. The fully lagged specification provides a further check by closing the contemporaneous channel entirely. Neither device is watertight, however, and the recovered networks should be read as the structure of conditional covariation in adoption dynamics rather than as a causal map of deliberate influence.
+
+A final econometric limitation concerns the application of the \citet{bramoulle2009} identification strategy to panel data. The use of intransitive peers' characteristics ($W^{2}X$ and $W^{3}X$) as excluded instruments is fundamentally rooted in cross-sectional network topology. While its application to panel data with two-way fixed effects is standard in the applied literature, it relies on the strong assumption of strict exogeneity of covariates across time and precludes complex dynamic feedback loops between adoption and shifting economic characteristics.
+
+\subsection{Extensions}
+\label{sec:conclusion}
+
+
+Three extensions would deepen the analysis. First, the ISO Survey is public only at the national aggregate, but the organisation maintains a proprietary record of individual certificates by sector and site. Access to that dataset would allow the recovery exercise to be repeated within countries --- at the regional or sectoral level --- testing whether the country-level networks recovered here aggregate consistently from finer-grained diffusion and addressing directly the first limitation above.
+
+Second, the supply-chain mechanism suggested by individual edges such as Germany--Slovenia, and formalised by the dyadic FDI result, could be tested where it actually operates: at the firm level, within documented vertical relationships. Matched buyer-supplier data in sectors with strong certification requirements, such as automotive, would permit a comparison of diffusion speed along supply chains against diffusion across unconnected firms, providing a micro-founded test of the coercive channel that country-level data can only infer.
+
+Third, the present paper recovers the structure of diffusion but does not quantify its consequences. A natural next step is to use the recovered Environment network to study the real effects of ISO~14001: variation in a country's exposure to its recovered influencers provides a source of variation in certification take-up that is plausibly unrelated to domestic environmental shocks, and could serve as the basis for estimating the effect of certification on outcomes such as emission intensity or the renewables share within the EU panel.
+
+Fourth, a temporal --- and thus possibly also geographic --- extension of the panel would be valuable in order to isolate peer-driven diffusion from broader, confounding EU institutional dynamics. Because our significant findings remain highly connected to European bilateral investment channels and regional integration mechanisms, we cannot currently discard the hypothesis that the recovered networks are partially shaped by synchronized pan-European policy shocks or macroeconomic trends. Extending the time series, even by a few years, or expanding the cross-section to include non-EU benchmarking countries, would provide the necessary variation to disentangle pure network diffusion from localized European institutional dynamics.
 \subsection{Conclusion}
 
 
