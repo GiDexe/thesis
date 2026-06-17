@@ -430,7 +430,7 @@ lam_e <- best[["14001_eu"]]$lambda
 bic_q <- best[["9001_eu"]]$bic
 bic_e <- best[["14001_eu"]]$bic
 
-network_stats_note <- "This table reports summary statistics of the two recovered networks, selected by BIC. The first row reports the number of edges in each network, while the second and third rows report how many edges are shared by both networks and how many are unique to each network, respectively. A shared link is intended when there is a link between the same two nodes in the same direction in both networks. The fourth and fifth rows report the clustering coefficient (share of closed triplets) and reciprocity (bidirectional edges) of each network, respectively. The sixth to ninth rows report the mean and standard deviation of out-degrees and in-degrees across nodes (countries) for each network. Finally, the tenth to twelfth rows report the GMM estimates of the structural parameters $\\hat{\\rho}$ (endogenous peer effects) and $\\hat{\\lambda}$ (penalties for the Adaptive Elastic Net) and the BIC values for each network."
+network_stats_note <- "This table reports summary statistics of the two recovered networks, selected by BIC. The first row reports the number of edges in each network, while the second and third rows report how many edges are shared by both networks and how many are unique to each network, respectively. A shared link is intended when there is a link between the same two nodes in the same direction in both networks. The fourth and fifth rows report the clustering coefficient (share of closed triplets) and reciprocity (bidirectional edges) of each network, respectively. The sixth to ninth rows report the mean and standard deviation of out-degrees and in-degrees across nodes (countries) for each network. Finally, the tenth to twelfth rows report the GMM estimates of the structural parameter $\\hat{\\rho}$ (endogenous peer effects) and tuning paramters $\\hat{\\lambda}$ and the BIC values for each network."
 
 tex <- c(
   "\\begin{table}[H]\\centering",
@@ -587,13 +587,13 @@ tab_jac_mat <- kbl(
     font_size = 8
   ) |>
   add_note(paste(
-  "The Jaccard index measures the overlap of two networks' edge sets:",
-  "values closer to 1 indicate more similar structures, 0 fully disjoint ones.",
-  "Lower triangle shown; the matrix is symmetric and the diagonal equals 1 by",
-  "definition. Recovered networks ($\\\\hat W^Q$, $\\\\hat W^E$) are the",
-  "BIC-selected networks; benchmark networks follow Albuquerque et al. (2007).",
-  "Formal definition in Appendix~\\\\ref{sec:appendix-similarity}."
-))
+    "The Jaccard index measures the overlap of two networks' edge sets:",
+    "values closer to 1 indicate more similar structures, 0 fully disjoint ones.",
+    "Lower triangle shown; the matrix is symmetric and the diagonal equals 1 by",
+    "definition. Recovered networks ($\\\\hat W^Q$, $\\\\hat W^E$) are the",
+    "BIC-selected networks; benchmark networks follow Albuquerque et al. (2007).",
+    "Formal definition in Appendix~\\\\ref{sec:appendix-similarity}."
+  ))
 
 save_table(tab_jac_mat, "jaccard_matrix")
 tab_jac_mat |> print()
