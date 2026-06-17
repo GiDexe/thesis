@@ -430,7 +430,7 @@ lam_e <- best[["14001_eu"]]$lambda
 bic_q <- best[["9001_eu"]]$bic
 bic_e <- best[["14001_eu"]]$bic
 
-network_stats_note <- "This table reports summary statistics of the two recovered networks, selected by BIC. The first row reports the number of edges in each network, while the second and third rows report how many edges are shared by both networks and how many are unique to each network, respectively. A shared link is intended when there is a link between the same two nodes in the same direction in both networks. The fourth and fifth rows report the clustering coefficient (share of closed triplets) and reciprocity (bidirectional edges) of each network, respectively. The sixth to ninth rows report the mean and standard deviation of out-degrees and in-degrees across nodes (countries) for each network. Finally, the tenth to twelfth rows report the GMM estimates of the structural parameters $\\hat{\\rho}$ (endogenous peer effects) and $\\hat{\\lambda}$ (penalties for the Adaptive Elastic Net) and the BIC values for each network. Sources: Elaboration on ISO Survey Data, the World Bank Data and the Worldwide Governance Indicators. The network estimation relies on GDP per capita (WDI: NY.GDP.PCAP.KD), Trade (\\% of GDP; WDI: NE.TRD.GNFS.ZS), Rule of Law estimate (WGI: RL.EST)*, Total Natural Resources Rents (\\% of GDP; WDI: NY.GDP.TOTL.RT.ZS), and Share of Renewables in Total Final Energy Consumption (\\% ; WDI: EG.FEC.RNEW.ZS). All the covariates were log linearised (log (1+x))."
+network_stats_note <- "This table reports summary statistics of the two recovered networks, selected by BIC. The first row reports the number of edges in each network, while the second and third rows report how many edges are shared by both networks and how many are unique to each network, respectively. A shared link is intended when there is a link between the same two nodes in the same direction in both networks. The fourth and fifth rows report the clustering coefficient (share of closed triplets) and reciprocity (bidirectional edges) of each network, respectively. The sixth to ninth rows report the mean and standard deviation of out-degrees and in-degrees across nodes (countries) for each network. Finally, the tenth to twelfth rows report the GMM estimates of the structural parameters $\\hat{\\rho}$ (endogenous peer effects) and $\\hat{\\lambda}$ (penalties for the Adaptive Elastic Net) and the BIC values for each network."
 
 tex <- c(
   "\\begin{table}[H]\\centering",
@@ -439,8 +439,8 @@ tex <- c(
   "& Quality & Environment \\\\\\hline",
   sprintf("Number of edges & %d & %d \\\\", s_q$edges, s_e$edges),
   sprintf("Edges in both networks & %d & %d \\\\", common, common),
-  #sprintf("Edges in $W_{\\text{Quality}}$ only & %d & \\\\", only_q),
-  #sprintf("Edges in $W_{\\text{Environment}}$ only & & %d \\\\", only_e),
+  # sprintf("Edges in $W_{\\text{Quality}}$ only & %d & \\\\", only_q),
+  # sprintf("Edges in $W_{\\text{Environment}}$ only & & %d \\\\", only_e),
   sprintf("Clustering & %s & %s \\\\", f3(s_q$clustering), f3(s_e$clustering)),
   sprintf("Reciprocated edges & %s & %s \\\\", p1(s_q$reciprocity), p1(s_e$reciprocity)),
   "Degree distribution across nodes (countries) & & \\\\",
@@ -567,11 +567,12 @@ for (i in seq_len(n_nets)) {
   }
 }
 
-# Format: diagonal as "1.000", off-diagonal to 3 dp
+# Lower triangle only, then drop the empty first row and last column
 jac_fmt <- matrix(sprintf("%.3f", jac_mat), n_nets, n_nets,
   dimnames = dimnames(jac_mat)
 )
-diag(jac_fmt) <- "1.000"
+jac_fmt[upper.tri(jac_fmt, diag = TRUE)] <- ""
+jac_fmt <- jac_fmt[-1, -n_nets, drop = FALSE]
 
 tab_jac_mat <- kbl(
   as.data.frame(jac_fmt),
@@ -586,10 +587,12 @@ tab_jac_mat <- kbl(
     font_size = 8
   ) |>
   add_note(paste(
-  "$J(A,B) = |E_A \\\\cap E_B| / |E_A \\\\cup E_B|$ on binarised directed edge sets",
-  "($w_{ij} \\\\neq 0$). Diagonal entries are 1 by definition. The recovered networks",
-  "($\\\\hat W^Q$, $\\\\hat W^E$) are the BIC-selected networks. Benchmark networks",
-  "follow Albuquerque et al. (2007)."
+  "The Jaccard index measures the overlap of two networks' edge sets:",
+  "values closer to 1 indicate more similar structures, 0 fully disjoint ones.",
+  "Lower triangle shown; the matrix is symmetric and the diagonal equals 1 by",
+  "definition. Recovered networks ($\\\\hat W^Q$, $\\\\hat W^E$) are the",
+  "BIC-selected networks; benchmark networks follow Albuquerque et al. (2007).",
+  "Formal definition in Appendix~\\\\ref{sec:appendix-similarity}."
 ))
 
 save_table(tab_jac_mat, "jaccard_matrix")
@@ -1348,7 +1351,7 @@ tab_grid <- kbl(grid_df,
 ) |>
   kable_styling(latex_options = "hold_position", font_size = 9) |>
   row_spec(best_rows, bold = TRUE) |>
-    add_note("Top 5 penalisation-parameter combinations by BIC, from a grid search over the adaptive elastic-net GMM estimator of De Paula, Rasul and Souza (2025). The BIC-selected specification per standard is shown in bold.")
+  add_note("Top 5 penalisation-parameter combinations by BIC, from a grid search over the adaptive elastic-net GMM estimator of De Paula, Rasul and Souza (2025). The BIC-selected specification per standard is shown in bold.")
 
 save_table(tab_grid, "grid_search_summary")
 tab_grid |> print()
