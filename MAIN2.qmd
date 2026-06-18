@@ -430,19 +430,19 @@ lam_e <- best[["14001_eu"]]$lambda
 bic_q <- best[["9001_eu"]]$bic
 bic_e <- best[["14001_eu"]]$bic
 
-network_stats_note <- "This table reports summary statistics of the two recovered networks, selected by BIC. The first row reports the number of edges in each network, while the second and third rows report how many edges are shared by both networks and how many are unique to each network, respectively. A shared link is intended when there is a link between the same two nodes in the same direction in both networks. The fourth and fifth rows report the clustering coefficient (share of closed triplets) and reciprocity (bidirectional edges) of each network, respectively. The sixth to ninth rows report the mean and standard deviation of out-degrees and in-degrees across nodes (countries) for each network. Finally, the tenth to twelfth rows report the GMM estimates of the structural parameter $\\hat{\\rho}$ (endogenous peer effects) and tuning paramters $\\hat{\\lambda}$ and the BIC values for each network."
+network_stats_note <- "This table reports summary statistics of the two recovered networks, selected by BIC. The first row reports the number of links in each network, while the second and third rows report how many links are shared by both networks and how many are unique to each network, respectively. A shared link is intended when there is a link between the same two nodes in the same direction in both networks. The fourth and fifth rows report the clustering coefficient (share of closed triplets) and reciprocity (bidirectional links) of each network, respectively. The sixth to ninth rows report the mean and standard deviation of out-degrees and in-degrees across nodes (countries) for each network. Finally, the tenth to twelfth rows report the GMM estimates of the structural parameter $\\hat{\\rho}$ (endogenous peer effects) and tuning paramters $\\hat{\\lambda}$ and the BIC values for each network."
 
 tex <- c(
   "\\begin{table}[H]\\centering",
   "\\caption{BIC-selected networks}\\label{tab:network_eu}",
   "\\begin{tabular}{lcc}\\hline\\hline",
   "& Quality & Environment \\\\\\hline",
-  sprintf("Number of edges & %d & %d \\\\", s_q$edges, s_e$edges),
-  sprintf("Edges in both networks & %d & %d \\\\", common, common),
+  sprintf("Number of links & %d & %d \\\\", s_q$edges, s_e$edges),
+  sprintf("Links in both networks & %d & %d \\\\", common, common),
   # sprintf("Edges in $W_{\\text{Quality}}$ only & %d & \\\\", only_q),
   # sprintf("Edges in $W_{\\text{Environment}}$ only & & %d \\\\", only_e),
   sprintf("Clustering & %s & %s \\\\", f3(s_q$clustering), f3(s_e$clustering)),
-  sprintf("Reciprocated edges & %s & %s \\\\", p1(s_q$reciprocity), p1(s_e$reciprocity)),
+  sprintf("Reciprocated links & %s & %s \\\\", p1(s_q$reciprocity), p1(s_e$reciprocity)),
   "Degree distribution across nodes (countries) & & \\\\",
   sprintf("\\quad Out-degree & %s & %s \\\\", dg(s_q$out_mean, s_q$out_sd), dg(s_e$out_mean, s_e$out_sd)),
   sprintf("\\quad In-degree & %s & %s \\\\", dg(s_q$in_mean, s_q$in_sd), dg(s_e$in_mean, s_e$in_sd)),
@@ -592,7 +592,7 @@ tab_jac_mat <- kbl(
     "Lower triangle shown; the matrix is symmetric and the diagonal equals 1 by",
     "definition. Recovered networks ($\\\\hat W^Q$, $\\\\hat W^E$) are the",
     "BIC-selected networks; benchmark networks follow Albuquerque et al. (2007).",
-    "Formal definition in Appendix~\\\\ref{sec:appendix-similarity}."
+    "Formal definition in Appendix section~\\\\ref{sec:appendix-similarity}."
   ))
 
 save_table(tab_jac_mat, "jaccard_matrix")
@@ -1344,7 +1344,7 @@ tab_grid <- kbl(grid_df,
   align = "lcccrrrr", row.names = FALSE,
   col.names = c(
     "Panel", "$\\lambda_1$", "$\\lambda_2$", "$\\lambda_1^*$",
-    "Edges", "$\\hat\\rho_{GMM}$", "BIC"
+    "Links", "$\\hat\\rho_{GMM}$", "BIC"
   ),
   caption = "Top-5 BIC grid search results per standard. BIC-selected specification in bold.",
   label = "tab:grid_search"
