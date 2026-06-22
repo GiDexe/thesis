@@ -1,39 +1,39 @@
 
 \begin{table}[htbp]
-   \caption{\label{tab:dyadic_recovered_fp_fe} Dyadic regression of recovered network weights with sender and receiver fixed effects, full-period averages (1993--2017).}
+   \caption{\label{tab:dyadic_recovered_fp_lpm} Dyadic determinants of the recovered network: continuous link weight (OLS) and link presence (LPM), with sender and receiver fixed effects, full-period averages (1993--2017).}
    \centering
-   \begin{tabular}{lcc}
+   \begin{tabular}{lcccc}
       \tabularnewline \midrule \midrule
-                                              & Quality       & Environment \\   
-      Specification & \multicolumn{2}{c}{OLS} \\ 
-                                              & (1)           & (2)\\  
+        & \multicolumn{2}{c}{Quality} & \multicolumn{2}{c}{Environment} \\ 
+      Outcome                                 & Weight (OLS)  & Binary (LPM) & Weight (OLS)  & Binary (LPM) \\   
+                                              & (1)           & (2)          & (3)           & (4)\\  
       \midrule
       \emph{Variables}\\
-      Economic distance                       & -0.0338       & -0.0360$^{*}$\\   
-                                              & (0.0244)      & (0.0207)\\   
-      Env. policy asymmetry                   & 0.0190        & 0.0381$^{**}$\\   
-                                              & (0.0215)      & (0.0178)\\   
-      Cultural distance                       & 0.0009        & 0.0002\\   
-                                              & (0.0006)      & (0.0004)\\   
-      Geographic distance                     & -0.0173       & -0.0037\\   
-                                              & (0.0169)      & (0.0179)\\   
-      Bilateral FDI                           & 0.0143$^{**}$ & 0.0018\\   
-                                              & (0.0064)      & (0.0067)\\   
-      Bilateral Trade (log)                   & 0.0031        & -0.0031\\   
-                                              & (0.0042)      & (0.0049)\\   
+      Economic distance                       & -0.0338       & -0.0357      & -0.0360$^{*}$ & -0.0289\\   
+                                              & (0.0244)      & (0.0255)     & (0.0207)      & (0.0214)\\   
+      Env. policy asymmetry                   & 0.0190        & 0.0081       & 0.0381$^{**}$ & 0.0386$^{*}$\\   
+                                              & (0.0215)      & (0.0219)     & (0.0178)      & (0.0206)\\   
+      Cultural distance                       & 0.0009        & 0.0011       & 0.0002        & $-5.29\times 10^{-5}$\\    
+                                              & (0.0006)      & (0.0007)     & (0.0004)      & (0.0005)\\   
+      Geographic distance                     & -0.0173       & -0.0244      & -0.0037       & 0.0029\\   
+                                              & (0.0169)      & (0.0202)     & (0.0179)      & (0.0214)\\   
+      Bilateral FDI                           & 0.0143$^{**}$ & 0.0130$^{*}$ & 0.0018        & 0.0040\\   
+                                              & (0.0064)      & (0.0065)     & (0.0067)      & (0.0077)\\   
+      Bilateral Trade (log)                   & 0.0031        & 0.0057       & -0.0031       & -0.0027\\   
+                                              & (0.0042)      & (0.0055)     & (0.0049)      & (0.0049)\\   
       \midrule
       \emph{Fixed-effects}\\
-      Sender FE ($\alpha_i^{\text{out}}$):    & Yes           & Yes\\  
-      Receiver FE ($\alpha_j^{\text{in}}$):   & Yes           & Yes\\  
+      Sender FE ($\alpha_i^{\text{out}}$):    & Yes           & Yes          & Yes           & Yes\\  
+      Receiver FE ($\alpha_j^{\text{in}}$):   & Yes           & Yes          & Yes           & Yes\\  
       \midrule
       \emph{Fit statistics}\\
-      Observations                            & 702           & 702\\  
-      R$^2$                                   & 0.08855       & 0.06667\\  
+      Observations                            & 702           & 702          & 702           & 702\\  
+      R$^2$                                   & 0.08855       & 0.10533      & 0.06667       & 0.07247\\  
       \midrule \midrule & \tabularnewline
    \end{tabular}
    
    \par \raggedright 
-   \textit{Notes} OLS estimates of $\hat w_{ij}$ on dyadic covariates. Sample: 702 directed pairs, 27 EU countries, full-period (1993--2017) averages. Two-way clustered SE (sender $\times$ receiver). Significance: $^{***}$ $p<0.01$, $^{**}$ $p<0.05$, $^{*}$ $p<0.10$.
+   \textit{Notes} The \emph{Weight} columns regress the recovered weight $\hat w_{ij}$ by OLS; the \emph{Presence} columns regress the binary link indicator $\mathbf{1}(\hat w_{ij}>10^{-5})$ by linear probability model. Sample: 702 directed pairs, 27 EU countries, full-period (1993--2017) averages. Two-way clustered SE (sender $\times$ receiver). Significance: $^{***}$ $p<0.01$, $^{**}$ $p<0.05$, $^{*}$ $p<0.10$.
 \end{table}
 
 

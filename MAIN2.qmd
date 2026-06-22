@@ -430,7 +430,7 @@ lam_e <- best[["14001_eu"]]$lambda
 bic_q <- best[["9001_eu"]]$bic
 bic_e <- best[["14001_eu"]]$bic
 
-network_stats_note <- "This table reports summary statistics of the two recovered networks, selected by BIC. The first row reports the number of links in each network, while the second and third rows report how many links are shared by both networks and how many are unique to each network, respectively. A shared link is intended when there is a link between the same two nodes in the same direction in both networks. The fourth and fifth rows report the clustering coefficient (share of closed triplets) and reciprocity (bidirectional links) of each network, respectively. The sixth to ninth rows report the mean and standard deviation of out-degrees and in-degrees across nodes (countries) for each network. Finally, the tenth to twelfth rows report the GMM estimates of the structural parameter $\\hat{\\rho}$ (endogenous peer effects) and tuning paramters $\\hat{\\lambda}$ and the BIC values for each network."
+network_stats_note <- "This table reports summary statistics of the two recovered networks, selected by BIC. The first row reports the number of links in each network, while the second row reports how many links are shared by both networks. A shared link is intended when there is a link between the same two nodes in the same direction in both networks. The third and fourth rows report the clustering coefficient (share of closed triplets) and reciprocity (bidirectional links) of each network, respectively. The fifth to seventh rows report the mean and standard deviation of out-degrees and in-degrees across nodes (countries) for each network. Finally, the eighth to tenth rows report the GMM estimates of the structural parameter $\\hat{\\rho}$ (endogenous peer effects) and tuning paramters $\\hat{\\lambda}$ and the BIC values for each network."
 
 tex <- c(
   "\\begin{table}[H]\\centering",
@@ -660,7 +660,7 @@ save_figure("networks_weighted_full", width = 13, height = 13)
 
 
 ```{r}
-#| label: dyadic-fullperiod-robustness
+#| label: dyadic-fullperiod-lpm
 #| echo: false
 #| results: asis
 dict_full <- c(
@@ -668,6 +668,8 @@ dict_full <- c(
   d_geo = "Geographic distance", l_fdi = "Bilateral FDI", l_trade = "Bilateral Trade (log)",
   sender = "Sender FE ($\\alpha_i^{\\text{out}}$)", receiver = "Receiver FE ($\\alpha_j^{\\text{in}}$)"
 )
+
+# --- full-period distance matrices (self-contained) ---
 full_years_wdi <- paste0("x", 1993:2017)
 full_years_estat <- 1993:2017
 D_gdppc_fp <- build_dist_wdi(
@@ -714,13 +716,13 @@ if (nrow(envtax_pw_fp) < N) {
       country = setdiff(country_labels, envtax_pw_fp$country), envtax = NA, iso3 = NA, pop = NA,
       envtax_per_worker = mean(envtax_pw_fp$envtax_per_worker, na.rm = TRUE), stringsAsFactors = FALSE
     )
-  ) |>
-    dplyr::arrange(match(country, country_labels))
+  ) |> dplyr::arrange(match(country, country_labels))
 }
 pw_vec_fp <- setNames(log(envtax_pw_fp$envtax_per_worker + 1e-12), envtax_pw_fp$country)
 D_envtax_pw_fp <- abs(outer(pw_vec_fp, pw_vec_fp, FUN = "-"))
 dimnames(D_envtax_pw_fp) <- list(country_labels, country_labels)
 
+# --- dyadic frame builder (edge already included) ---
 build_dyadic_dz_fp <- function(W_outcome) {
   expand.grid(sender = seq_len(N), receiver = seq_len(N), KEEP.OUT.ATTRS = FALSE) |>
     dplyr::filter(sender != receiver) |>
@@ -739,17 +741,44 @@ build_dyadic_dz_fp <- function(W_outcome) {
 }
 dz_q_fp <- build_dyadic_dz_fp(W_q)
 dz_e_fp <- build_dyadic_dz_fp(W_e)
+
+# --- OLS on continuous weight + LPM on link presence ---
 f_ols_fe <- w_hat ~ d_econ + d_envir + d_cult + d_geo + l_fdi + l_trade | sender + receiver
-fit_ols_q_rec_fe <- feols(f_ols_fe, data = dz_q_fp, cluster = ~ sender + receiver)
-fit_ols_e_rec_fe <- feols(f_ols_fe, data = dz_e_fp, cluster = ~ sender + receiver)
-etable(list(fit_ols_q_rec_fe, fit_ols_e_rec_fe),
+f_lpm_fe <- edge  ~ d_econ + d_envir + d_cult + d_geo + l_fdi + l_trade | sender + receiver
+fit_ols_q <- feols(f_ols_fe, data = dz_q_fp, cluster = ~ sender + receiver)
+fit_ols_e <- feols(f_ols_fe, data = dz_e_fp, cluster = ~ sender + receiver)
+fit_lpm_q <- feols(f_lpm_fe, data = dz_q_fp, cluster = ~ sender + receiver)
+fit_lpm_e <- feols(f_lpm_fe, data = dz_e_fp, cluster = ~ sender + receiver)
+
+# --- print marginal effects for the text ---
+pull1 <- function(m, v) {
+  c(b = unname(coef(m)[v]), se = unname(fixest::se(m)[v]), p = unname(fixest::pvalue(m)[v]))
+}
+fq <- pull1(fit_lpm_q, "l_fdi")
+ee <- pull1(fit_lpm_e, "d_envir")
+cat(sprintf(
+  "Quality  l_fdi : beta=%.4f  SE=%.4f  p=%.4f  | +10%% FDI => %.4f pts ; doubling => %.4f pts\n",
+  fq["b"], fq["se"], fq["p"], fq["b"] * log(1.10), fq["b"] * log(2)
+))
+cat(sprintf(
+  "Environ. d_envir: beta=%.4f  SE=%.4f  p=%.4f  | +10%% gap => %.4f pts\n",
+  ee["b"], ee["se"], ee["p"], ee["b"] * log(1.10)
+))
+
+# --- TeX table: Weight (OLS) + Presence (LPM) per standard ---
+etable(
+  list(fit_ols_q, fit_lpm_q, fit_ols_e, fit_lpm_e),
   depvar = FALSE,
-  headers = list(" " = c("Quality", "Environment"), "Specification" = c("OLS", "OLS")),
+  headers = list(
+    " "       = c("Quality", "Quality", "Environment", "Environment"),
+    "Outcome" = c("Weight (OLS)", "Binary (LPM)", "Weight (OLS)", "Binary (LPM)")
+  ),
   style.tex = style.tex("base", model.title = "", fixef.suffix = ":", tablefoot = FALSE),
-  dict = dict_full, signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10), fitstat = ~ n + r2, tex = TRUE,
-  title = "Dyadic regression of recovered network weights with sender and receiver fixed effects, full-period averages (1993--2017).",
-  label = "tab:dyadic_recovered_fp_fe",
-  notes = "*Notes* OLS estimates of $\\hat w_{ij}$ on dyadic covariates. Sample: 702 directed pairs, 27 EU countries, full-period (1993--2017) averages. Two-way clustered SE (sender $\\times$ receiver). Significance: $^{***}$ $p<0.01$, $^{**}$ $p<0.05$, $^{*}$ $p<0.10$.",
+  dict = dict_full, signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10),
+  fitstat = ~ n + r2, tex = TRUE,
+  title = "Dyadic determinants of the recovered network: continuous link weight (OLS) and link presence (LPM), with sender and receiver fixed effects, full-period averages (1993--2017).",
+  label = "tab:dyadic_recovered_fp_lpm",
+  notes = "*Notes* The \\emph{Weight} columns regress the recovered weight $\\hat w_{ij}$ by OLS; the \\emph{Presence} columns regress the binary link indicator $\\mathbf{1}(\\hat w_{ij}>10^{-5})$ by linear probability model. Sample: 702 directed pairs, 27 EU countries, full-period (1993--2017) averages. Two-way clustered SE (sender $\\times$ receiver). Significance: $^{***}$ $p<0.01$, $^{**}$ $p<0.05$, $^{*}$ $p<0.10$.",
   file = file.path(tab_dir, "dyadic_recovered_fp_fe.tex")
 )
 ```
