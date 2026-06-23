@@ -658,18 +658,15 @@ save_figure("networks_weighted_full", width = 13, height = 13)
 
 ### Dyadic regression
 
-
 ```{r}
-#| label: dyadic-fullperiod-lpm
+#| label: dyadic-fullperiod-robustness
 #| echo: false
 #| results: asis
 dict_full <- c(
   d_econ = "Economic distance", d_envir = "Env. policy asymmetry", d_cult = "Cultural distance",
-  d_geo = "Geographic distance", l_fdi = "Bilateral FDI", l_trade = "Bilateral Trade (log)",
+  d_geo = "Geographic distance", l_fdi = "Bilateral FDI", l_trade = "Bilateral Trade",
   sender = "Sender FE ($\\alpha_i^{\\text{out}}$)", receiver = "Receiver FE ($\\alpha_j^{\\text{in}}$)"
 )
-
-# --- full-period distance matrices (self-contained) ---
 full_years_wdi <- paste0("x", 1993:2017)
 full_years_estat <- 1993:2017
 D_gdppc_fp <- build_dist_wdi(
@@ -722,7 +719,6 @@ pw_vec_fp <- setNames(log(envtax_pw_fp$envtax_per_worker + 1e-12), envtax_pw_fp$
 D_envtax_pw_fp <- abs(outer(pw_vec_fp, pw_vec_fp, FUN = "-"))
 dimnames(D_envtax_pw_fp) <- list(country_labels, country_labels)
 
-# --- dyadic frame builder (edge already included) ---
 build_dyadic_dz_fp <- function(W_outcome) {
   expand.grid(sender = seq_len(N), receiver = seq_len(N), KEEP.OUT.ATTRS = FALSE) |>
     dplyr::filter(sender != receiver) |>
@@ -741,44 +737,17 @@ build_dyadic_dz_fp <- function(W_outcome) {
 }
 dz_q_fp <- build_dyadic_dz_fp(W_q)
 dz_e_fp <- build_dyadic_dz_fp(W_e)
-
-# --- OLS on continuous weight + LPM on link presence ---
 f_ols_fe <- w_hat ~ d_econ + d_envir + d_cult + d_geo + l_fdi + l_trade | sender + receiver
-f_lpm_fe <- edge  ~ d_econ + d_envir + d_cult + d_geo + l_fdi + l_trade | sender + receiver
-fit_ols_q <- feols(f_ols_fe, data = dz_q_fp, cluster = ~ sender + receiver)
-fit_ols_e <- feols(f_ols_fe, data = dz_e_fp, cluster = ~ sender + receiver)
-fit_lpm_q <- feols(f_lpm_fe, data = dz_q_fp, cluster = ~ sender + receiver)
-fit_lpm_e <- feols(f_lpm_fe, data = dz_e_fp, cluster = ~ sender + receiver)
-
-# --- print marginal effects for the text ---
-pull1 <- function(m, v) {
-  c(b = unname(coef(m)[v]), se = unname(fixest::se(m)[v]), p = unname(fixest::pvalue(m)[v]))
-}
-fq <- pull1(fit_lpm_q, "l_fdi")
-ee <- pull1(fit_lpm_e, "d_envir")
-cat(sprintf(
-  "Quality  l_fdi : beta=%.4f  SE=%.4f  p=%.4f  | +10%% FDI => %.4f pts ; doubling => %.4f pts\n",
-  fq["b"], fq["se"], fq["p"], fq["b"] * log(1.10), fq["b"] * log(2)
-))
-cat(sprintf(
-  "Environ. d_envir: beta=%.4f  SE=%.4f  p=%.4f  | +10%% gap => %.4f pts\n",
-  ee["b"], ee["se"], ee["p"], ee["b"] * log(1.10)
-))
-
-# --- TeX table: Weight (OLS) + Presence (LPM) per standard ---
-etable(
-  list(fit_ols_q, fit_lpm_q, fit_ols_e, fit_lpm_e),
+fit_ols_q_rec_fe <- feols(f_ols_fe, data = dz_q_fp, cluster = ~ sender + receiver)
+fit_ols_e_rec_fe <- feols(f_ols_fe, data = dz_e_fp, cluster = ~ sender + receiver)
+etable(list(fit_ols_q_rec_fe, fit_ols_e_rec_fe),
   depvar = FALSE,
-  headers = list(
-    " "       = c("Quality", "Quality", "Environment", "Environment"),
-    "Outcome" = c("Weight (OLS)", "Binary (LPM)", "Weight (OLS)", "Binary (LPM)")
-  ),
+  headers = list(" " = c("Quality", "Environment"), "Specification" = c("OLS", "OLS")),
   style.tex = style.tex("base", model.title = "", fixef.suffix = ":", tablefoot = FALSE),
-  dict = dict_full, signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10),
-  fitstat = ~ n + r2, tex = TRUE,
-  title = "Dyadic determinants of the recovered network: continuous link weight (OLS) and link presence (LPM), with sender and receiver fixed effects, full-period averages (1993--2017).",
-  label = "tab:dyadic_recovered_fp_lpm",
-  notes = "*Notes* The \\emph{Weight} columns regress the recovered weight $\\hat w_{ij}$ by OLS; the \\emph{Presence} columns regress the binary link indicator $\\mathbf{1}(\\hat w_{ij}>10^{-5})$ by linear probability model. Sample: 702 directed pairs, 27 EU countries, full-period (1993--2017) averages. Two-way clustered SE (sender $\\times$ receiver). Significance: $^{***}$ $p<0.01$, $^{**}$ $p<0.05$, $^{*}$ $p<0.10$.",
+  dict = dict_full, signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10), fitstat = ~ n + r2, tex = TRUE,
+  title = "Dyadic regression of recovered network weights with sender and receiver fixed effects, full-period averages (1993--2017).",
+  label = "tab:dyadic_recovered_fp_fe",
+  notes = "*Notes* OLS estimates of $\\hat w_{ij}$ on dyadic covariates. Sample: 702 directed pairs, 27 EU countries, full-period (1993--2017) averages. Bilateral FDI, bilateral trade and geographic distance enter as $\\log(1+x)$; economic distance and environmental-policy asymmetry enter as absolute gaps in logged variables ($|\\log x_i - \\log x_j|$, GDP per capita and environmental tax per worker respectively); cultural distance is the Euclidean distance over Hofstede dimensions, in levels. Two-way clustered SE (sender $\\times$ receiver). Significance: $^{***}$ $p<0.01$, $^{**}$ $p<0.05$, $^{*}$ $p<0.10$.",
   file = file.path(tab_dir, "dyadic_recovered_fp_fe.tex")
 )
 ```
