@@ -103,14 +103,10 @@ spread can exceed those of any single country's own adoption---so knowing which 
 diffusion travels allows one to target effort where it will not arrive on its own.
 Methodologically, relying on the wrong network biases the very quantities the exercise
 seeks to measure---peer-effect strength and the speed of diffusion \citep{depaula2025,
-    bramoulle2009}. The diffusion network is almost always \emph{assumed} rather than
-\emph{inferred}: studies fix an ex-ante proximity metric---geography, trade, cultural
-similarity---and estimate diffusion over it. An absent effect is then indistinguishable
-from no influence and from influence travelling along a structure the assumed network
-does not capture, while non-null estimates may be heavily biased. Recent advances in
-network econometrics instead allow the diffusion-supporting network to be inferred from
-panel covariation in adoption alone \citep{vanderheijden2020}, recovering unknown
-structures rather than positing them.
+    bramoulle2009}. In current literature, the diffusion network is almost always \emph{assumed} rather than
+\emph{inferred}, however, recent advances in
+network econometrics instead allow the diffusion-supporting network to be directly inferred from
+panel covariation in adoption alone.
 
 This paper asks whether technical and political standards diffuse through different
 international channels, and answers it without assuming those channels in advance. I
@@ -123,7 +119,7 @@ environments \citep{berliner2013}. Using annual certification counts for the 27 
 states (1993--2017 for Quality, 1997--2017 for Environment), I recover a separate latent
 diffusion network for each standard with the adaptive elastic-net GMM estimator of
 \citet{depaula2025}, which identifies who influences whom directly from the panel
-covariation in adoption, rather than from an assumed proximity metric. I then compare
+covariation in adoption. I then compare
 the two recovered structures, examine the bilateral determinants of the recovered links in
 dyadic regressions, and re-estimate peer effects \citep{bramoulle2009} on both the
 recovered networks and the exogenous benchmark networks of \citet{albuquerque2007}.
@@ -156,7 +152,7 @@ This paper speaks to three literatures. To the \emph{policy diffusion} literatur
 \citet{depaula2025} developed and applied to tax competition. It shows that in this
 domain, too, the structure of influence along which adoption travels is not reducible to
 the standard proximity proxies. To the literature on \emph{voluntary corporate standards}
-\citep{guler2002, albuquerque2007, corbett2006, berliner2013}, it contributes the first
+\citep{guler2002, albuquerque2007, corbett2006, berliner2013, vanderheijden2020}, it contributes the first
 network-recovery comparison of a technical and a political standard, and a decomposition
 of the ``economic channel'' showing that, for Quality, the binding margin is investment
 rather than trade. To the \emph{network econometrics} literature on peer effects
