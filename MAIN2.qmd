@@ -747,7 +747,7 @@ etable(list(fit_ols_q_rec_fe, fit_ols_e_rec_fe),
   dict = dict_full, signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.10), fitstat = ~ n + r2, tex = TRUE,
   title = "Dyadic regression of recovered network weights with sender and receiver fixed effects, full-period averages (1993--2017).",
   label = "tab:dyadic_recovered_fp_fe",
-  notes = "*Notes* OLS estimates of $\\hat w_{ij}$ on dyadic covariates. Sample: 702 directed pairs, 27 EU countries, full-period (1993--2017) averages. Bilateral FDI, bilateral trade and geographic distance enter as $\\log(1+x)$; economic distance and environmental-policy asymmetry enter as absolute gaps in logged variables ($|\\log x_i - \\log x_j|$, GDP per capita and environmental tax per worker respectively); cultural distance is the Euclidean distance over Hofstede dimensions, in levels. Two-way clustered SE (sender $\\times$ receiver). Significance: $^{***}$ $p<0.01$, $^{**}$ $p<0.05$, $^{*}$ $p<0.10$.",
+  notes = "*Notes* OLS estimates of $\\hat w_{ij}$ on dyadic covariates. Sample: 702 directed pairs, 27 EU countries, full-period (1993--2017) averages, whereas cultural distance refers to the latest available release only (2015). Bilateral FDI, bilateral trade and geographic distance enter as $\\log(1+x)$; economic distance and environmental-policy asymmetry enter as absolute gaps in logged variables ($|\\log x_i - \\log x_j|$, GDP per capita and environmental tax per worker respectively); cultural distance is the Euclidean distance over Hofstede dimensions, in levels. Two-way clustered SE (sender $\\times$ receiver). Significance: $^{***}$ $p<0.01$, $^{**}$ $p<0.05$, $^{*}$ $p<0.10$.",
   file = file.path(tab_dir, "dyadic_recovered_fp_fe.tex")
 )
 ```
