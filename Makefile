@@ -1,7 +1,7 @@
 .PHONY: results paper rerun clean protect unprotect
 
 paper: results
-	latexmk -pdf -interaction=nonstopmode paper.tex
+	latexmk -pdf -bibtex -interaction=nonstopmode paper.tex
 
 results:
 	quarto render MAIN.qmd
@@ -9,7 +9,7 @@ results:
 rerun:
 	RERUN=true Rscript estimation.r
 	USE_RERUN=true quarto render MAIN.qmd
-	latexmk -pdf -interaction=nonstopmode paper.tex
+	latexmk -pdf -bibtex -interaction=nonstopmode paper.tex
 
 # Delete generated artifacts only — never output/ or output_lagged/
 clean:
